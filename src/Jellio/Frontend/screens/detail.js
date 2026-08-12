@@ -6,7 +6,7 @@
 // export, never put on window the way ApiClient is, so nothing outside
 // jellyfin-web's own bundle can call it directly. Real player chrome for
 // this runtime is its own later piece of work, not guessed at here.
-import { getItemDetails, getImageUrl, getSeasons, getEpisodes } from '../runtime/api.js';
+import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setFavorite } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 
 function el(tag, className, text) {
@@ -155,12 +155,41 @@ export async function renderDetail(root, params) {
     heroContent.appendChild(genres);
   }
 
+  const actions = el('div', 'jellio-detail-actions');
+
   const playButton = el('button', 'jellio-detail-play', 'Play');
   playButton.type = 'button';
   playButton.addEventListener('click', function () {
     navigateTo('#/details?id=' + itemId);
   });
-  heroContent.appendChild(playButton);
+  actions.appendChild(playButton);
+
+  const isFavorite = !!(item.UserData && item.UserData.IsFavorite);
+  const favoriteButton = el(
+    'button',
+    'jellio-detail-favorite' + (isFavorite ? ' jellio-detail-favorite-active' : ''),
+    isFavorite ? 'In Favorites' : 'Add to Favorites',
+  );
+  favoriteButton.type = 'button';
+  favoriteButton.addEventListener('click', function () {
+    const nextState = !favoriteButton.classList.contains('jellio-detail-favorite-active');
+    favoriteButton.disabled = true;
+    setFavorite(itemId, nextState)
+      .then(function (userData) {
+        const active = !!(userData && userData.IsFavorite);
+        favoriteButton.classList.toggle('jellio-detail-favorite-active', active);
+        favoriteButton.textContent = active ? 'In Favorites' : 'Add to Favorites';
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not update favorite state', err);
+      })
+      .finally(function () {
+        favoriteButton.disabled = false;
+      });
+  });
+  actions.appendChild(favoriteButton);
+
+  heroContent.appendChild(actions);
 
   hero.appendChild(heroContent);
   root.appendChild(hero);
