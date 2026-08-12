@@ -161,6 +161,47 @@ export function searchItems(term, limit) {
   });
 }
 
+// Every favorited item, real endpoint (GET /Users/{id}/Items with
+// Filters=IsFavorite), the same #/home?tab=1 route the sidebar's own
+// Favorites link and the original Jellio codebase's own NAV_LINKS both
+// already point at.
+export function getFavoriteItems(limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    Filters: 'IsFavorite',
+    Recursive: 'true',
+    IncludeItemTypes: 'Movie,Series',
+    Fields: 'PrimaryImageAspectRatio',
+    Limit: String(limit || 100),
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
+
+// Real endpoint pair, POST/DELETE /Users/{id}/FavoriteItems/{itemId},
+// returns the item's own updated UserItemDataDto (IsFavorite reflects
+// what actually happened server side rather than this runtime assuming
+// the request succeeded).
+export async function setFavorite(itemId, isFavorite) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const response = await fetch(
+    getServerAddress() + '/Users/' + userId + '/FavoriteItems/' + itemId,
+    {
+      method: isFavorite ? 'POST' : 'DELETE',
+      headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()),
+    },
+  );
+  if (!response.ok) {
+    const err = new Error('Request failed: FavoriteItems');
+    err.status = response.status;
+    throw err;
+  }
+  return response.json();
+}
+
 export function getImageUrl(itemId, type, options) {
   const opts = options || {};
   const params = new URLSearchParams();
