@@ -162,6 +162,7 @@
 .jellio-card {
   flex: 0 0 auto;
   width: clamp(120px, 11vw, 180px);
+  cursor: pointer;
 }
 
 .jellio-card-image {
@@ -184,4 +185,31 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.jellio-card:hover .jellio-card-image {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}
+
+.jellio-library-header {
+  padding: clamp(24px, 4vw, 56px) var(--jellio-safe-gutter) clamp(12px, 2vw, 24px);
+}
+
+.jellio-library-title {
+  margin: 0;
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+  font-weight: 700;
+}
+
+.jellio-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: clamp(14px, 1.4vw, 22px);
+  padding: 0 var(--jellio-safe-gutter) clamp(32px, 4vw, 64px);
+}
+
+.jellio-library-grid .jellio-card {
+  width: auto;
+  flex: none;
 }

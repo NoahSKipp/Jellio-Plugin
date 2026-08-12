@@ -5,23 +5,26 @@
 // broken page.
 import { isAuthenticated } from './runtime/auth.js';
 import { renderHome } from './screens/home.js';
+import { renderLibrary } from './screens/library.js';
 import { renderSidebar } from './components/sidebar.js';
-import { onRouteChange, currentHash } from './runtime/router.js';
+import { onRouteChange, parseRoute } from './runtime/router.js';
 
 const ROOT_ID = 'jellioRoot';
 
+// Every route path this runtime has a real screen for. Library routes
+// (movies/tv/music/books/homevideos/musicvideos, plus the generic list
+// fallback) are the same set components/sidebar.js's own LIBRARY_ROUTES
+// can produce, kept in sync by hand since there are only the two places.
 const SCREENS = {
   home: renderHome,
+  movies: renderLibrary,
+  tv: renderLibrary,
+  music: renderLibrary,
+  books: renderLibrary,
+  homevideos: renderLibrary,
+  musicvideos: renderLibrary,
+  list: renderLibrary,
 };
-
-function currentRouteKey() {
-  const hash = currentHash();
-  if (hash.indexOf('#/login') === 0) return null;
-  if (hash === '' || hash === '#/' || hash.indexOf('#/home') === 0) {
-    return 'home';
-  }
-  return null;
-}
 
 function getRoot() {
   let root = document.getElementById(ROOT_ID);
@@ -45,10 +48,10 @@ function hide() {
   }
 }
 
-async function sync(hash) {
+async function sync() {
   try {
-    const routeKey = currentRouteKey();
-    const screen = routeKey && SCREENS[routeKey];
+    const route = parseRoute();
+    const screen = SCREENS[route.path];
 
     if (!screen || !isAuthenticated()) {
       hide();
@@ -61,7 +64,7 @@ async function sync(hash) {
     const sidebarMount = root.querySelector('.jellio-sidebar-mount');
     const content = root.querySelector('.jellio-content');
 
-    await Promise.all([renderSidebar(sidebarMount), screen(content)]);
+    await Promise.all([renderSidebar(sidebarMount), screen(content, route.params)]);
   } catch (err) {
     console.warn('Jellio: screen render failed, falling back to native page', err);
     hide();
