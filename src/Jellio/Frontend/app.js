@@ -43,17 +43,31 @@ const SCREENS = {
 // with video controls for space or attention.
 const FULLSCREEN_ROUTES = new Set(['play']);
 
+// The inner shell used to be built only at the moment #jellioRoot itself
+// was first created, on the assumption a node already in the document
+// keeps whatever it was given. Reported live: on a real install, a later
+// render found #jellioRoot still present but its sidebar mount gone,
+// something outside this codebase's own DOM writes had cleared it after
+// the fact (every write this codebase makes to that structure was
+// checked, none of them remove it), and renderSidebar crashed reading
+// null.textContent on the missing node, sync()'s own catch-all then
+// treated that crash as a real reason to fall back to native, so the
+// whole reskin dropped out from under a signed-in session. Checking for
+// the shell on every call, not only at creation, means a render can
+// rebuild it and keep going instead of finding out the hard way.
 function getRoot() {
   let root = document.getElementById(ROOT_ID);
   if (!root) {
     root = document.createElement('div');
     root.id = ROOT_ID;
+    document.body.appendChild(root);
+  }
+  if (!root.querySelector('.jellio-shell')) {
     root.innerHTML =
       '<div class="jellio-shell">' +
       '<nav class="jellio-sidebar-mount"></nav>' +
       '<main class="jellio-content"></main>' +
       '</div>';
-    document.body.appendChild(root);
   }
   return root;
 }
