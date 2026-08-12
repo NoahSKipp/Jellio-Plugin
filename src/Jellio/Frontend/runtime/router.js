@@ -19,6 +19,15 @@ export function currentHash() {
   return window.location.hash || '#/home';
 }
 
+// Splits "#/movies?topParentId=X&collectionType=movies" into its path
+// ("movies") and query params, the same shape every route this runtime
+// owns needs to read its own arguments from.
+export function parseRoute() {
+  const hash = currentHash().replace(/^#\/?/, '');
+  const [path, query] = hash.split('?');
+  return { path: path || 'home', params: new URLSearchParams(query || '') };
+}
+
 const listeners = [];
 
 export function onRouteChange(fn) {
