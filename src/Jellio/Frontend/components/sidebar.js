@@ -5,7 +5,7 @@
 // (originally sourced from Harbor, harborstremio/harbor, MIT, and
 // NuvioMobile's own real vector drawables, see that file's own header for
 // the full provenance), not re-derived here.
-import { getUserViews, getCurrentUser, getUserImageUrl } from '../runtime/api.js';
+import { getUserViews, getCollections, getCurrentUser, getUserImageUrl } from '../runtime/api.js';
 import { navigateTo, currentHash } from '../runtime/router.js';
 import { openAvatarPicker } from './avatarPicker.js';
 import { toggleNowPlayingPanel, nowPlayingCount } from './nowPlaying.js';
@@ -195,23 +195,57 @@ export async function renderSidebar(container) {
   divider.className = 'jellio-sidebar-divider';
   container.appendChild(divider);
 
+  let views = [];
   try {
-    const views = await getUserViews();
-    views.forEach(function (view) {
-      const isKnown = view.CollectionType && LIBRARY_ROUTES[view.CollectionType];
-      const icon =
-        view.CollectionType === 'movies'
-          ? 'movies'
-          : view.CollectionType === 'tvshows'
-            ? 'shows'
-            : 'library';
-      if (isKnown || view.CollectionType) {
-        container.appendChild(buildLink(icon, view.Name, libraryHash(view)));
-      }
-    });
+    views = await getUserViews();
   } catch (err) {
     console.warn('Jellio: sidebar could not load libraries', err);
   }
+
+  const moviesView = views.filter(function (view) {
+    return view.CollectionType === 'movies';
+  })[0];
+  const tvView = views.filter(function (view) {
+    return view.CollectionType === 'tvshows';
+  })[0];
+  const realAnimeView = views.filter(function (view) {
+    return /anime/i.test(view.Name || '');
+  })[0];
+
+  if (moviesView) container.appendChild(buildLink('movies', 'Movies', libraryHash(moviesView)));
+  if (tvView) container.appendChild(buildLink('shows', 'Shows', libraryHash(tvView)));
+
+  // Anime has no real Jellyfin library of its own: Gelato resolves one
+  // global SeriesPath for every series import (GelatoManager.TryGetSeriesFolder),
+  // so AniList titles physically live in the TV library. A real Anime view
+  // wins if one was made by hand; otherwise fall back to the TV library
+  // tagged with &jellioKind=anime, the same marker screens/library.js
+  // reads, and only when there is really something to show behind it (a
+  // real anime/anilist catalog among the user's own collections). Ported
+  // from the original codebase's own persistentSidebar.js, not
+  // re-derived.
+  if (realAnimeView) {
+    container.appendChild(buildLink('anime', 'Anime', libraryHash(realAnimeView)));
+  } else if (tvView) {
+    try {
+      const collections = await getCollections();
+      const hasAnimeCatalogs = collections.some(function (item) {
+        return /anime|anilist/i.test(item.Name || '');
+      });
+      if (hasAnimeCatalogs) {
+        container.appendChild(buildLink('anime', 'Anime', libraryHash(tvView) + '&jellioKind=anime'));
+      }
+    } catch (err) {
+      // No anime entry without a confirmed catalog behind it, not fatal
+      // to the rest of the rail.
+    }
+  }
+
+  views.forEach(function (view) {
+    if (view === moviesView || view === tvView || view === realAnimeView) return;
+    if (!view.CollectionType) return;
+    container.appendChild(buildLink('library', view.Name, libraryHash(view)));
+  });
 
   const spacer = document.createElement('div');
   spacer.className = 'jellio-sidebar-spacer';

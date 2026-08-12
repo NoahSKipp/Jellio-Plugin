@@ -12,6 +12,17 @@ export async function renderLibrary(root, params) {
   const parentId = params.get('topParentId') || params.get('parentId');
   const collectionType = params.get('collectionType') || '';
 
+  // The sidebar's own virtual Anime entry (see components/sidebar.js)
+  // points here because that is where Gelato actually puts AniList
+  // titles: one global SeriesPath per series import, no separate Anime
+  // CollectionType. No Jellyfin query can tell an anime Series apart
+  // from any other inside the same TV library, same real constraint the
+  // original codebase's own libraryBrowse.js documents, so this only
+  // relabels the page rather than claiming a filter that cannot exist
+  // without a dedicated catalog collection to source rows from instead
+  // of the flat library grid, not yet ported.
+  const isAnime = params.get('jellioKind') === 'anime';
+
   if (!parentId) {
     root.textContent = '';
     return;
@@ -34,7 +45,11 @@ export async function renderLibrary(root, params) {
     getLibraryItems(parentId, collectionType),
   ]);
 
-  heading.textContent = itemResult.status === 'fulfilled' && itemResult.value ? itemResult.value.Name : '';
+  heading.textContent = isAnime
+    ? 'Anime'
+    : itemResult.status === 'fulfilled' && itemResult.value
+      ? itemResult.value.Name
+      : '';
 
   if (itemsResult.status === 'fulfilled') {
     const items = (itemsResult.value && itemsResult.value.Items) || [];
