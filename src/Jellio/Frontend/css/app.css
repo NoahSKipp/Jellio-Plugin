@@ -165,6 +165,10 @@
   cursor: pointer;
 }
 
+.jellio-card-image-wrap {
+  position: relative;
+}
+
 .jellio-card-image {
   width: 100%;
   aspect-ratio: 2 / 3;
@@ -190,6 +194,37 @@
 .jellio-card:hover .jellio-card-image {
   outline: 2px solid var(--jellio-secondary-color);
   outline-offset: 2px;
+}
+
+.jellio-card-watched {
+  position: absolute;
+  top: 0.4em;
+  right: 0.4em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  font-size: 1rem;
+}
+
+.jellio-card-progress {
+  position: absolute;
+  left: 0.4em;
+  right: 0.4em;
+  bottom: 0.4em;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.3);
+  overflow: hidden;
+}
+
+.jellio-card-progress-fill {
+  height: 100%;
+  background: var(--jellio-secondary-color);
 }
 
 .jellio-library-header {

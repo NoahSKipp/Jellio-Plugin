@@ -8,6 +8,9 @@ export function buildCard(item) {
   const card = document.createElement('div');
   card.className = 'jellio-card';
 
+  const imageWrap = document.createElement('div');
+  imageWrap.className = 'jellio-card-image-wrap';
+
   const imageTag = item.ImageTags && item.ImageTags.Primary;
   if (imageTag) {
     const img = document.createElement('img');
@@ -15,12 +18,30 @@ export function buildCard(item) {
     img.src = getImageUrl(item.Id, 'Primary', { tag: imageTag, maxWidth: 400 });
     img.alt = item.Name || '';
     img.loading = 'lazy';
-    card.appendChild(img);
+    imageWrap.appendChild(img);
   } else {
     const placeholder = document.createElement('div');
     placeholder.className = 'jellio-card-image jellio-card-image-empty';
-    card.appendChild(placeholder);
+    imageWrap.appendChild(placeholder);
   }
+
+  const userData = item.UserData || {};
+  if (userData.Played) {
+    const badge = document.createElement('span');
+    badge.className = 'jellio-card-watched material-icons check';
+    badge.setAttribute('aria-hidden', 'true');
+    imageWrap.appendChild(badge);
+  } else if (userData.PlayedPercentage > 0) {
+    const progress = document.createElement('div');
+    progress.className = 'jellio-card-progress';
+    const fill = document.createElement('div');
+    fill.className = 'jellio-card-progress-fill';
+    fill.style.width = Math.min(100, userData.PlayedPercentage) + '%';
+    progress.appendChild(fill);
+    imageWrap.appendChild(progress);
+  }
+
+  card.appendChild(imageWrap);
 
   const title = document.createElement('div');
   title.className = 'jellio-card-title';
