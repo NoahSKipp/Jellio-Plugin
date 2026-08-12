@@ -82,7 +82,40 @@ function teardownActiveScreen() {
   }
 }
 
+// jellio:session-captured can fire a second sync() while an
+// already-authenticated visit's own initial sync() is still awaiting its
+// screen's data (real case: a returning user, since the credential log
+// this event chases fires on every load, not only fresh logins, see
+// Services/IndexHtmlPatchService.cs). Both calls share the same content
+// element, so an overlapping second call's own root.textContent = ''
+// wipes whatever the first call already inserted, while the first call
+// keeps appending into the DOM node it originally grabbed a reference
+// to, now detached and invisible. Real bug: on a returning user this
+// left the page showing only whatever had rendered before the second
+// wipe (the greeting, quick) with every row still populating an orphaned
+// element. Queueing keeps exactly one sync() body running at a time and
+// coalesces any call that arrives mid-render into a single rerun after,
+// rather than letting two renders interleave into the same DOM.
+let syncRunning = false;
+let syncQueued = false;
+
 async function sync() {
+  if (syncRunning) {
+    syncQueued = true;
+    return;
+  }
+  syncRunning = true;
+  try {
+    do {
+      syncQueued = false;
+      await runSync();
+    } while (syncQueued);
+  } finally {
+    syncRunning = false;
+  }
+}
+
+async function runSync() {
   try {
     const route = parseRoute();
     const screen = SCREENS[route.path];
