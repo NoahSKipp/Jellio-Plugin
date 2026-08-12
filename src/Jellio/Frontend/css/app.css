@@ -51,7 +51,7 @@
    live. A fixed basis reserves the final width immediately regardless
    of what has loaded into it yet. */
 .jellio-sidebar-mount {
-  flex: 0 0 clamp(64px, 6vw, 96px);
+  flex: 0 0 clamp(13.5em, 15vw, 16.5em);
 }
 
 .jellio-content {
@@ -65,21 +65,28 @@
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  width: clamp(64px, 6vw, 96px);
+  width: clamp(13.5em, 15vw, 16.5em);
   height: 100%;
-  padding: 20px 8px;
+  padding: 20px 12px;
   background: var(--jellio-bg-elevated);
   border-right: 1px solid var(--jellio-border-color);
 }
 
+/* Row layout, icon beside the label rather than stacked above it,
+   matching the original codebase's own persistent-sidebar.css. The
+   stacked layout this rail shipped with first sized the rail itself
+   off a narrow clamp(64px, 6vw, 96px) that left no room for a real
+   label, truncating "Settings" to a few letters, reported live
+   directly against a screenshot. */
 .jellio-sidebar-link {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
-  padding: 10px 4px;
+  gap: 0.9em;
+  height: 2.75em;
+  padding: 0 0.85em;
   border: 0;
-  border-radius: var(--jellio-card-radius);
+  border-radius: 0.75em;
   background: transparent;
   color: var(--jellio-text-secondary);
   cursor: pointer;
@@ -93,18 +100,18 @@
 
 .jellio-sidebar-link-active {
   color: var(--jellio-text-color);
-  background: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.12);
 }
 
-/* Fixed px/rem here, while the sidebar's own width (line 58) already
-   scales with clamp(...vw...), left the icons and labels visibly
-   smaller than the rest of the app on a large display, same real
-   pattern the account screen's own text sizing had. Scaling these the
-   same way keeps them proportionate to the rail around them. */
+/* em based rather than the earlier fixed px/vw clamp: the rail's own
+   width is now an em based clamp too (line 68), so the icon sizes
+   with it and stays proportionate at any width instead of being
+   pinned to a viewport fraction independent of the rail around it. */
 .jellio-sidebar-icon-svg {
-  width: clamp(20px, 1.9vw, 28px);
-  height: clamp(20px, 1.9vw, 28px);
+  width: 1.75em;
+  height: 1.75em;
   fill: currentColor;
+  flex: 0 0 auto;
 }
 
 .jellio-sidebar-icon-svg-stroke {
@@ -116,16 +123,18 @@
 }
 
 .jellio-sidebar-link .material-icons {
-  font-size: clamp(20px, 1.9vw, 28px);
+  font-size: 1.75em;
+  flex: 0 0 auto;
 }
 
 .jellio-sidebar-label {
-  font-size: clamp(0.62rem, 0.75vw, 0.85rem);
-  text-align: center;
+  font-size: 0.92em;
+  font-weight: 500;
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
+  min-width: 0;
 }
 
 .jellio-sidebar-divider {
@@ -739,11 +748,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
 }
 
 .jellio-sidebar-avatar {
-  width: 22px;
-  height: 22px;
+  width: 1.9em;
+  height: 1.9em;
   border-radius: 50%;
   object-fit: cover;
   display: block;
@@ -1072,7 +1082,7 @@
 .jellio-sidebar-now-playing-badge {
   position: absolute;
   top: 0.3em;
-  right: 0.9em;
+  left: 1.9em;
   background: var(--jellio-secondary-color);
   color: var(--jellio-on-secondary);
   border-radius: 999px;
