@@ -91,7 +91,7 @@ function formatTime(seconds) {
 
 export async function renderPlayer(root, params) {
   root.textContent = '';
-  root.className = 'jellio-screen-player';
+  root.className = 'jellio-content jellio-screen-player';
 
   const itemId = params.get('id');
   if (!itemId) return undefined;

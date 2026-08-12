@@ -106,7 +106,7 @@ async function renderFavorites(root) {
 
 export async function renderHome(root, params) {
   root.textContent = '';
-  root.className = 'jellio-screen-home';
+  root.className = 'jellio-content jellio-screen-home';
 
   if (params && params.get('tab') === '1') {
     await renderFavorites(root);

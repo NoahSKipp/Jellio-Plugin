@@ -145,7 +145,7 @@ function buildCastRow(people) {
 
 export async function renderDetail(root, params) {
   root.textContent = '';
-  root.className = 'jellio-screen-detail';
+  root.className = 'jellio-content jellio-screen-detail';
 
   const itemId = params.get('id');
   if (!itemId) return;

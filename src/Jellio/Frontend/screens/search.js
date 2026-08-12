@@ -10,7 +10,7 @@ const DEBOUNCE_MS = 300;
 
 export async function renderSearch(root) {
   root.textContent = '';
-  root.className = 'jellio-screen-search';
+  root.className = 'jellio-content jellio-screen-search';
 
   const header = document.createElement('header');
   header.className = 'jellio-search-header';

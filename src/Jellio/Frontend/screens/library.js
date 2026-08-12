@@ -7,7 +7,7 @@ import { buildCard } from '../components/card.js';
 
 export async function renderLibrary(root, params) {
   root.textContent = '';
-  root.className = 'jellio-screen-library';
+  root.className = 'jellio-content jellio-screen-library';
 
   const parentId = params.get('topParentId') || params.get('parentId');
   const collectionType = params.get('collectionType') || '';

@@ -17,7 +17,7 @@ function el(tag, className, text) {
 
 export async function renderPerson(root, params) {
   root.textContent = '';
-  root.className = 'jellio-screen-person';
+  root.className = 'jellio-content jellio-screen-person';
 
   const personId = params.get('id');
   if (!personId) return;
