@@ -103,6 +103,26 @@ export function getLibraryItems(parentId, collectionType, options) {
   return getJson('/Users/' + userId + '/Items?' + params.toString());
 }
 
+// Real Jellyfin search pattern, the same /Items endpoint everything else
+// in this file already uses with a searchTerm added, not the older
+// /Search/Hints endpoint: keeps every item query in this runtime going
+// through one shape rather than two.
+export function searchItems(term, limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  if (!term) return Promise.resolve([]);
+  const params = new URLSearchParams({
+    searchTerm: term,
+    Recursive: 'true',
+    IncludeItemTypes: 'Movie,Series',
+    Fields: 'PrimaryImageAspectRatio',
+    Limit: String(limit || 50),
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
+
 export function getImageUrl(itemId, type, options) {
   const opts = options || {};
   const params = new URLSearchParams();
