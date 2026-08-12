@@ -335,3 +335,94 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.jellio-detail-seasons {
+  margin-bottom: clamp(16px, 2vw, 32px);
+}
+
+.jellio-season-tabs {
+  display: flex;
+  gap: 0.5em;
+  overflow-x: auto;
+  padding: 0 var(--jellio-safe-gutter) 0.6em;
+  scrollbar-width: none;
+}
+
+.jellio-season-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.jellio-season-tab {
+  flex: 0 0 auto;
+  padding: 0.5em 1.1em;
+  border: 1px solid var(--jellio-border-color);
+  border-radius: 999px;
+  background: var(--jellio-card-bg);
+  color: var(--jellio-text-secondary);
+  font-family: var(--jellio-font-family);
+  cursor: pointer;
+}
+
+.jellio-season-tab-selected {
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  border-color: var(--jellio-secondary-color);
+}
+
+.jellio-episode-track {
+  display: flex;
+  gap: clamp(12px, 1.4vw, 20px);
+  overflow-x: auto;
+  padding: 0 var(--jellio-safe-gutter) 0.5em;
+  scrollbar-width: none;
+}
+
+.jellio-episode-track::-webkit-scrollbar {
+  display: none;
+}
+
+.jellio-episode-card {
+  flex: 0 0 auto;
+  width: clamp(220px, 22vw, 320px);
+  cursor: pointer;
+}
+
+.jellio-episode-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--jellio-card-radius);
+  background-color: var(--jellio-card-bg);
+  background-size: cover;
+  background-position: center;
+  margin-bottom: 0.5em;
+}
+
+.jellio-episode-badge {
+  position: absolute;
+  top: 0.5em;
+  left: 0.5em;
+  padding: 0.2em 0.5em;
+  border-radius: 0.4em;
+  background: rgb(0 0 0 / 0.6);
+  color: var(--jellio-text-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.jellio-episode-title {
+  font-weight: 600;
+  margin-bottom: 0.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jellio-episode-overview {
+  font-size: 0.82rem;
+  color: var(--jellio-text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

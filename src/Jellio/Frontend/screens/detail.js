@@ -6,7 +6,7 @@
 // export, never put on window the way ApiClient is, so nothing outside
 // jellyfin-web's own bundle can call it directly. Real player chrome for
 // this runtime is its own later piece of work, not guessed at here.
-import { getItemDetails, getImageUrl } from '../runtime/api.js';
+import { getItemDetails, getImageUrl, getSeasons, getEpisodes } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 
 function el(tag, className, text) {
@@ -14,6 +14,82 @@ function el(tag, className, text) {
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
+}
+
+function buildEpisodeCard(episode) {
+  const card = el('div', 'jellio-episode-card');
+  const thumbTag =
+    (episode.ImageTags && episode.ImageTags.Primary) ||
+    (episode.ParentThumbImageTag && episode.ParentThumbImageTag);
+  const thumb = el('div', 'jellio-episode-thumb');
+  if (thumbTag) {
+    thumb.style.backgroundImage =
+      'url(' + getImageUrl(episode.Id, 'Primary', { tag: thumbTag, maxWidth: 500 }) + ')';
+  }
+  if (episode.IndexNumber != null) {
+    thumb.appendChild(el('span', 'jellio-episode-badge', 'E' + episode.IndexNumber));
+  }
+  card.appendChild(thumb);
+  card.appendChild(el('div', 'jellio-episode-title', episode.Name || ''));
+  if (episode.Overview) {
+    card.appendChild(el('div', 'jellio-episode-overview', episode.Overview));
+  }
+  card.addEventListener('click', function () {
+    navigateTo('#/item?id=' + episode.Id);
+  });
+  return card;
+}
+
+// Season tabs plus the current season's own episode track, appended in
+// place once seasons resolve rather than blocking the rest of the screen
+// on a series with a lot of them. Real endpoints, GET /Shows/{id}/Seasons
+// and GET /Shows/{id}/Episodes, the dedicated show hierarchy API.
+async function buildSeasonsSection(seriesId) {
+  let seasons;
+  try {
+    seasons = await getSeasons(seriesId);
+  } catch (err) {
+    console.warn('Jellio: could not load seasons', err);
+    return null;
+  }
+  if (!seasons.length) return null;
+
+  const section = el('section', 'jellio-detail-seasons');
+  section.appendChild(el('h2', 'jellio-row-title', 'Episodes'));
+
+  const tabs = el('div', 'jellio-season-tabs');
+  const track = el('div', 'jellio-episode-track');
+  section.appendChild(tabs);
+  section.appendChild(track);
+
+  function selectSeason(season, tabButton) {
+    Array.prototype.forEach.call(tabs.children, function (child) {
+      child.classList.remove('jellio-season-tab-selected');
+    });
+    tabButton.classList.add('jellio-season-tab-selected');
+    track.textContent = '';
+    getEpisodes(seriesId, season.Id)
+      .then(function (episodes) {
+        episodes.forEach(function (episode) {
+          track.appendChild(buildEpisodeCard(episode));
+        });
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not load episodes', err);
+      });
+  }
+
+  seasons.forEach(function (season, index) {
+    const tab = el('button', 'jellio-season-tab', season.Name || '');
+    tab.type = 'button';
+    tab.addEventListener('click', function () {
+      selectSeason(season, tab);
+    });
+    tabs.appendChild(tab);
+    if (index === 0) selectSeason(season, tab);
+  });
+
+  return section;
 }
 
 function buildCastRow(people) {
@@ -91,6 +167,11 @@ export async function renderDetail(root, params) {
 
   if (item.Overview) {
     root.appendChild(el('p', 'jellio-detail-overview', item.Overview));
+  }
+
+  if (item.Type === 'Series') {
+    const seasonsSection = await buildSeasonsSection(itemId);
+    if (seasonsSection) root.appendChild(seasonsSection);
   }
 
   const castRow = buildCastRow(item.People);
