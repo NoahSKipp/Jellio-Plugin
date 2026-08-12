@@ -151,7 +151,15 @@
   display: flex;
   gap: clamp(10px, 1vw, 16px);
   overflow-x: auto;
-  padding: 0 var(--jellio-safe-gutter) 0.5em;
+  /* overflow-x: auto forces overflow-y to compute as auto too (a
+     visible axis paired with a non-visible one always does), so a
+     hovered card's own scale transform and outline get clipped by this
+     track the instant either exceeds its box. Real feedback: the hover
+     enlarge this codebase's own cards.css had ("Cards don't enlarge on
+     hover anymore") wasn't lost, this track just never had the vertical
+     room to show it, clipping the outline too. Padding-top gives the
+     scaled-up card somewhere to grow into. */
+  padding: 14px var(--jellio-safe-gutter) 0.5em;
   scrollbar-width: none;
 }
 
@@ -176,6 +184,7 @@
   object-fit: cover;
   background: var(--jellio-card-bg);
   display: block;
+  transition: transform 180ms ease, outline-color 180ms ease;
 }
 
 .jellio-card-image-empty {
@@ -193,6 +202,7 @@
 
 .jellio-card:hover .jellio-card-image,
 .jellio-card:focus-visible .jellio-card-image {
+  transform: scale(1.06);
   outline: 2px solid var(--jellio-secondary-color);
   outline-offset: 2px;
 }
@@ -844,13 +854,21 @@
    to white here rather than trusting whatever the file declares.
    brightness(0) flattens any colour to black first, invert lifts it to
    white, holding for a mark of any original colour. */
+/* height alone, with width left to auto, let each logo's own aspect
+   ratio decide its rendered size: a wide wordmark (Prime Video's own
+   SVG is far wider than it is tall next to Disney+'s or Apple TV's
+   squarer marks) hit max-width and got constrained down in both
+   dimensions to stay inside it, rendering visibly smaller than every
+   other tile. Setting both width and height turns this into a real
+   fixed box for object-fit: contain to fit each logo into, so a wide
+   mark uses the full width and a tall one the full height, the same
+   apparent scale across every service regardless of its own shape. */
 .jellio-hub-tile-logo {
   position: absolute;
   inset: 0;
   margin: auto;
+  width: 82%;
   height: 54%;
-  width: auto;
-  max-width: 82%;
   object-fit: contain;
   filter: brightness(0) invert(1);
 }
@@ -969,13 +987,13 @@
 }
 
 .jellio-settings-section {
-  max-width: 32em;
+  max-width: 40em;
   padding: 0 var(--jellio-safe-gutter) clamp(24px, 3vw, 40px);
 }
 
 .jellio-settings-section-title {
   margin: 0 0 0.8em;
-  font-size: 1.05rem;
+  font-size: clamp(1.05rem, 1.4vw, 1.3rem);
   font-weight: 700;
 }
 
@@ -986,13 +1004,15 @@
 }
 
 .jellio-settings-input {
+  width: 100%;
   padding: 0.7em 1em;
   border: 1px solid var(--jellio-border-color);
   border-radius: var(--jellio-card-radius);
   background: var(--jellio-card-bg);
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: 0.9rem;
+  font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+  box-sizing: border-box;
 }
 
 .jellio-settings-input:focus {
@@ -1003,7 +1023,7 @@
 .jellio-settings-status {
   margin: 0;
   color: var(--jellio-text-secondary);
-  font-size: 0.85rem;
+  font-size: clamp(0.85rem, 1vw, 1rem);
 }
 
 .jellio-settings-button {
@@ -1015,7 +1035,8 @@
   color: var(--jellio-on-secondary);
   font-family: var(--jellio-font-family);
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: clamp(0.85rem, 1vw, 1rem);
+  white-space: nowrap;
   cursor: pointer;
 }
 
