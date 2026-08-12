@@ -116,6 +116,31 @@ export function getLibraryItems(parentId, collectionType, options) {
   return getJson('/Users/' + userId + '/Items?' + params.toString());
 }
 
+// Real endpoints, GET /Shows/{id}/Seasons and GET /Shows/{id}/Episodes,
+// the dedicated show hierarchy API rather than a plain /Items query: a
+// season/episode listing needs real ordering and season scoping that
+// endpoint provides directly.
+export function getSeasons(seriesId) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  return getJson('/Shows/' + seriesId + '/Seasons?userId=' + userId).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
+
+export function getEpisodes(seriesId, seasonId) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    userId: userId,
+    seasonId: seasonId,
+    Fields: 'Overview,PrimaryImageAspectRatio',
+  });
+  return getJson('/Shows/' + seriesId + '/Episodes?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
+
 // Real Jellyfin search pattern, the same /Items endpoint everything else
 // in this file already uses with a searchTerm added, not the older
 // /Search/Hints endpoint: keeps every item query in this runtime going
