@@ -7,7 +7,6 @@
 // the full provenance), not re-derived here.
 import { getUserViews, getCollections, getCurrentUser, getUserImageUrl } from '../runtime/api.js';
 import { navigateTo, currentHash } from '../runtime/router.js';
-import { openAvatarPicker } from './avatarPicker.js';
 import { toggleNowPlayingPanel, nowPlayingCount } from './nowPlaying.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -139,7 +138,7 @@ async function buildProfileButton() {
   button.type = 'button';
   button.className = 'jellio-sidebar-link jellio-sidebar-profile';
   button.title = 'Profile';
-  button.setAttribute('aria-label', 'Change avatar');
+  button.setAttribute('aria-label', 'Profile');
 
   const iconMount = document.createElement('span');
   iconMount.className = 'jellio-sidebar-avatar-mount';
@@ -176,8 +175,14 @@ async function buildProfileButton() {
 
   await refreshAvatar();
 
+  // Opens the real account screen (password, sleep timer, avatar, sign
+  // out, screens/settings.js) rather than the avatar picker directly.
+  // The picker used to be this button's only destination, indistinguishable
+  // from the separate Account nav link that opened the same screen, real
+  // feedback asked for one button doing a real job instead of two doing
+  // an overlapping one. The picker is still one click away from there.
   button.addEventListener('click', function () {
-    openAvatarPicker(refreshAvatar);
+    navigateTo('#/account');
   });
 
   return button;
@@ -253,6 +258,5 @@ export async function renderSidebar(container) {
 
   container.appendChild(buildNowPlayingButton());
   container.appendChild(await buildProfileButton());
-  container.appendChild(buildLink('person', 'Account', '#/account'));
   container.appendChild(buildLink('settings', 'Settings', '#/mypreferencesmenu'));
 }
