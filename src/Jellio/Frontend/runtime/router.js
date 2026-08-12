@@ -47,6 +47,29 @@ function notify() {
 }
 
 window.addEventListener('hashchange', notify);
+window.addEventListener('popstate', notify);
+
+// navigateTo's own real Emby.Page.show() call above lands on react-router's
+// own history object (components/router/routerHistory.ts's own push(),
+// confirmed real before writing this), which navigates through
+// window.history.pushState()/replaceState(), never a bare hash
+// assignment. pushState/replaceState never fire hashchange, only a
+// user's own back/forward press or a direct location.hash write do, so
+// every native-routed click this runtime hands off to Emby.Page.show()
+// changed the address bar and never reached this router at all. Real
+// bug, found live: Movies, Shows, Search, Favorites and every card's
+// own click handler visibly changed the URL and rendered nothing.
+// Patching both, the same technique any analytics script already uses
+// to see SPA navigation it did not initiate itself, is the only way to
+// hear a pushState call fire without owning the router that makes it.
+['pushState', 'replaceState'].forEach(function (method) {
+  const original = window.history[method];
+  window.history[method] = function () {
+    const result = original.apply(this, arguments);
+    notify();
+    return result;
+  };
+});
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', notify);
