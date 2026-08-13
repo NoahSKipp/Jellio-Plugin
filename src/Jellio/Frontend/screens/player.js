@@ -108,6 +108,7 @@ export async function renderPlayer(root, params) {
 
   const playPauseButton = el('button', 'jellio-player-playpause');
   playPauseButton.type = 'button';
+  playPauseButton.setAttribute('aria-label', 'Pause');
   const playPauseIcon = el('span', 'material-icons pause');
   playPauseIcon.setAttribute('aria-hidden', 'true');
   playPauseButton.appendChild(playPauseIcon);
@@ -115,6 +116,8 @@ export async function renderPlayer(root, params) {
     if (video.paused) video.play();
     else video.pause();
   });
+
+  seekBar.setAttribute('aria-label', 'Seek');
 
   const sleepButton = el('button', 'jellio-player-sleep');
   sleepButton.type = 'button';
@@ -229,10 +232,12 @@ export async function renderPlayer(root, params) {
 
   video.addEventListener('play', function () {
     playPauseIcon.className = 'material-icons pause';
+    playPauseButton.setAttribute('aria-label', 'Pause');
     pauseOverlay.classList.remove('jellio-player-pause-overlay-visible');
   });
   video.addEventListener('pause', function () {
     playPauseIcon.className = 'material-icons play_arrow';
+    playPauseButton.setAttribute('aria-label', 'Play');
     // Ending playback also fires pause, the overlay would just be in the
     // way of whatever screen comes next rather than useful here.
     if (hasReportedStart && !video.ended) {

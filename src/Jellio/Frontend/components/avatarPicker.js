@@ -8,15 +8,23 @@ import { getAvatarPresets, getAvatarPresetUrl, setUserAvatar } from '../runtime/
 
 const OVERLAY_ID = 'jellioAvatarPicker';
 
+function handleKeydown(event) {
+  if (event.key === 'Escape') closeAvatarPicker();
+}
+
 export async function openAvatarPicker(onChanged) {
   closeAvatarPicker();
 
   const overlay = document.createElement('div');
   overlay.id = OVERLAY_ID;
   overlay.className = 'jellio-avatar-picker-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Choose an avatar');
   overlay.addEventListener('click', function (event) {
     if (event.target === overlay) closeAvatarPicker();
   });
+  document.addEventListener('keydown', handleKeydown);
 
   const panel = document.createElement('div');
   panel.className = 'jellio-avatar-picker-panel';
@@ -47,6 +55,7 @@ export async function openAvatarPicker(onChanged) {
       const option = document.createElement('button');
       option.type = 'button';
       option.className = 'jellio-avatar-picker-option';
+      option.setAttribute('aria-label', preset.Id);
       const img = document.createElement('img');
       img.src = getAvatarPresetUrl(preset.Id);
       img.alt = '';
@@ -69,6 +78,7 @@ export async function openAvatarPicker(onChanged) {
       });
       grid.appendChild(option);
     });
+    if (grid.firstElementChild) grid.firstElementChild.focus();
   } catch (err) {
     console.warn('Jellio: could not load avatar presets', err);
     status.textContent = 'Could not load avatars.';
@@ -78,4 +88,5 @@ export async function openAvatarPicker(onChanged) {
 export function closeAvatarPicker() {
   const existing = document.getElementById(OVERLAY_ID);
   if (existing) existing.remove();
+  document.removeEventListener('keydown', handleKeydown);
 }
