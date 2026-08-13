@@ -399,3 +399,56 @@ export async function setUserAvatar(presetId) {
     throw err;
   }
 }
+
+// Streaming service hub: which catalog collections a server really has,
+// the only thing that can be asked. Gelato writes no Studios/network
+// field onto an imported item at all (GelatoManager.IntoBaseItem sets
+// name, dates, overview, rating, genres, runtime, certification, country
+// and provider ids, nothing about where a title streams), confirmed
+// against the original Jellio codebase's own streamingHub.js before
+// porting this.
+export function getCollections() {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    IncludeItemTypes: 'BoxSet',
+    Recursive: 'true',
+    SortBy: 'SortName',
+    Limit: '100',
+    Fields: 'ProviderIds',
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
+
+// Anime checked first regardless of provider id: an AniList catalog's own
+// ProviderIds.Stremio reads "Series.<id>", identical in shape to a real TV
+// catalog's, so only the collection's own name (always named for it) can
+// tell the two apart. Same ordering bug the original codebase's own
+// kindOfCollection already found and fixed, ported rather than re-derived.
+export function collectionKind(collection) {
+  if (/anime|anilist/i.test(collection.Name || '')) return 'tvshows';
+  const ids = collection.ProviderIds || {};
+  const stremio = ids.Stremio || ids.stremio;
+  if (stremio) {
+    const type = String(stremio).split('.')[0].toLowerCase();
+    return type === 'movie' ? 'movies' : 'tvshows';
+  }
+  return 'movies';
+}
+
+export function getCollectionItems(collectionId, kind, limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    ParentId: collectionId,
+    IncludeItemTypes: itemTypesForKind(kind),
+    Limit: String(limit || 24),
+    Fields: 'ProductionYear,CommunityRating,Genres',
+    SortBy: 'SortName',
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
