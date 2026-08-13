@@ -85,11 +85,17 @@ const FULLSCREEN_ROUTES = new Set(['play']);
 // missed the case seen live a second time: the .jellio-shell wrapper
 // survived while just the sidebar mount and content div inside it did
 // not, so that check still found "a shell" and skipped rebuilding.
-// Rebuilding the inner structure on every call sidesteps having to know
-// which element vanishes: every screen and renderSidebar already clear
-// and repopulate their own container the moment they run, so handing
-// them a freshly built empty one each time costs nothing real, and
-// there is no in between paint for a rebuild to visibly flash.
+//
+// Rebuilding the inner structure unconditionally on every call fixed
+// that, but it is also what made the sidebar icons visibly flicker on
+// every single navigation, reported live separately: a fresh, empty
+// <nav> replaced the real one every time regardless of whether
+// anything had actually gone missing, and components/sidebar.js's own
+// renderSidebar had to rebuild every icon from nothing to fill it back
+// in. Checking for the two children this self-heal actually cares
+// about, rather than rebuilding regardless of whether either is
+// really gone, keeps the same real fix for the same real bug without
+// paying its cost on every ordinary call.
 function getRoot() {
   let root = document.getElementById(ROOT_ID);
   if (!root) {
@@ -97,11 +103,16 @@ function getRoot() {
     root.id = ROOT_ID;
     document.body.appendChild(root);
   }
-  root.innerHTML =
-    '<div class="jellio-shell">' +
-    '<nav class="jellio-sidebar-mount"></nav>' +
-    '<main class="jellio-content"></main>' +
-    '</div>';
+  const shell = root.querySelector('.jellio-shell');
+  const sidebarMount = shell && shell.querySelector('.jellio-sidebar-mount');
+  const content = shell && shell.querySelector('.jellio-content');
+  if (!shell || !sidebarMount || !content) {
+    root.innerHTML =
+      '<div class="jellio-shell">' +
+      '<nav class="jellio-sidebar-mount"></nav>' +
+      '<main class="jellio-content"></main>' +
+      '</div>';
+  }
   return root;
 }
 
@@ -295,11 +306,17 @@ async function runSync() {
     const sidebarMount = root.querySelector('.jellio-sidebar-mount');
     const content = root.querySelector('.jellio-content');
 
+    // The player route used to wipe the sidebar mount's own content
+    // outright, which meant components/sidebar.js's own dataset marker
+    // for "already built" survived on the (now empty) container while
+    // the links it referred to did not, so the very next real
+    // navigation's fast path found nothing to update and the rail
+    // stayed empty. css/app.css's own .jellio-root-fullscreen rule
+    // hides the mount instead now, so the built rail is simply sitting
+    // there, unrendered, the moment a real route wants it again, no
+    // rebuild needed either way.
     const tasks = [screen(content, route.params)];
-    if (FULLSCREEN_ROUTES.has(route.path)) {
-      sidebarMount.textContent = '';
-      sidebarMount.className = 'jellio-sidebar-mount';
-    } else {
+    if (!FULLSCREEN_ROUTES.has(route.path)) {
       tasks.push(renderSidebar(sidebarMount));
     }
 

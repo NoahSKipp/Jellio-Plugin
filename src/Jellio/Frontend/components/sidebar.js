@@ -76,9 +76,19 @@ function isActive(hash) {
   return hashHasKind === currentHasKind;
 }
 
+// Tagged with its own hash so updateActiveLinks() can find it again
+// without rebuilding it: real feedback was that the whole rail
+// visibly flickered on every navigation, traced to renderSidebar
+// destroying and rebuilding every icon on every single call, cache
+// warm or not, awaiting getUserViews/getCollections/getCurrentUser in
+// between meant at least one empty or half built frame paints every
+// time. The set of links a session sees rarely changes at all, so
+// only the active one moving needs a per navigation cost, not the
+// whole rail.
 function buildLink(icon, label, hash) {
   const button = document.createElement('button');
   button.type = 'button';
+  button.dataset.jellioHash = hash;
   const active = isActive(hash);
   button.className = 'jellio-sidebar-link' + (active ? ' jellio-sidebar-link-active' : '');
   button.title = label;
@@ -109,6 +119,18 @@ function buildLink(icon, label, hash) {
     navigateTo(hash);
   });
   return button;
+}
+
+function updateActiveLinks(container) {
+  container.querySelectorAll('[data-jellio-hash]').forEach(function (link) {
+    const active = isActive(link.dataset.jellioHash);
+    link.classList.toggle('jellio-sidebar-link-active', active);
+    if (active) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
 }
 
 // Native jellyfin-web keeps running underneath this runtime's own
@@ -186,6 +208,41 @@ function buildNowPlayingButton() {
   return button;
 }
 
+async function paintAvatar(iconMount) {
+  iconMount.textContent = '';
+  let user = null;
+  try {
+    user = await getCurrentUser();
+  } catch (err) {
+    console.warn('Jellio: sidebar could not load current user', err);
+  }
+
+  const imageTag = user && user.PrimaryImageTag;
+  if (user && imageTag) {
+    const img = document.createElement('img');
+    img.className = 'jellio-sidebar-avatar';
+    img.src = getUserImageUrl(user.Id, imageTag, { maxWidth: 80 });
+    img.alt = '';
+    iconMount.appendChild(img);
+  } else {
+    const icon = document.createElement('span');
+    icon.className = 'material-icons account_circle';
+    icon.setAttribute('aria-hidden', 'true');
+    iconMount.appendChild(icon);
+  }
+}
+
+// renderSidebar() below only paints the rail once per real session now
+// (see its own header), so a changed avatar has no future rebuild left
+// to pick it up on its own. components/avatarPicker.js's own onChanged
+// callback calls this directly instead, the same live requery pattern
+// nowPlaying.js already uses for its own badge rather than something
+// that waits on a rebuild that no longer routinely happens.
+export function refreshProfileAvatar() {
+  const mount = document.querySelector('.jellio-sidebar-avatar-mount');
+  if (mount) paintAvatar(mount);
+}
+
 async function buildProfileButton() {
   const button = document.createElement('button');
   button.type = 'button';
@@ -202,31 +259,7 @@ async function buildProfileButton() {
   labelEl.textContent = 'Profile';
   button.appendChild(labelEl);
 
-  async function refreshAvatar() {
-    iconMount.textContent = '';
-    let user = null;
-    try {
-      user = await getCurrentUser();
-    } catch (err) {
-      console.warn('Jellio: sidebar could not load current user', err);
-    }
-
-    const imageTag = user && user.PrimaryImageTag;
-    if (user && imageTag) {
-      const img = document.createElement('img');
-      img.className = 'jellio-sidebar-avatar';
-      img.src = getUserImageUrl(user.Id, imageTag, { maxWidth: 80 });
-      img.alt = '';
-      iconMount.appendChild(img);
-    } else {
-      const icon = document.createElement('span');
-      icon.className = 'material-icons account_circle';
-      icon.setAttribute('aria-hidden', 'true');
-      iconMount.appendChild(icon);
-    }
-  }
-
-  await refreshAvatar();
+  await paintAvatar(iconMount);
 
   // Opens the real account screen (password, sleep timer, avatar, sign
   // out, screens/settings.js) rather than the avatar picker directly.
@@ -241,7 +274,26 @@ async function buildProfileButton() {
   return button;
 }
 
+// Built once per real container and left alone after that, rather than
+// destroyed and rebuilt on every navigation: this and app.js's own
+// getRoot() (which used to unconditionally rebuild the shell, sidebar
+// mount included, on every call) were together the real cause of the
+// icons visibly flickering on every click, reported live. app.js now
+// only hands this a fresh container when the mount was genuinely
+// missing (its own self-heal case), so the same container coming back
+// on the very next navigation is the normal case, not the rare one,
+// and a dataset marker is enough to tell the two apart. Everything
+// that can change after the initial build without a full rebuild
+// (which link is active, the now playing badge, the profile avatar)
+// already has, or now has, its own live update path instead of relying
+// on one: updateActiveLinks() below, nowPlaying.js's own render(), and
+// refreshProfileAvatar() above.
 export async function renderSidebar(container) {
+  if (container.dataset.jellioBuilt === '1') {
+    updateActiveLinks(container);
+    return;
+  }
+  container.dataset.jellioBuilt = '1';
   container.textContent = '';
   container.className = 'jellio-sidebar';
 

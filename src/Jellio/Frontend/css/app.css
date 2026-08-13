@@ -564,6 +564,16 @@
   overflow: hidden;
 }
 
+/* Hidden rather than emptied: app.js's own runSync() used to clear
+   this mount's own content outright for the player route, which left
+   components/sidebar.js's own "already built" marker on a now empty
+   container, and the next real navigation found nothing left to
+   update. The built rail sits here unrendered instead, so leaving the
+   player needs no rebuild either. */
+.jellio-root-fullscreen .jellio-sidebar-mount {
+  display: none;
+}
+
 .jellio-screen-player {
   position: relative;
   width: 100%;
