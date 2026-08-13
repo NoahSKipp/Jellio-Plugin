@@ -1182,6 +1182,33 @@
   cursor: pointer;
 }
 
+.jellio-player-skip {
+  position: absolute;
+  right: clamp(16px, 3vw, 40px);
+  bottom: 6.5em;
+  z-index: 2;
+  padding: 0.6em 1.4em;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.jellio-player-skip:hover {
+  background: rgb(255 255 255 / 0.2);
+}
+
+.jellio-player-skip-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .jellio-hero {
   position: relative;
   width: 100%;

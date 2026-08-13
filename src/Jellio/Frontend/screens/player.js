@@ -2,12 +2,17 @@
 // real session reporting, the same mechanism JMSFusion's own player uses
 // (confirmed against its real source before writing any of this), not
 // jellyfin-web's own playbackManager, which this runtime cannot reach.
-// Also owns a pause screen overlay (Jellyfin-PauseScreen's technique) and
-// an up next episode preview: no native jellyfin-web up next dialog to
+// Also owns a pause screen overlay (Jellyfin-PauseScreen's technique), an
+// up next episode preview (no native jellyfin-web up next dialog to
 // reskin the way the original Jellio codebase's own InPlayer Episode
-// Preview slice could (that dialog only exists inside jellyfin-web's own
+// Preview slice could, that dialog only exists inside jellyfin-web's own
 // player bundle, unreachable from a runtime with its own <video>
-// element), so this is a real overlay built from scratch instead.
+// element, so this is a real overlay built from scratch instead), and a
+// skip intro/credits button, a soft dependency on the community Intro
+// Skipper plugin's own real REST API (confirmed against its source
+// before writing this, see runtime/api.js's own getIntroSkipperSegments)
+// rather than jellyfin-web's own player chrome hooks, unreachable here
+// for the same reason as everything else in this file.
 import {
   getItemDetails,
   getPlaybackInfo,
@@ -22,6 +27,7 @@ import {
   getSubtitleStreams,
   buildSubtitleUrl,
   getNextEpisode,
+  getIntroSkipperSegments,
   TICKS_PER_SECOND,
 } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
@@ -304,8 +310,35 @@ export async function renderPlayer(root, params) {
   }
   pauseOverlay.appendChild(pauseContent);
 
+  const skipButton = el('button', 'jellio-player-skip jellio-player-skip-hidden', 'Skip Intro');
+  skipButton.type = 'button';
+  let skipSegments = null;
+  let skipTargetSeconds = 0;
+
+  function activeSkipSegment(currentTime) {
+    if (!skipSegments) return null;
+    const intro = skipSegments.Introduction;
+    if (intro && intro.End > 0 && currentTime >= intro.Start && currentTime < intro.End) {
+      return { label: 'Skip Intro', target: intro.End };
+    }
+    const credits = skipSegments.Credits;
+    if (credits && credits.End > 0 && currentTime >= credits.Start && currentTime < credits.End) {
+      return { label: 'Skip Credits', target: credits.End };
+    }
+    return null;
+  }
+
+  skipButton.addEventListener('click', function () {
+    video.currentTime = skipTargetSeconds;
+  });
+
+  getIntroSkipperSegments(itemId).then(function (result) {
+    if (result && (result.Introduction || result.Credits)) skipSegments = result;
+  });
+
   root.appendChild(video);
   root.appendChild(pauseOverlay);
+  root.appendChild(skipButton);
   root.appendChild(controls);
 
   let nextEpisode = null;
@@ -399,6 +432,15 @@ export async function renderPlayer(root, params) {
 
     if (nextEpisode && !upNextDismissed && video.duration && video.duration - video.currentTime <= UPNEXT_TRIGGER_SECONDS) {
       showUpNext();
+    }
+
+    const activeSegment = activeSkipSegment(video.currentTime);
+    if (activeSegment) {
+      skipTargetSeconds = activeSegment.target;
+      skipButton.textContent = activeSegment.label;
+      skipButton.classList.remove('jellio-player-skip-hidden');
+    } else {
+      skipButton.classList.add('jellio-player-skip-hidden');
     }
   });
 
