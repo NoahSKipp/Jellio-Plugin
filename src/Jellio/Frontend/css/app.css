@@ -1182,6 +1182,185 @@
   cursor: pointer;
 }
 
+.jellio-hero {
+  position: relative;
+  width: 100%;
+  height: 85vh;
+  min-height: 32em;
+  max-height: 56em;
+  overflow: hidden;
+  margin-bottom: clamp(16px, 2vw, 32px);
+}
+
+.jellio-hero-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: var(--jellio-bg-color);
+}
+
+.jellio-hero-backdrop-layer {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center 20%;
+  opacity: 0;
+  transition: opacity 800ms ease-in-out;
+}
+
+.jellio-hero-backdrop-layer-visible {
+  opacity: 1;
+}
+
+.jellio-hero-nav {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5em;
+  border: none;
+  background: transparent;
+  color: var(--jellio-text-color);
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 180ms ease, background-color 180ms ease;
+}
+
+.jellio-hero:hover .jellio-hero-nav,
+.jellio-hero-nav:focus-visible {
+  opacity: 1;
+}
+
+.jellio-hero-nav:hover {
+  background: rgb(13 13 13 / 0.3);
+}
+
+.jellio-hero-nav .material-icons {
+  font-size: 2.5em;
+}
+
+.jellio-hero-nav-prev {
+  left: 0;
+}
+
+.jellio-hero-nav-next {
+  right: 0;
+}
+
+.jellio-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(13 13 13 / 0.85) 0%, rgb(13 13 13 / 0.15) 55%, transparent 80%),
+    linear-gradient(0deg, var(--jellio-bg-color) 0%, transparent 45%);
+}
+
+.jellio-hero-content {
+  position: absolute;
+  left: var(--jellio-safe-gutter);
+  right: var(--jellio-safe-gutter);
+  bottom: 3.5em;
+  max-width: 34em;
+  z-index: 1;
+}
+
+.jellio-hero-logo {
+  display: block;
+  max-height: 5.5em;
+  max-width: 100%;
+  width: auto;
+  margin: 0 0 0.6em;
+  object-fit: contain;
+  object-position: left;
+}
+
+.jellio-hero-logo-hidden {
+  display: none;
+}
+
+.jellio-hero-title {
+  display: none;
+  color: var(--jellio-text-color);
+  font-size: 2.4em;
+  font-weight: 700;
+  margin: 0 0 0.3em;
+}
+
+.jellio-hero-logo-hidden ~ .jellio-hero-title {
+  display: block;
+}
+
+.jellio-hero-meta {
+  color: var(--jellio-text-secondary);
+  margin: 0 0 0.6em;
+}
+
+.jellio-hero-overview {
+  color: var(--jellio-text-color);
+  opacity: 0.85;
+  line-height: 1.5;
+  margin: 0 0 1.2em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.jellio-hero-actions {
+  display: flex;
+  gap: 0.75em;
+}
+
+.jellio-hero-action {
+  border: none;
+  border-radius: 999px;
+  padding: 0.75em 1.75em;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  font-family: var(--jellio-font-family);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+
+.jellio-hero-action:hover {
+  background: var(--jellio-secondary-variant);
+}
+
+.jellio-hero-action-secondary {
+  background: rgb(255 255 255 / 0.1);
+  color: var(--jellio-text-color);
+}
+
+.jellio-hero-action-secondary:hover {
+  background: rgb(255 255 255 / 0.18);
+}
+
+.jellio-hero-dots {
+  position: absolute;
+  left: var(--jellio-safe-gutter);
+  bottom: 1.5em;
+  z-index: 1;
+  display: flex;
+  gap: 0.5em;
+}
+
+.jellio-hero-dot {
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.35);
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+
+.jellio-hero-dot-active {
+  background: var(--jellio-secondary-color);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.001ms !important;
