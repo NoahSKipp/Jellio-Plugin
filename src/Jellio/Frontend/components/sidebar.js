@@ -5,8 +5,9 @@
 // (originally sourced from Harbor, harborstremio/harbor, MIT, and
 // NuvioMobile's own real vector drawables, see that file's own header for
 // the full provenance), not re-derived here.
-import { getUserViews } from '../runtime/api.js';
+import { getUserViews, getCurrentUser, getUserImageUrl } from '../runtime/api.js';
 import { navigateTo, currentHash } from '../runtime/router.js';
+import { openAvatarPicker } from './avatarPicker.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -96,6 +97,55 @@ function buildLink(icon, label, hash) {
   return button;
 }
 
+async function buildProfileButton() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'jellio-sidebar-link jellio-sidebar-profile';
+  button.title = 'Profile';
+  button.setAttribute('aria-label', 'Change avatar');
+
+  const iconMount = document.createElement('span');
+  iconMount.className = 'jellio-sidebar-avatar-mount';
+  button.appendChild(iconMount);
+
+  const labelEl = document.createElement('span');
+  labelEl.className = 'jellio-sidebar-label';
+  labelEl.textContent = 'Profile';
+  button.appendChild(labelEl);
+
+  async function refreshAvatar() {
+    iconMount.textContent = '';
+    let user = null;
+    try {
+      user = await getCurrentUser();
+    } catch (err) {
+      console.warn('Jellio: sidebar could not load current user', err);
+    }
+
+    const imageTag = user && user.PrimaryImageTag;
+    if (user && imageTag) {
+      const img = document.createElement('img');
+      img.className = 'jellio-sidebar-avatar';
+      img.src = getUserImageUrl(user.Id, imageTag, { maxWidth: 80 });
+      img.alt = '';
+      iconMount.appendChild(img);
+    } else {
+      const icon = document.createElement('span');
+      icon.className = 'material-icons account_circle';
+      icon.setAttribute('aria-hidden', 'true');
+      iconMount.appendChild(icon);
+    }
+  }
+
+  await refreshAvatar();
+
+  button.addEventListener('click', function () {
+    openAvatarPicker(refreshAvatar);
+  });
+
+  return button;
+}
+
 export async function renderSidebar(container) {
   container.textContent = '';
   container.className = 'jellio-sidebar';
@@ -130,5 +180,6 @@ export async function renderSidebar(container) {
   spacer.className = 'jellio-sidebar-spacer';
   container.appendChild(spacer);
 
+  container.appendChild(await buildProfileButton());
   container.appendChild(buildLink('settings', 'Settings', '#/mypreferencesmenu'));
 }
