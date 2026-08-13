@@ -92,21 +92,6 @@ export function getResumeItems(limit) {
   });
 }
 
-// Latest items for one library, the same data the native home screen's own
-// per-library "Latest in X" row reads (GET /Users/{id}/Items/Latest).
-export function getLatestItems(parentId, limit) {
-  const userId = getCurrentUserId();
-  if (!userId) return Promise.reject(new Error('Not signed in'));
-  const query =
-    '/Users/' +
-    userId +
-    '/Items/Latest?ParentId=' +
-    encodeURIComponent(parentId) +
-    '&Limit=' +
-    (limit || 16) +
-    '&Fields=PrimaryImageAspectRatio';
-  return getJson(query);
-}
 
 // Real, confirmed against the original Jellio codebase's own
 // libraryBrowse.js: a BoxSet mixed into a movie/series catalog by an addon
@@ -563,18 +548,20 @@ export function getHeroCandidates(limit, options) {
 // /Genres, since that endpoint answers which genre names exist, not
 // which carry enough titles for a row worth scrolling. A genre with
 // fewer than 8 titles in the sample is dropped, same threshold, same
-// reasoning, not re-derived.
+// reasoning, not re-derived. parentId is optional: the home screen's
+// own genre rows sample the whole server the same way the original
+// codebase's own homeRows.js discoverGenres() does, not one library.
 export function discoverGenres(parentId, itemType, limit) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   const params = new URLSearchParams({
-    ParentId: parentId,
     Recursive: 'true',
     IncludeItemTypes: itemType,
     Limit: '300',
     Fields: 'Genres',
     SortBy: 'Random',
   });
+  if (parentId) params.set('ParentId', parentId);
   return getJson('/Users/' + userId + '/Items?' + params.toString())
     .then(function (result) {
       const items = (result && result.Items) || [];
@@ -602,7 +589,6 @@ export function getGenreItems(parentId, itemType, genre, limit) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   const params = new URLSearchParams({
-    ParentId: parentId,
     Recursive: 'true',
     IncludeItemTypes: itemType,
     Genres: genre,
@@ -611,6 +597,7 @@ export function getGenreItems(parentId, itemType, genre, limit) {
     SortBy: 'CommunityRating',
     SortOrder: 'Descending',
   });
+  if (parentId) params.set('ParentId', parentId);
   return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
     return (result && result.Items) || [];
   });
