@@ -124,6 +124,8 @@ export async function renderPlayer(root, params) {
   const sleepButton = el('button', 'jellio-player-sleep');
   sleepButton.type = 'button';
   sleepButton.setAttribute('aria-label', 'Sleep timer');
+  sleepButton.setAttribute('aria-haspopup', 'true');
+  sleepButton.setAttribute('aria-expanded', 'false');
   const sleepIcon = el('span', 'material-icons bedtime');
   sleepIcon.setAttribute('aria-hidden', 'true');
   sleepButton.appendChild(sleepIcon);
@@ -135,6 +137,7 @@ export async function renderPlayer(root, params) {
     cancelSleepTimer().then(function () {
       sleepButton.classList.remove('jellio-player-sleep-active');
       sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
+      sleepButton.setAttribute('aria-expanded', 'false');
     });
   });
   sleepMenu.appendChild(cancelOption);
@@ -145,6 +148,7 @@ export async function renderPlayer(root, params) {
       startSleepTimer(minutes).then(function () {
         sleepButton.classList.add('jellio-player-sleep-active');
         sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
+        sleepButton.setAttribute('aria-expanded', 'false');
       });
     });
     sleepMenu.appendChild(option);
@@ -152,7 +156,9 @@ export async function renderPlayer(root, params) {
 
   sleepButton.addEventListener('click', function () {
     subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
-    sleepMenu.classList.toggle('jellio-player-sleep-menu-hidden');
+    subtitleButton.setAttribute('aria-expanded', 'false');
+    const nowHidden = sleepMenu.classList.toggle('jellio-player-sleep-menu-hidden');
+    sleepButton.setAttribute('aria-expanded', String(!nowHidden));
   });
 
   getSleepTimerStatus()
@@ -167,6 +173,8 @@ export async function renderPlayer(root, params) {
   const subtitleButton = el('button', 'jellio-player-subtitles');
   subtitleButton.type = 'button';
   subtitleButton.setAttribute('aria-label', 'Subtitles');
+  subtitleButton.setAttribute('aria-haspopup', 'true');
+  subtitleButton.setAttribute('aria-expanded', 'false');
   const subtitleIcon = el('span', 'material-icons subtitles');
   subtitleIcon.setAttribute('aria-hidden', 'true');
   subtitleButton.appendChild(subtitleIcon);
@@ -186,6 +194,7 @@ export async function renderPlayer(root, params) {
     subtitleButton.classList.toggle('jellio-player-sleep-active', !!stream);
     if (!stream) {
       subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
+      subtitleButton.setAttribute('aria-expanded', 'false');
       return;
     }
     const track = document.createElement('track');
@@ -200,6 +209,7 @@ export async function renderPlayer(root, params) {
       if (track.track) track.track.mode = 'showing';
     });
     subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
+    subtitleButton.setAttribute('aria-expanded', 'false');
   }
 
   if (subtitleStreams.length) {
@@ -219,7 +229,9 @@ export async function renderPlayer(root, params) {
     });
     subtitleButton.addEventListener('click', function () {
       sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
-      subtitleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
+      sleepButton.setAttribute('aria-expanded', 'false');
+      const nowHidden = subtitleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
+      subtitleButton.setAttribute('aria-expanded', String(!nowHidden));
     });
   } else {
     subtitleButton.disabled = true;
