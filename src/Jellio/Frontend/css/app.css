@@ -511,6 +511,58 @@
   background: #000;
 }
 
+.jellio-player-pause-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.jellio-player-pause-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgb(0 0 0 / 0.85) 10%, rgb(0 0 0 / 0.35) 60%, rgb(0 0 0 / 0.6) 100%);
+}
+
+.jellio-player-pause-overlay-visible {
+  opacity: 1;
+}
+
+.jellio-player-pause-content {
+  position: relative;
+  max-width: 40em;
+  padding: clamp(24px, 5vw, 64px) clamp(16px, 3vw, 40px) 7em;
+  color: var(--jellio-text-color);
+}
+
+.jellio-player-pause-title {
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-weight: 700;
+  margin-bottom: 0.4em;
+}
+
+.jellio-player-pause-meta {
+  display: flex;
+  gap: 0.8em;
+  color: var(--jellio-text-secondary);
+  margin-bottom: 0.6em;
+}
+
+.jellio-player-pause-overview {
+  color: var(--jellio-text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .jellio-player-controls {
   position: absolute;
   left: 0;

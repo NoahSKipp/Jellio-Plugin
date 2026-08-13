@@ -2,6 +2,8 @@
 // real session reporting, the same mechanism JMSFusion's own player uses
 // (confirmed against its real source before writing any of this), not
 // jellyfin-web's own playbackManager, which this runtime cannot reach.
+// Also owns a pause screen overlay (Jellyfin-PauseScreen's technique),
+// buildable directly here since this runtime owns the <video> element.
 import {
   getItemDetails,
   getPlaybackInfo,
@@ -12,6 +14,7 @@ import {
   startSleepTimer,
   cancelSleepTimer,
   getSleepTimerStatus,
+  getImageUrl,
   TICKS_PER_SECOND,
 } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
@@ -161,7 +164,25 @@ export async function renderPlayer(root, params) {
   controls.appendChild(sleepButton);
   controls.appendChild(sleepMenu);
 
+  const pauseOverlay = el('div', 'jellio-player-pause-overlay');
+  const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
+  if (backdropTag) {
+    pauseOverlay.style.backgroundImage =
+      'url(' + getImageUrl(itemId, 'Backdrop', { tag: backdropTag, maxWidth: 1600 }) + ')';
+  }
+  const pauseContent = el('div', 'jellio-player-pause-content');
+  pauseContent.appendChild(el('div', 'jellio-player-pause-title', item.Name || ''));
+  const pauseMeta = el('div', 'jellio-player-pause-meta');
+  if (item.ProductionYear) pauseMeta.appendChild(el('span', null, String(item.ProductionYear)));
+  if (item.OfficialRating) pauseMeta.appendChild(el('span', null, item.OfficialRating));
+  pauseContent.appendChild(pauseMeta);
+  if (item.Overview) {
+    pauseContent.appendChild(el('p', 'jellio-player-pause-overview', item.Overview));
+  }
+  pauseOverlay.appendChild(pauseContent);
+
   root.appendChild(video);
+  root.appendChild(pauseOverlay);
   root.appendChild(controls);
 
   let hasReportedStart = false;
@@ -208,9 +229,15 @@ export async function renderPlayer(root, params) {
 
   video.addEventListener('play', function () {
     playPauseIcon.className = 'material-icons pause';
+    pauseOverlay.classList.remove('jellio-player-pause-overlay-visible');
   });
   video.addEventListener('pause', function () {
     playPauseIcon.className = 'material-icons play_arrow';
+    // Ending playback also fires pause, the overlay would just be in the
+    // way of whatever screen comes next rather than useful here.
+    if (hasReportedStart && !video.ended) {
+      pauseOverlay.classList.add('jellio-player-pause-overlay-visible');
+    }
   });
 
   const progressInterval = window.setInterval(function () {
