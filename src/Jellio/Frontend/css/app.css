@@ -1101,6 +1101,87 @@
   padding: 1em;
 }
 
+.jellio-player-upnext {
+  position: absolute;
+  right: clamp(16px, 3vw, 40px);
+  bottom: 6.5em;
+  z-index: 2;
+  display: flex;
+  width: min(24em, calc(100vw - 2 * clamp(16px, 3vw, 40px)));
+  overflow: hidden;
+  border-radius: var(--jellio-card-radius);
+  background: var(--jellio-bg-elevated);
+  border: 1px solid var(--jellio-border-color);
+  box-shadow: 0 0.5em 2em rgb(0 0 0 / 0.45);
+  opacity: 1;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.jellio-player-upnext-hidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.jellio-player-upnext-thumb {
+  width: 7em;
+  flex: 0 0 auto;
+  background-color: var(--jellio-card-bg);
+  background-size: cover;
+  background-position: center;
+}
+
+.jellio-player-upnext-body {
+  flex: 1 1 auto;
+  padding: 0.9em 1em;
+  min-width: 0;
+}
+
+.jellio-player-upnext-eyebrow {
+  color: var(--jellio-text-tertiary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.jellio-player-upnext-title {
+  margin: 0.3em 0 0.7em;
+  color: var(--jellio-text-color);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jellio-player-upnext-actions {
+  display: flex;
+  gap: 0.5em;
+}
+
+.jellio-player-upnext-play {
+  padding: 0.5em 1.1em;
+  border: 0;
+  border-radius: 999px;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  font-family: var(--jellio-font-family);
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.jellio-player-upnext-dismiss {
+  padding: 0.5em 1em;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.001ms !important;

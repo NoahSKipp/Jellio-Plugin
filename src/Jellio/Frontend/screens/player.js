@@ -2,8 +2,12 @@
 // real session reporting, the same mechanism JMSFusion's own player uses
 // (confirmed against its real source before writing any of this), not
 // jellyfin-web's own playbackManager, which this runtime cannot reach.
-// Also owns a pause screen overlay (Jellyfin-PauseScreen's technique),
-// buildable directly here since this runtime owns the <video> element.
+// Also owns a pause screen overlay (Jellyfin-PauseScreen's technique) and
+// an up next episode preview: no native jellyfin-web up next dialog to
+// reskin the way the original Jellio codebase's own InPlayer Episode
+// Preview slice could (that dialog only exists inside jellyfin-web's own
+// player bundle, unreachable from a runtime with its own <video>
+// element), so this is a real overlay built from scratch instead.
 import {
   getItemDetails,
   getPlaybackInfo,
@@ -17,18 +21,55 @@ import {
   getImageUrl,
   getSubtitleStreams,
   buildSubtitleUrl,
+  getNextEpisode,
   TICKS_PER_SECOND,
 } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
+const UPNEXT_TRIGGER_SECONDS = 30;
+const UPNEXT_COUNTDOWN_SECONDS = 15;
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
+}
+
+function buildUpNextOverlay(episode, onPlayNow, onDismiss) {
+  const overlay = el('div', 'jellio-player-upnext jellio-player-upnext-hidden');
+
+  const thumbTag = (episode.ImageTags && episode.ImageTags.Primary) || episode.ParentThumbImageTag;
+  const thumb = el('div', 'jellio-player-upnext-thumb');
+  if (thumbTag) {
+    thumb.style.backgroundImage = 'url(' + getImageUrl(episode.Id, 'Primary', { tag: thumbTag, maxWidth: 400 }) + ')';
+  }
+  overlay.appendChild(thumb);
+
+  const body = el('div', 'jellio-player-upnext-body');
+  body.appendChild(el('div', 'jellio-player-upnext-eyebrow', 'Next Episode'));
+  const epLabel =
+    episode.IndexNumber != null && episode.ParentIndexNumber != null
+      ? 'S' + episode.ParentIndexNumber + ' E' + episode.IndexNumber + ' · '
+      : '';
+  body.appendChild(el('div', 'jellio-player-upnext-title', epLabel + (episode.Name || '')));
+
+  const actions = el('div', 'jellio-player-upnext-actions');
+  const playButton = el('button', 'jellio-player-upnext-play', 'Play now');
+  playButton.type = 'button';
+  playButton.addEventListener('click', onPlayNow);
+  const dismissButton = el('button', 'jellio-player-upnext-dismiss', 'Dismiss');
+  dismissButton.type = 'button';
+  dismissButton.setAttribute('aria-label', 'Dismiss next episode preview');
+  dismissButton.addEventListener('click', onDismiss);
+  actions.appendChild(playButton);
+  actions.appendChild(dismissButton);
+  body.appendChild(actions);
+  overlay.appendChild(body);
+
+  return { overlay: overlay, playButton: playButton };
 }
 
 function formatTime(seconds) {
@@ -267,6 +308,68 @@ export async function renderPlayer(root, params) {
   root.appendChild(pauseOverlay);
   root.appendChild(controls);
 
+  let nextEpisode = null;
+  let upNextOverlay = null;
+  let upNextPlayButton = null;
+  let upNextShown = false;
+  let upNextDismissed = false;
+  let upNextCountdownInterval = null;
+  let upNextCountdownRemaining = UPNEXT_COUNTDOWN_SECONDS;
+
+  function playNextEpisode() {
+    if (upNextCountdownInterval) {
+      window.clearInterval(upNextCountdownInterval);
+      upNextCountdownInterval = null;
+    }
+    if (nextEpisode) navigateTo('#/play?id=' + nextEpisode.Id);
+  }
+
+  function updateUpNextCountdown() {
+    if (upNextPlayButton) upNextPlayButton.textContent = 'Play now (' + upNextCountdownRemaining + ')';
+  }
+
+  function showUpNext() {
+    if (upNextShown || upNextDismissed || !upNextOverlay) return;
+    upNextShown = true;
+    upNextOverlay.classList.remove('jellio-player-upnext-hidden');
+    upNextCountdownRemaining = UPNEXT_COUNTDOWN_SECONDS;
+    updateUpNextCountdown();
+    upNextCountdownInterval = window.setInterval(function () {
+      upNextCountdownRemaining -= 1;
+      updateUpNextCountdown();
+      if (upNextCountdownRemaining <= 0) playNextEpisode();
+    }, 1000);
+  }
+
+  function hideUpNext() {
+    if (upNextCountdownInterval) {
+      window.clearInterval(upNextCountdownInterval);
+      upNextCountdownInterval = null;
+    }
+    upNextShown = false;
+    if (upNextOverlay) upNextOverlay.classList.add('jellio-player-upnext-hidden');
+  }
+
+  function dismissUpNext() {
+    hideUpNext();
+    upNextDismissed = true;
+  }
+
+  if (item.Type === 'Episode') {
+    getNextEpisode(item)
+      .then(function (result) {
+        if (!result) return;
+        nextEpisode = result;
+        const built = buildUpNextOverlay(result, playNextEpisode, dismissUpNext);
+        upNextOverlay = built.overlay;
+        upNextPlayButton = built.playButton;
+        root.appendChild(upNextOverlay);
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not resolve next episode', err);
+      });
+  }
+
   let hasReportedStart = false;
   let seeking = false;
   let lastReportedTicks = startTicks;
@@ -292,6 +395,10 @@ export async function renderPlayer(root, params) {
     if (!hasReportedStart) {
       hasReportedStart = true;
       reportPlaybackStart(itemId, mediaSource.Id, currentPositionTicks());
+    }
+
+    if (nextEpisode && !upNextDismissed && video.duration && video.duration - video.currentTime <= UPNEXT_TRIGGER_SECONDS) {
+      showUpNext();
     }
   });
 
@@ -332,6 +439,7 @@ export async function renderPlayer(root, params) {
 
   return function cleanup() {
     window.clearInterval(progressInterval);
+    if (upNextCountdownInterval) window.clearInterval(upNextCountdownInterval);
     if (hasReportedStart) {
       reportPlaybackStopped(itemId, mediaSource.Id, currentPositionTicks());
     }
