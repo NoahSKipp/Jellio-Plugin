@@ -18,7 +18,7 @@ import {
   getCollections,
   getCollectionItems,
 } from '../runtime/api.js';
-import { buildCard } from '../components/card.js';
+import { buildRow } from '../components/row.js';
 import { buildLibraryCoverflow } from '../components/libraryCoverflow.js';
 
 const GENRE_ROWS = 6;
@@ -29,18 +29,6 @@ function el(tag, className, text) {
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
-}
-
-function buildRow(title, items) {
-  if (!items || !items.length) return null;
-  const section = el('section', 'jellio-row');
-  section.appendChild(el('h2', 'jellio-row-title', title));
-  const track = el('div', 'jellio-row-track');
-  items.forEach(function (item) {
-    track.appendChild(buildCard(item));
-  });
-  section.appendChild(track);
-  return section;
 }
 
 // Mounts a coverflow only once it has confirmed enough real slides to be
