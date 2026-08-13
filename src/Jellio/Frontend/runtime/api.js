@@ -533,3 +533,24 @@ export async function getNextEpisode(item) {
   const nextEpisodes = await getEpisodes(item.SeriesId, nextSeason.Id);
   return nextEpisodes.length ? nextEpisodes[0] : null;
 }
+
+// Random, not DateCreated: Gelato stamps DateCreated as the import
+// instant (Services/CatalogImportService.cs), the same for every title a
+// catalog import brought in at once, so sorting by it means "whichever
+// page happened to sort first among several hundred titles stamped the
+// same second", not "newest". Confirmed against the original Jellio
+// codebase's own heroCarousel.js before porting the same choice here.
+export function getHeroCandidates(limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    SortBy: 'Random',
+    Recursive: 'true',
+    IncludeItemTypes: 'Movie,Series',
+    Limit: String(limit || 8),
+    Fields: 'Overview,Genres,ProductionYear,RunTimeTicks,OfficialRating',
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
