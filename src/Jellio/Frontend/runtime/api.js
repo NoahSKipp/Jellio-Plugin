@@ -503,3 +503,33 @@ export function buildSubtitleUrl(itemId, mediaSourceId, stream) {
 export function getNowPlayingSessions() {
   return getJson('/Jellio/now-playing');
 }
+
+// The next episode after this one, for the player's own up-next overlay.
+// No native jellyfin-web up next dialog to reskin here (that only exists
+// in jellyfin-web's own player bundle, unreachable from this runtime, see
+// screens/player.js's own header), so this runtime finds it itself from
+// data already fetched elsewhere: the current season's own episode list,
+// falling back to the next season's first episode at a season boundary.
+export async function getNextEpisode(item) {
+  if (!item || item.Type !== 'Episode' || !item.SeriesId) return null;
+
+  if (item.SeasonId) {
+    const episodes = await getEpisodes(item.SeriesId, item.SeasonId);
+    const index = episodes.findIndex(function (episode) {
+      return episode.Id === item.Id;
+    });
+    if (index !== -1 && index + 1 < episodes.length) {
+      return episodes[index + 1];
+    }
+  }
+
+  const seasons = await getSeasons(item.SeriesId);
+  const seasonIndex = seasons.findIndex(function (season) {
+    return season.Id === item.SeasonId;
+  });
+  const nextSeason = seasonIndex !== -1 ? seasons[seasonIndex + 1] : null;
+  if (!nextSeason) return null;
+
+  const nextEpisodes = await getEpisodes(item.SeriesId, nextSeason.Id);
+  return nextEpisodes.length ? nextEpisodes[0] : null;
+}
