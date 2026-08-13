@@ -177,48 +177,19 @@ export function logout() {
   window.location.reload();
 }
 
-// Fallback capture path: if a real login ever happens through native
-// jellyfin-web instead of this runtime's own authenticateByName (a stock
-// login screen shown while this codebase has not migrated that route yet),
-// jellyfin-apiclient-javascript's own Credentials.initialize() logs
-// "Stored JSON credentials: {...}" on every boot, real source
-// (lib/jellyfin-apiclient's own credentials.js), confirmed during the
-// reskin codebase's own login work, not guessed at. Real technique,
-// confirmed against JMSFusion's own real source (RuntimeModules/auth.js),
-// not invented here: intercepting console.log is the only way an injected
-// script reaches that value, jellyfin-apiclient-javascript's own module
-// internals are never exposed on window.
-(function interceptNativeCredentialLog() {
-  const marker = 'Stored JSON credentials:';
-  const originalLog = console.log;
-  console.log = function () {
-    try {
-      for (let i = 0; i < arguments.length; i++) {
-        const arg = arguments[i];
-        if (typeof arg === 'string' && arg.indexOf(marker) === 0) {
-          const parsed = JSON.parse(arg.slice(marker.length).trim());
-          const server =
-            parsed && parsed.Servers && parsed.Servers[0];
-          if (server && server.AccessToken && server.UserId) {
-            fetch(getServerAddress() + '/Users/' + server.UserId, {
-              headers: { 'X-Emby-Token': server.AccessToken },
-            })
-              .then(function (res) {
-                return res.ok ? res.json() : null;
-              })
-              .then(function (user) {
-                if (user) setSession(server.AccessToken, user);
-              })
-              .catch(function () {
-                // A failed capture just means native login's own token
-                // stays out of this runtime's session, not a crash.
-              });
-          }
-        }
-      }
-    } catch (err) {
-      // Never let a parsing failure here break console.log itself.
-    }
-    return originalLog.apply(console, arguments);
-  };
-})();
+// The console.log interception this runtime used to install here was
+// always too late to matter: jellyfin-apiclient-javascript's own
+// Credentials.initialize() logs "Stored JSON credentials: {...}" exactly
+// once, synchronously, during the one real ConnectionManager construction
+// that happens inside jellyfin-web's own main bundle, itself a deferred
+// script. This bootstrap module is also deferred and sits last in the
+// document (IndexHtmlPatchService's own injected block), so by the time
+// any code in this file ever ran, that log had already fired and was
+// gone. Real bug, found on a live install: this whole runtime silently
+// never saw a session, ever, on every load. The capture now happens in a
+// plain (non-deferred, non-module) inline script IndexHtmlPatchService
+// injects ahead of this one, which always runs first regardless of
+// document position, writing the same session shape setSession below
+// does. Nothing here needs to read jellyfin_credentials or hook
+// console.log itself anymore, only find what that earlier script already
+// wrote.

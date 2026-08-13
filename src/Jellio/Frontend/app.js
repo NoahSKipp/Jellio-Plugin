@@ -121,6 +121,15 @@ async function sync() {
 
 onRouteChange(sync);
 
+// The early inline script IndexHtmlPatchService injects ahead of this
+// module captures a native login's own token synchronously, but still
+// resolves the full user object with its own async fetch, which can
+// still be in flight when this module's own first sync() call already
+// ran and found no session yet. This event fires once that fetch
+// finishes, so the very first render happens as soon as a session is
+// real rather than waiting on a hashchange that may never come.
+document.addEventListener('jellio:session-captured', sync);
+
 // Best effort: a report sent from here can still be dropped by the
 // browser before it lands, the same real limitation every other Jellyfin
 // client's own beforeunload reporting already has, not something this
