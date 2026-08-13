@@ -86,9 +86,14 @@
   background: rgb(255 255 255 / 0.1);
 }
 
+/* Fixed px/rem here, while the sidebar's own width (line 58) already
+   scales with clamp(...vw...), left the icons and labels visibly
+   smaller than the rest of the app on a large display, same real
+   pattern the account screen's own text sizing had. Scaling these the
+   same way keeps them proportionate to the rail around them. */
 .jellio-sidebar-icon-svg {
-  width: 22px;
-  height: 22px;
+  width: clamp(20px, 1.9vw, 28px);
+  height: clamp(20px, 1.9vw, 28px);
   fill: currentColor;
 }
 
@@ -101,11 +106,11 @@
 }
 
 .jellio-sidebar-link .material-icons {
-  font-size: 22px;
+  font-size: clamp(20px, 1.9vw, 28px);
 }
 
 .jellio-sidebar-label {
-  font-size: 0.62rem;
+  font-size: clamp(0.62rem, 0.75vw, 0.85rem);
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
