@@ -936,3 +936,74 @@
   outline: 2px solid var(--jellio-secondary-color);
   outline-offset: 2px;
 }
+
+.jellio-settings-header {
+  padding: clamp(24px, 4vw, 56px) var(--jellio-safe-gutter) clamp(12px, 2vw, 24px);
+}
+
+.jellio-settings-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  font-weight: 700;
+}
+
+.jellio-settings-section {
+  max-width: 32em;
+  padding: 0 var(--jellio-safe-gutter) clamp(24px, 3vw, 40px);
+}
+
+.jellio-settings-section-title {
+  margin: 0 0 0.8em;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.jellio-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+}
+
+.jellio-settings-input {
+  padding: 0.7em 1em;
+  border: 1px solid var(--jellio-border-color);
+  border-radius: var(--jellio-card-radius);
+  background: var(--jellio-card-bg);
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-size: 0.9rem;
+}
+
+.jellio-settings-input:focus {
+  outline: none;
+  border-color: var(--jellio-secondary-color);
+}
+
+.jellio-settings-status {
+  margin: 0;
+  color: var(--jellio-text-secondary);
+  font-size: 0.85rem;
+}
+
+.jellio-settings-button {
+  align-self: flex-start;
+  padding: 0.6em 1.6em;
+  border: 0;
+  border-radius: 999px;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  font-family: var(--jellio-font-family);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.jellio-settings-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.jellio-settings-button-danger {
+  background: rgb(255 255 255 / 0.08);
+  color: var(--jellio-text-color);
+}

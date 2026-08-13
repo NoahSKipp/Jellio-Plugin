@@ -181,5 +181,6 @@ export async function renderSidebar(container) {
   container.appendChild(spacer);
 
   container.appendChild(await buildProfileButton());
+  container.appendChild(buildLink('person', 'Account', '#/account'));
   container.appendChild(buildLink('settings', 'Settings', '#/mypreferencesmenu'));
 }
