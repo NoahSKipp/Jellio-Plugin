@@ -3,14 +3,23 @@
 // job to parse and pass along), the same two params the original Jellio
 // codebase's own sidebar already builds into its library links.
 //
-// Hero carousel plus genre rows, ported from the original codebase's own
-// libraryBrowse.js (discoverGenres/genreRows, real endpoints, same
-// thresholds), rather than the flat grid this screen shipped with
-// first: real feedback asked for the library pages to look like that
-// version's own carousel-and-rows treatment, not a single grid.
-import { getItem, getLibraryItems, itemTypesForKind, discoverGenres, getGenreItems } from '../runtime/api.js';
+// Coverflow carousel plus genre rows, ported from the original codebase's
+// own libraryBrowse.js/libraryCoverflow.js (real endpoints, same
+// thresholds), rather than the flat grid this screen shipped with first
+// and rather than the home screen's own hero carousel it briefly used
+// after that: real feedback asked directly for library pages to use the
+// three-card coverflow shape, not either of those.
+import {
+  getItem,
+  getLibraryItems,
+  itemTypesForKind,
+  discoverGenres,
+  getGenreItems,
+  getCollections,
+  getCollectionItems,
+} from '../runtime/api.js';
 import { buildCard } from '../components/card.js';
-import { buildHeroCarousel } from '../components/heroCarousel.js';
+import { buildLibraryCoverflow } from '../components/libraryCoverflow.js';
 
 const GENRE_ROWS = 6;
 const ROW_LIMIT = 20;
@@ -34,6 +43,18 @@ function buildRow(title, items) {
   return section;
 }
 
+// Mounts a coverflow only once it has confirmed enough real slides to be
+// worth showing (its own MIN_SLIDES floor), rather than always reserving
+// the space: a library without a carousel is still a working library,
+// same reasoning the original codebase's own fetchItems() documents.
+function mountCoverflow(root, options) {
+  const coverflow = buildLibraryCoverflow(options);
+  coverflow.ready.then(function (mounted) {
+    if (mounted) root.insertBefore(coverflow.element, root.firstChild);
+  });
+  return coverflow.destroy;
+}
+
 export async function renderLibrary(root, params) {
   root.textContent = '';
   root.className = 'jellio-content jellio-screen-library';
@@ -46,8 +67,12 @@ export async function renderLibrary(root, params) {
   // titles: one global SeriesPath per series import, no separate Anime
   // CollectionType. No Jellyfin query can tell an anime Series apart
   // from any other inside the same TV library, same real constraint the
-  // original codebase's own libraryBrowse.js documents, so anime still
-  // gets only a relabelled flat grid, not rows a real query cannot back.
+  // original codebase's own libraryBrowse.js documents, so this page
+  // still cannot filter the flat grid or build genre rows the way the
+  // real library pages below do. It can still get a real coverflow
+  // though, sourced from a real anime/anilist catalog collection when
+  // one exists, the same source the original codebase's own anime page
+  // features from.
   const isAnime = params.get('jellioKind') === 'anime';
 
   if (!parentId) {
@@ -56,14 +81,10 @@ export async function renderLibrary(root, params) {
   }
 
   if (isAnime) {
-    await renderFlatGrid(root, parentId, collectionType, 'Anime');
-    return;
+    return renderAnime(root, parentId, collectionType);
   }
 
   const itemType = itemTypesForKind(collectionType);
-
-  const hero = buildHeroCarousel({ parentId, itemTypes: itemType });
-  root.appendChild(hero.element);
 
   const header = el('header', 'jellio-library-header');
   const heading = el('h1', 'jellio-library-title');
@@ -72,6 +93,8 @@ export async function renderLibrary(root, params) {
 
   const rows = el('div', 'jellio-rows');
   root.appendChild(rows);
+
+  const destroy = mountCoverflow(root, { parentId, itemTypes: itemType });
 
   const [itemResult, latestResult] = await Promise.allSettled([
     getItem(parentId),
@@ -102,17 +125,33 @@ export async function renderLibrary(root, params) {
     console.warn('Jellio: could not load genre rows', err);
   }
 
-  return hero.destroy;
+  return destroy;
 }
 
-async function renderFlatGrid(root, parentId, collectionType, title) {
+async function renderAnime(root, parentId, collectionType) {
   const header = el('header', 'jellio-library-header');
-  const heading = el('h1', 'jellio-library-title', title);
-  header.appendChild(heading);
+  header.appendChild(el('h1', 'jellio-library-title', 'Anime'));
   root.appendChild(header);
 
   const grid = el('div', 'jellio-library-grid');
   root.appendChild(grid);
+
+  let destroy;
+  try {
+    const collections = await getCollections();
+    const animeCollection = collections.filter(function (item) {
+      return /anime|anilist/i.test(item.Name || '');
+    })[0];
+    if (animeCollection) {
+      const items = await getCollectionItems(animeCollection.Id, collectionType, 8);
+      const coverflow = buildLibraryCoverflow({ items: items });
+      const mounted = await coverflow.ready;
+      if (mounted) root.insertBefore(coverflow.element, root.firstChild);
+      destroy = coverflow.destroy;
+    }
+  } catch (err) {
+    console.warn('Jellio: could not load anime catalog for the coverflow', err);
+  }
 
   try {
     const result = await getLibraryItems(parentId, collectionType);
@@ -123,4 +162,6 @@ async function renderFlatGrid(root, parentId, collectionType, title) {
   } catch (err) {
     console.warn('Jellio: could not load library items', err);
   }
+
+  return destroy;
 }

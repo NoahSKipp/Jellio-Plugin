@@ -3,6 +3,7 @@
    project, same values, this is not new third party IP. */
 :root {
   --jellio-bg-color: #0d0d0d;
+  --jellio-bg-color-rgb: 13 13 13;
   --jellio-bg-elevated: #1a1a1a;
   --jellio-card-bg: #222222;
   --jellio-secondary-color: #f5f5f5;
@@ -40,8 +41,17 @@
   height: 100vh;
 }
 
+/* Matches .jellio-sidebar's own width below rather than flex: 0 0 auto,
+   which sized this mount off its own children instead. getRoot()
+   rebuilds the shell's inner HTML on every render (self-heal fix,
+   app.js), so this mount sits briefly empty before renderSidebar()'s
+   own async work repopulates it, and an auto flex-basis collapsed an
+   empty mount to near nothing before snapping back once content
+   landed, a real visible size flash on every navigation, reported
+   live. A fixed basis reserves the final width immediately regardless
+   of what has loaded into it yet. */
 .jellio-sidebar-mount {
-  flex: 0 0 auto;
+  flex: 0 0 clamp(64px, 6vw, 96px);
 }
 
 .jellio-content {
@@ -1460,6 +1470,228 @@
 
 .jellio-person-filmography {
   padding-top: 0.5em;
+}
+
+/* Coverflow carousel for the library pages, ported from the original
+   codebase's own library-coverflow.css: three wide cards, the middle
+   one lit and carrying the title's own art, logo, meta and actions, the
+   two beside it dimmed, scaled back and tucked slightly under it. Real
+   feedback asked directly for this shape on library pages rather than
+   the home screen's own hero-carousel treatment above, kept as a
+   second component rather than a mode of that one for the same reason
+   this file's own upstream keeps them separate: a full-bleed backdrop
+   and a track of discrete cards share nothing but both advancing on a
+   timer. The reduced-motion block this file's own upstream carries is
+   dropped here: the * { transition-duration: 0.001ms !important; }
+   rule at the end of this file already covers every transition this
+   component declares. */
+.jellio-coverflow {
+  position: relative;
+  margin-bottom: clamp(20px, 1.8vw, 38px);
+  padding: clamp(14px, 1.4vw, 28px) 0 0;
+  overflow: hidden;
+}
+
+.jellio-coverflow-stage {
+  position: relative;
+  height: calc(clamp(320px, 34vw, 780px) / 2.2);
+}
+
+.jellio-coverflow-slide {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: clamp(320px, 34vw, 780px);
+  height: 100%;
+  margin-left: calc(clamp(320px, 34vw, 780px) / -2);
+  border-radius: clamp(10px, 0.9vw, 18px);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 520ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 520ms cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform, opacity;
+}
+
+.jellio-coverflow-slide-near {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(calc(var(--jellio-cf-offset) * 72%)) scale(0.88);
+  z-index: 5;
+}
+
+.jellio-coverflow-slide-current {
+  transform: translateX(0) scale(1);
+  z-index: 6;
+  box-shadow:
+    0 1.4em 3.2em rgb(0 0 0 / 0.55),
+    0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+.jellio-coverflow-slide-far {
+  opacity: 0;
+  transform: translateX(calc(var(--jellio-cf-offset) * 72%)) scale(0.86);
+  z-index: 0;
+}
+
+.jellio-coverflow-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: var(--jellio-card-bg);
+}
+
+.jellio-coverflow-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--jellio-bg-color-rgb) / 0.68);
+  opacity: 1;
+  transition: opacity 520ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.jellio-coverflow-slide-current .jellio-coverflow-scrim {
+  opacity: 1;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--jellio-bg-color-rgb) / 0.75) 0%,
+    rgb(var(--jellio-bg-color-rgb) / 0.35) 45%,
+    rgb(var(--jellio-bg-color-rgb) / 0.05) 100%
+  );
+}
+
+.jellio-coverflow-info {
+  position: absolute;
+  left: clamp(16px, 1.8vw, 40px);
+  bottom: clamp(14px, 1.6vw, 34px);
+  right: clamp(16px, 1.8vw, 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(6px, 0.6vw, 12px);
+  opacity: 0;
+  transition: opacity 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jellio-coverflow-slide-current .jellio-coverflow-info {
+  opacity: 1;
+}
+
+.jellio-coverflow-logo {
+  max-width: min(56%, 15em);
+  max-height: clamp(34px, 3.4vw, 74px);
+  object-fit: contain;
+  object-position: left bottom;
+}
+
+.jellio-coverflow-title {
+  margin: 0;
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(1.2rem, 2vw, 2.1rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.jellio-coverflow-meta {
+  color: var(--jellio-text-secondary);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.62rem, 0.72vw, 0.78rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.jellio-coverflow-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin-top: clamp(2px, 0.3vw, 8px);
+}
+
+.jellio-coverflow-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.55em 1.15em;
+  border: 0;
+  border-radius: 999px;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.72rem, 0.8vw, 0.9rem);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jellio-coverflow-button-secondary {
+  background: rgb(255 255 255 / 0.14);
+  color: var(--jellio-text-color);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+}
+
+.jellio-coverflow-button:hover {
+  transform: translateY(-1px);
+}
+
+.jellio-coverflow-button:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}
+
+.jellio-coverflow-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.45em;
+  margin-top: clamp(10px, 1vw, 20px);
+}
+
+.jellio-coverflow-dot {
+  width: 0.4em;
+  height: 0.4em;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.28);
+  cursor: pointer;
+  transition:
+    width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jellio-coverflow-dot-active {
+  width: 1.5em;
+  background: var(--jellio-secondary-color);
+}
+
+.jellio-coverflow-dot:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 3px;
+}
+
+@media (max-width: 56.24em) {
+  .jellio-coverflow-slide {
+    width: min(86vw, 520px);
+    margin-left: calc(min(86vw, 520px) / -2);
+  }
+
+  .jellio-coverflow-stage {
+    height: calc(min(86vw, 520px) / 1.9);
+  }
+
+  .jellio-coverflow-slide-near {
+    transform: translateX(calc(var(--jellio-cf-offset) * 96%)) scale(0.92);
+  }
+
+  .jellio-coverflow-slide-current {
+    transform: translateX(0) scale(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
