@@ -1259,6 +1259,9 @@
   padding: 1em;
 }
 
+/* Glass, the same real NuvioWeb pattern the now-playing panel and
+   avatar picker use, ported here too for one consistent floating
+   panel treatment across the app rather than three different ones. */
 .jellio-player-upnext {
   position: absolute;
   right: clamp(16px, 3vw, 40px);
@@ -1268,8 +1271,10 @@
   width: min(24em, calc(100vw - 2 * clamp(16px, 3vw, 40px)));
   overflow: hidden;
   border-radius: var(--jellio-card-radius);
-  background: var(--jellio-bg-elevated);
-  border: 1px solid var(--jellio-border-color);
+  background: rgb(var(--jellio-bg-elevated-rgb) / 0.82);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
   box-shadow: 0 0.5em 2em rgb(0 0 0 / 0.45);
   opacity: 1;
   transition: opacity 0.3s ease, transform 0.3s ease;
