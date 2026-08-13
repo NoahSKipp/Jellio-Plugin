@@ -3,7 +3,8 @@
 // current route. An unmigrated route (no entry in SCREENS) leaves native
 // jellyfin-web showing underneath, untouched, real fallback rather than a
 // broken page.
-import { isAuthenticated } from './runtime/auth.js';
+import { isAuthenticated, loginScreenBypassed } from './runtime/auth.js';
+import { renderLogin } from './screens/login.js';
 import { renderHome } from './screens/home.js';
 import { renderLibrary } from './screens/library.js';
 import { renderSearch } from './screens/search.js';
@@ -134,12 +135,44 @@ async function sync() {
   }
 }
 
+// Not authenticated is this runtime's own login screen now, real
+// endpoints only (auth.js's own authenticateByName/quickSignIn), not a
+// fall back to native's login page: unlike a route this codebase has
+// simply not migrated yet, there is nothing native could do here that
+// this runtime cannot already do itself, and staying on native's own
+// login page is what the previous codebase's quick sign-in work was
+// actually trying to route around in the first place.
+async function renderUnauthenticated() {
+  teardownActiveScreen();
+
+  const root = getRoot();
+  root.classList.add('jellio-root-visible', 'jellio-root-fullscreen');
+
+  const sidebarMount = root.querySelector('.jellio-sidebar-mount');
+  sidebarMount.textContent = '';
+  sidebarMount.className = 'jellio-sidebar-mount';
+
+  const content = root.querySelector('.jellio-content');
+  const result = await renderLogin(content);
+  activeCleanup = typeof result === 'function' ? result : null;
+}
+
 async function runSync() {
   try {
+    if (!isAuthenticated()) {
+      if (loginScreenBypassed()) {
+        teardownActiveScreen();
+        hide();
+        return;
+      }
+      await renderUnauthenticated();
+      return;
+    }
+
     const route = parseRoute();
     const screen = SCREENS[route.path];
 
-    if (!screen || !isAuthenticated()) {
+    if (!screen) {
       teardownActiveScreen();
       hide();
       return;
