@@ -69,7 +69,8 @@
   gap: 4px;
   width: clamp(13.5em, 15vw, 16.5em);
   height: 100%;
-  padding: 20px 12px;
+  padding: 20px 12px 32px;
+  overflow-y: auto;
   background: var(--jellio-bg-elevated);
   border-right: 1px solid var(--jellio-border-color);
 }
