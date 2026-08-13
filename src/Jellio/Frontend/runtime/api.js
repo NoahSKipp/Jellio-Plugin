@@ -554,3 +554,22 @@ export function getHeroCandidates(limit) {
     return (result && result.Items) || [];
   });
 }
+
+// Soft dependency on the community Intro Skipper plugin
+// (github.com/intro-skipper/intro-skipper). Real endpoint confirmed
+// against its own SkipIntroController.cs before writing this: GET
+// /Episode/{id}/Timestamps, despite the route name it works for both
+// Episode and Movie items. A segment with no real detection comes back
+// as Start: 0, End: 0, the server's own Segment.Valid rule is End > 0,
+// not something this runtime invents. Any failure (plugin not
+// installed, unknown item) resolves to an empty object rather than
+// throwing, since this is a soft dependency: no segments is a normal
+// outcome, not an error worth surfacing.
+export async function getIntroSkipperSegments(itemId) {
+  try {
+    const result = await getJson('/Episode/' + itemId + '/Timestamps');
+    return result || {};
+  } catch (err) {
+    return {};
+  }
+}
