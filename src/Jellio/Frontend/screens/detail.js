@@ -15,6 +15,9 @@ function el(tag, className, text) {
 
 function buildEpisodeCard(episode) {
   const card = el('div', 'jellio-episode-card');
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', episode.Name || '');
   const thumbTag =
     (episode.ImageTags && episode.ImageTags.Primary) ||
     (episode.ParentThumbImageTag && episode.ParentThumbImageTag);
@@ -33,6 +36,12 @@ function buildEpisodeCard(episode) {
   }
   card.addEventListener('click', function () {
     navigateTo('#/item?id=' + episode.Id);
+  });
+  card.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      navigateTo('#/item?id=' + episode.Id);
+    }
   });
   return card;
 }

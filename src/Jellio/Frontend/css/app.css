@@ -191,9 +191,14 @@
   white-space: nowrap;
 }
 
-.jellio-card:hover .jellio-card-image {
+.jellio-card:hover .jellio-card-image,
+.jellio-card:focus-visible .jellio-card-image {
   outline: 2px solid var(--jellio-secondary-color);
   outline-offset: 2px;
+}
+
+.jellio-card:focus-visible {
+  outline: none;
 }
 
 .jellio-card-watched {
@@ -451,6 +456,15 @@
   flex: 0 0 auto;
   width: clamp(220px, 22vw, 320px);
   cursor: pointer;
+}
+
+.jellio-episode-card:focus-visible .jellio-episode-thumb {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}
+
+.jellio-episode-card:focus-visible {
+  outline: none;
 }
 
 .jellio-episode-thumb {
