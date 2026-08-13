@@ -114,6 +114,9 @@ function buildCastRow(people) {
   const track = el('div', 'jellio-row-track');
   cast.slice(0, 20).forEach(function (person) {
     const card = el('div', 'jellio-cast-card');
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', person.Name || '');
     if (person.PrimaryImageTag) {
       const img = el('img', 'jellio-cast-image');
       img.src = getImageUrl(person.Id, 'Primary', { tag: person.PrimaryImageTag, maxWidth: 200 });
@@ -125,6 +128,15 @@ function buildCastRow(people) {
     }
     card.appendChild(el('div', 'jellio-cast-name', person.Name || ''));
     if (person.Role) card.appendChild(el('div', 'jellio-cast-role', person.Role));
+    card.addEventListener('click', function () {
+      navigateTo('#/person?id=' + person.Id);
+    });
+    card.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        navigateTo('#/person?id=' + person.Id);
+      }
+    });
     track.appendChild(card);
   });
   section.appendChild(track);

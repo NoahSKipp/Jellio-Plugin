@@ -573,3 +573,35 @@ export async function getIntroSkipperSegments(itemId) {
     return {};
   }
 }
+
+// A person's own real item DTO (name, overview, image tag), the same
+// generic GET /Users/{id}/Items/{itemId} every other item detail lookup
+// in this file already uses, works for a Person item exactly like it
+// does for a Movie or Series.
+export function getPerson(personId) {
+  return getItem(personId);
+}
+
+// A person's filmography, real endpoint confirmed against
+// Jellyfin.Api.Controllers.ItemsController.cs before writing this:
+// GET /Items?personIds=X, a real, documented query param (comma
+// delimited, lowercase in the query string despite PascalCase
+// everywhere else in this file, confirmed from the controller's own
+// parameter binding), not guessed from the Filters pattern this file
+// uses elsewhere.
+export function getPersonFilmography(personId, limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    personIds: personId,
+    Recursive: 'true',
+    IncludeItemTypes: 'Movie,Series',
+    SortBy: 'PremiereDate',
+    SortOrder: 'Descending',
+    Fields: 'PrimaryImageAspectRatio,ProductionYear',
+    Limit: String(limit || 50),
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}

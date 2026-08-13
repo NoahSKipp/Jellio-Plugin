@@ -11,6 +11,7 @@ import { renderDetail } from './screens/detail.js';
 import { renderPlayer } from './screens/player.js';
 import { renderService } from './screens/service.js';
 import { renderSettings } from './screens/settings.js';
+import { renderPerson } from './screens/person.js';
 import { renderSidebar } from './components/sidebar.js';
 import { startNowPlaying } from './components/nowPlaying.js';
 import { onRouteChange, parseRoute } from './runtime/router.js';
@@ -28,6 +29,7 @@ const SCREENS = {
   play: renderPlayer,
   service: renderService,
   account: renderSettings,
+  person: renderPerson,
   movies: renderLibrary,
   tv: renderLibrary,
   music: renderLibrary,

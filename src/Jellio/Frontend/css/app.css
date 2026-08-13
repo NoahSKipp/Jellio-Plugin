@@ -374,6 +374,16 @@
 .jellio-cast-card {
   flex: 0 0 auto;
   width: clamp(90px, 8vw, 120px);
+  cursor: pointer;
+}
+
+.jellio-cast-card:focus-visible .jellio-cast-image {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}
+
+.jellio-cast-card:focus-visible {
+  outline: none;
 }
 
 .jellio-cast-image {
@@ -1386,6 +1396,44 @@
 
 .jellio-hero-dot-active {
   background: var(--jellio-secondary-color);
+}
+
+.jellio-person-header {
+  display: flex;
+  gap: clamp(20px, 3vw, 40px);
+  padding: clamp(24px, 4vw, 56px) var(--jellio-safe-gutter) clamp(16px, 2vw, 28px);
+}
+
+.jellio-person-photo {
+  flex: 0 0 auto;
+  width: clamp(140px, 16vw, 220px);
+  aspect-ratio: 2 / 3;
+  border-radius: var(--jellio-card-radius);
+  object-fit: cover;
+  background: var(--jellio-card-bg);
+}
+
+.jellio-person-photo-empty {
+  background: var(--jellio-card-bg);
+}
+
+.jellio-person-info {
+  max-width: 48em;
+}
+
+.jellio-person-name {
+  margin: 0 0 0.5em;
+  font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+  font-weight: 800;
+}
+
+.jellio-person-overview {
+  color: var(--jellio-text-secondary);
+  line-height: 1.6;
+}
+
+.jellio-person-filmography {
+  padding-top: 0.5em;
 }
 
 @media (prefers-reduced-motion: reduce) {
