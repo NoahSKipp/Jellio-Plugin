@@ -60,7 +60,7 @@ function crossfadeBackdrop(container, url) {
   });
 }
 
-export function buildHeroCarousel() {
+export function buildHeroCarousel(options) {
   const root = el('div', 'jellio-hero');
   const backdrop = el('div', 'jellio-hero-backdrop');
   const scrim = el('div', 'jellio-hero-scrim');
@@ -169,7 +169,7 @@ export function buildHeroCarousel() {
     hovered = false;
   });
 
-  getHeroCandidates(CANDIDATE_LIMIT)
+  getHeroCandidates(CANDIDATE_LIMIT, options)
     .then(function (result) {
       if (!result.length) return;
       items = result;

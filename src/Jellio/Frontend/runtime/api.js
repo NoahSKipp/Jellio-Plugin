@@ -540,15 +540,76 @@ export async function getNextEpisode(item) {
 // page happened to sort first among several hundred titles stamped the
 // same second", not "newest". Confirmed against the original Jellio
 // codebase's own heroCarousel.js before porting the same choice here.
-export function getHeroCandidates(limit) {
+export function getHeroCandidates(limit, options) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
+  const opts = options || {};
   const params = new URLSearchParams({
     SortBy: 'Random',
     Recursive: 'true',
-    IncludeItemTypes: 'Movie,Series',
+    IncludeItemTypes: opts.itemTypes || 'Movie,Series',
     Limit: String(limit || 8),
     Fields: 'Overview,Genres,ProductionYear,RunTimeTicks,OfficialRating',
+  });
+  if (opts.parentId) params.set('ParentId', opts.parentId);
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
+
+// Which genres a library actually has enough of to be worth a row,
+// ported from the original codebase's own libraryBrowse.js
+// discoverGenres(): counted from a random sample rather than asked of
+// /Genres, since that endpoint answers which genre names exist, not
+// which carry enough titles for a row worth scrolling. A genre with
+// fewer than 8 titles in the sample is dropped, same threshold, same
+// reasoning, not re-derived.
+export function discoverGenres(parentId, itemType, limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    ParentId: parentId,
+    Recursive: 'true',
+    IncludeItemTypes: itemType,
+    Limit: '300',
+    Fields: 'Genres',
+    SortBy: 'Random',
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString())
+    .then(function (result) {
+      const items = (result && result.Items) || [];
+      const counts = {};
+      items.forEach(function (item) {
+        (item.Genres || []).forEach(function (genre) {
+          counts[genre] = (counts[genre] || 0) + 1;
+        });
+      });
+      return Object.keys(counts)
+        .filter(function (genre) {
+          return counts[genre] >= 8;
+        })
+        .sort(function (a, b) {
+          return counts[b] - counts[a];
+        })
+        .slice(0, limit || 6);
+    })
+    .catch(function () {
+      return [];
+    });
+}
+
+export function getGenreItems(parentId, itemType, genre, limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    ParentId: parentId,
+    Recursive: 'true',
+    IncludeItemTypes: itemType,
+    Genres: genre,
+    Limit: String(limit || 20),
+    Fields: 'ProductionYear,CommunityRating',
+    SortBy: 'CommunityRating',
+    SortOrder: 'Descending',
   });
   return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
     return (result && result.Items) || [];
