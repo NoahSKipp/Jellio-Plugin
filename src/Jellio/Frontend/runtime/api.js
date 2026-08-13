@@ -495,3 +495,11 @@ export function buildSubtitleUrl(itemId, mediaSourceId, stream) {
     (token ? '?ApiKey=' + encodeURIComponent(token) : '')
   );
 }
+
+// Real endpoint, GET /Jellio/now-playing (Controllers/NowPlayingController.cs,
+// ported verbatim), reads Jellyfin's own real ISessionManager server side,
+// every active session with NowPlayingItem set, any signed in user, this
+// is a shared "who is watching what" surface by design.
+export function getNowPlayingSessions() {
+  return getJson('/Jellio/now-playing');
+}
