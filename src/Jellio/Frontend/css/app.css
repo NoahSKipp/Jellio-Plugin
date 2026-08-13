@@ -639,7 +639,8 @@
   accent-color: var(--jellio-secondary-color);
 }
 
-.jellio-player-sleep {
+.jellio-player-sleep,
+.jellio-player-subtitles {
   position: relative;
   display: flex;
   align-items: center;
@@ -654,8 +655,14 @@
   flex: 0 0 auto;
 }
 
-.jellio-player-sleep:hover {
+.jellio-player-sleep:hover,
+.jellio-player-subtitles:hover {
   background: rgb(255 255 255 / 0.2);
+}
+
+.jellio-player-subtitles:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .jellio-player-sleep-active {
@@ -687,6 +694,10 @@
   font-family: var(--jellio-font-family);
   text-align: left;
   cursor: pointer;
+}
+
+.jellio-player-sleep-option-active {
+  color: var(--jellio-secondary-color);
 }
 
 .jellio-sidebar-avatar-mount {

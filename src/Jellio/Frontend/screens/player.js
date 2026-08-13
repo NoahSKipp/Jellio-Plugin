@@ -15,6 +15,8 @@ import {
   cancelSleepTimer,
   getSleepTimerStatus,
   getImageUrl,
+  getSubtitleStreams,
+  buildSubtitleUrl,
   TICKS_PER_SECOND,
 } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
@@ -149,6 +151,7 @@ export async function renderPlayer(root, params) {
   });
 
   sleepButton.addEventListener('click', function () {
+    subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
     sleepMenu.classList.toggle('jellio-player-sleep-menu-hidden');
   });
 
@@ -160,10 +163,74 @@ export async function renderPlayer(root, params) {
       // No status yet is not an error worth surfacing here.
     });
 
+  const subtitleStreams = getSubtitleStreams(mediaSource);
+  const subtitleButton = el('button', 'jellio-player-subtitles');
+  subtitleButton.type = 'button';
+  subtitleButton.setAttribute('aria-label', 'Subtitles');
+  const subtitleIcon = el('span', 'material-icons subtitles');
+  subtitleIcon.setAttribute('aria-hidden', 'true');
+  subtitleButton.appendChild(subtitleIcon);
+
+  const subtitleMenu = el('div', 'jellio-player-sleep-menu jellio-player-sleep-menu-hidden');
+  let activeTrack = null;
+
+  function selectSubtitle(stream, optionButton) {
+    if (activeTrack) {
+      activeTrack.remove();
+      activeTrack = null;
+    }
+    Array.prototype.forEach.call(subtitleMenu.children, function (child) {
+      child.classList.remove('jellio-player-sleep-option-active');
+    });
+    if (optionButton) optionButton.classList.add('jellio-player-sleep-option-active');
+    subtitleButton.classList.toggle('jellio-player-sleep-active', !!stream);
+    if (!stream) {
+      subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
+      return;
+    }
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.label = stream.DisplayTitle || stream.Language || 'Subtitle';
+    track.srclang = stream.Language || '';
+    track.src = buildSubtitleUrl(itemId, mediaSource.Id, stream);
+    track.default = true;
+    video.appendChild(track);
+    activeTrack = track;
+    track.addEventListener('load', function () {
+      if (track.track) track.track.mode = 'showing';
+    });
+    subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
+  }
+
+  if (subtitleStreams.length) {
+    const offOption = el('button', 'jellio-player-sleep-option jellio-player-sleep-option-active', 'Off');
+    offOption.type = 'button';
+    offOption.addEventListener('click', function () {
+      selectSubtitle(null, offOption);
+    });
+    subtitleMenu.appendChild(offOption);
+    subtitleStreams.forEach(function (stream) {
+      const option = el('button', 'jellio-player-sleep-option', stream.DisplayTitle || stream.Language || 'Subtitle');
+      option.type = 'button';
+      option.addEventListener('click', function () {
+        selectSubtitle(stream, option);
+      });
+      subtitleMenu.appendChild(option);
+    });
+    subtitleButton.addEventListener('click', function () {
+      sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
+      subtitleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
+    });
+  } else {
+    subtitleButton.disabled = true;
+  }
+
   controls.appendChild(backButton);
   controls.appendChild(title);
   controls.appendChild(seekRow);
   controls.appendChild(playPauseButton);
+  controls.appendChild(subtitleButton);
+  controls.appendChild(subtitleMenu);
   controls.appendChild(sleepButton);
   controls.appendChild(sleepMenu);
 
