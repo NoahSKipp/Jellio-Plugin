@@ -2,14 +2,73 @@
 // markup, fed entirely by runtime/api.js's own fetch calls, no native DOM
 // read or waited on. Deliberately minimal (no hero yet, no per row scroll
 // buttons) until the pattern this establishes is worth repeating elsewhere.
-import { getCurrentUser, getUserViews, getResumeItems, getLatestItems, getFavoriteItems } from '../runtime/api.js';
+import { getCurrentUser, getUserViews, getResumeItems, getLatestItems, getFavoriteItems, getCollections } from '../runtime/api.js';
 import { buildCard } from '../components/card.js';
+import { groupByService, logoSlug } from '../components/services.js';
+import { navigateTo } from '../runtime/router.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
+}
+
+// The logo is requested optimistically and the name sits behind it in
+// CSS: onerror is the only way to know a file does not exist, and a
+// service with no icon shows its name immediately rather than an empty
+// tile flashing first. Same technique the original codebase's own
+// streamingHub.js uses.
+function buildHubTile(name) {
+  const tile = document.createElement('button');
+  tile.type = 'button';
+  tile.className = 'jellio-hub-tile';
+  tile.title = name;
+
+  const label = document.createElement('span');
+  label.className = 'jellio-hub-tile-name';
+  label.textContent = name;
+  tile.appendChild(label);
+
+  const logo = document.createElement('img');
+  logo.className = 'jellio-hub-tile-logo';
+  logo.alt = name;
+  logo.loading = 'lazy';
+  logo.src = '/Jellio/frontend/img/services/' + logoSlug(name) + '.svg';
+  logo.addEventListener('load', function () {
+    tile.classList.add('jellio-has-logo');
+  });
+  logo.addEventListener('error', function () {
+    logo.remove();
+  });
+  tile.appendChild(logo);
+
+  tile.addEventListener('click', function () {
+    navigateTo('#/service?name=' + encodeURIComponent(name));
+  });
+  return tile;
+}
+
+async function buildHubStrip() {
+  let collections;
+  try {
+    collections = await getCollections();
+  } catch (err) {
+    console.warn('Jellio: could not load streaming hub collections', err);
+    return null;
+  }
+  const groups = groupByService(collections);
+  const names = Object.keys(groups).sort();
+  if (!names.length) return null;
+
+  const section = el('section', 'jellio-hub');
+  section.appendChild(el('h2', 'jellio-row-title', 'Your streaming'));
+  const tiles = el('div', 'jellio-hub-tiles');
+  names.forEach(function (name) {
+    tiles.appendChild(buildHubTile(name));
+  });
+  section.appendChild(tiles);
+  return section;
 }
 
 function buildRow(title, items) {
@@ -77,6 +136,9 @@ export async function renderHome(root, params) {
     const row = buildRow('Continue Watching', resumeResult.value);
     if (row) rows.appendChild(row);
   }
+
+  const hub = await buildHubStrip();
+  if (hub) rows.appendChild(hub);
 
   if (viewsResult.status === 'fulfilled') {
     const views = viewsResult.value.slice(0, 6);

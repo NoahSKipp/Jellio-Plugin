@@ -770,3 +770,169 @@
 .jellio-player-sleep-option:hover {
   background: rgb(255 255 255 / 0.08);
 }
+
+.jellio-hub-tiles {
+  display: flex;
+  gap: clamp(8px, 0.8vw, 14px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.35em var(--jellio-safe-gutter) 0.6em;
+  scrollbar-width: none;
+}
+
+.jellio-hub-tiles::-webkit-scrollbar {
+  display: none;
+}
+
+.jellio-hub-tile {
+  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(104px, 9vw, 168px);
+  height: clamp(48px, 4vw, 74px);
+  padding: 0 1.1em;
+  border: 0;
+  border-radius: clamp(10px, 0.8vw, 16px);
+  background: var(--jellio-bg-elevated);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  color: var(--jellio-text-color);
+  cursor: pointer;
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.jellio-hub-tile:hover {
+  transform: translateY(-2px);
+  background: var(--jellio-card-bg);
+}
+
+.jellio-hub-tile:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}
+
+.jellio-hub-tile-name {
+  font-size: clamp(0.78rem, 0.9vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* Simple Icons ships a single black path with no fill attribute, forced
+   to white here rather than trusting whatever the file declares.
+   brightness(0) flattens any colour to black first, invert lifts it to
+   white, holding for a mark of any original colour. */
+.jellio-hub-tile-logo {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: 54%;
+  width: auto;
+  max-width: 82%;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+/* The mark replaces the word rather than sitting beside it, driven by a
+   class the image sets on load rather than :has(). The word stays in
+   the DOM either way, for screen readers and for services with no file. */
+.jellio-hub-tile.jellio-has-logo .jellio-hub-tile-name,
+.jellio-service-name.jellio-has-logo .jellio-service-word {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.jellio-service-header {
+  padding: clamp(18px, 2vw, 44px) var(--jellio-safe-gutter) clamp(10px, 1vw, 20px);
+}
+
+.jellio-service-eyebrow {
+  color: var(--jellio-text-tertiary);
+  font-size: clamp(0.58rem, 0.66vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.jellio-service-name {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0.15em 0 0;
+  font-size: clamp(1.9rem, 3.4vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.jellio-service-logo {
+  height: clamp(30px, 3.2vw, 62px);
+  max-width: min(60vw, 420px);
+  object-fit: contain;
+  object-position: left center;
+  filter: brightness(0) invert(1);
+}
+
+.jellio-service-blurb {
+  margin: 0.7em 0 0;
+  color: var(--jellio-text-secondary);
+  font-size: clamp(0.76rem, 0.85vw, 0.92rem);
+}
+
+.jellio-service-empty {
+  margin: 0;
+  padding: 0 var(--jellio-safe-gutter) clamp(24px, 3vw, 60px);
+  max-width: 46em;
+  color: var(--jellio-text-secondary);
+  font-size: clamp(0.8rem, 0.9vw, 0.98rem);
+  line-height: 1.6;
+}
+
+.jellio-service-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5em;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: clamp(8px, 1vw, 18px) var(--jellio-safe-gutter) clamp(10px, 1.2vw, 22px);
+}
+
+.jellio-service-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.jellio-service-chip {
+  flex: 0 0 auto;
+  padding: 0.42em 0.95em;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--jellio-text-secondary);
+  font-size: clamp(0.7rem, 0.78vw, 0.84rem);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.jellio-service-chip:hover {
+  background: rgb(255 255 255 / 0.14);
+  color: var(--jellio-text-color);
+}
+
+.jellio-service-chip-active,
+.jellio-service-chip-active:hover {
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+}
+
+.jellio-service-chip:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}

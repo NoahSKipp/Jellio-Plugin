@@ -9,6 +9,7 @@ import { renderLibrary } from './screens/library.js';
 import { renderSearch } from './screens/search.js';
 import { renderDetail } from './screens/detail.js';
 import { renderPlayer } from './screens/player.js';
+import { renderService } from './screens/service.js';
 import { renderSidebar } from './components/sidebar.js';
 import { onRouteChange, parseRoute } from './runtime/router.js';
 
@@ -23,6 +24,7 @@ const SCREENS = {
   search: renderSearch,
   item: renderDetail,
   play: renderPlayer,
+  service: renderService,
   movies: renderLibrary,
   tv: renderLibrary,
   music: renderLibrary,
