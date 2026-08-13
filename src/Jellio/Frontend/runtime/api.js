@@ -340,3 +340,62 @@ export function getImageUrl(itemId, type, options) {
     (query ? '?' + query : '')
   );
 }
+
+export function getUserImageUrl(userId, tag, options) {
+  const opts = options || {};
+  const params = new URLSearchParams();
+  if (tag) params.set('tag', tag);
+  if (opts.maxWidth) params.set('maxWidth', String(opts.maxWidth));
+  const query = params.toString();
+  return getServerAddress() + '/Users/' + userId + '/Images/Primary' + (query ? '?' + query : '');
+}
+
+// Jellio's own real endpoint (Controllers/AvatarsController.cs, ported
+// verbatim), lists whatever preset images an admin has dropped into the
+// plugin's own data directory.
+export function getAvatarPresets() {
+  return getJson('/Jellio/avatars');
+}
+
+export function getAvatarPresetUrl(id) {
+  return getServerAddress() + '/Jellio/avatars/' + encodeURIComponent(id);
+}
+
+// Setting the chosen preset as a user's own avatar is not Jellio's job,
+// real mechanism confirmed against jellyfin-apiclient-javascript's own
+// uploadUserImage before writing this: fetch the preset's own bytes,
+// base64 encode them, POST to the same real POST /Users/{id}/Images/
+// Primary endpoint the stock profile page's own file upload already
+// uses, body is the base64 payload itself with Content-Type set to the
+// image's real mime type, not JSON.
+export async function setUserAvatar(presetId) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+
+  const imageResponse = await fetch(getAvatarPresetUrl(presetId));
+  if (!imageResponse.ok) {
+    throw new Error('Could not load preset avatar');
+  }
+  const blob = await imageResponse.blob();
+  const contentType = blob.type || 'image/png';
+
+  const base64 = await new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = function () {
+      resolve(String(reader.result).split(',')[1]);
+    };
+    reader.readAsDataURL(blob);
+  });
+
+  const response = await fetch(getServerAddress() + '/Users/' + userId + '/Images/Primary', {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': contentType }, getAuthHeaders()),
+    body: base64,
+  });
+  if (!response.ok) {
+    const err = new Error('Could not set avatar');
+    err.status = response.status;
+    throw err;
+  }
+}
