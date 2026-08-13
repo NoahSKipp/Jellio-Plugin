@@ -162,8 +162,19 @@ export async function authenticateByName(username, password) {
   return result;
 }
 
+// Clears this runtime's own session and native jellyfin-web's own
+// credential store ('jellyfin_credentials', the real localStorage key
+// jellyfin-apiclient-javascript's own credentials.js writes to), then
+// reloads so both land back on native's own sign in screen rather than
+// the two disagreeing about who is signed in.
 export function logout() {
   clearSession();
+  try {
+    window.localStorage.removeItem('jellyfin_credentials');
+  } catch (err) {
+    // Nothing left to clear if this fails, the key is simply stale.
+  }
+  window.location.reload();
 }
 
 // Fallback capture path: if a real login ever happens through native

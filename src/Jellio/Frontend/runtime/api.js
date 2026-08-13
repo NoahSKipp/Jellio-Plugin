@@ -452,3 +452,16 @@ export function getCollectionItems(collectionId, kind, limit) {
     return (result && result.Items) || [];
   });
 }
+
+// Real endpoint, POST /Users/{id}/Password, body { CurrentPw, NewPw },
+// confirmed against jellyfin-apiclient-javascript's own
+// updateUserPassword before writing this rather than guessing field
+// names, the same call the stock profile page's own password form uses.
+export function updateUserPassword(currentPassword, newPassword) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  return postJson('/Users/' + userId + '/Password', {
+    CurrentPw: currentPassword || '',
+    NewPw: newPassword,
+  });
+}
