@@ -116,8 +116,26 @@ function buildManualForm(options) {
   return form;
 }
 
-function buildProfileTile(userId, entry, onForgotten, onFailed) {
+// Real feedback asked for the profile tiles to enter one after another
+// rather than all at once, "like in the Nuvio app". Nuvio's own real
+// source was not reachable to confirm the exact timing (checked
+// NuvioWeb, the project's own primary reference per CLAUDE.md; its
+// "who's watching" screen, js/core/profile/profileSelectionScreen.js,
+// carries no such per tile stagger to port), so this is a standard
+// staggered grid entrance built directly rather than a port, index
+// order matching left to right, top to bottom reading order, capped
+// (STAGGER_STEP_MS * STAGGER_MAX below) so a long remembered list does
+// not leave the last tile waiting a full second to appear.
+const STAGGER_STEP_MS = 55;
+const STAGGER_MAX = 10;
+
+function applyStagger(wrap, index) {
+  wrap.style.setProperty('--jellio-stagger-delay', Math.min(index, STAGGER_MAX) * STAGGER_STEP_MS + 'ms');
+}
+
+function buildProfileTile(userId, entry, index, onForgotten, onFailed) {
   const wrap = el('div', 'jellio-login-profile');
+  applyStagger(wrap, index);
 
   const avatarWrap = el('div', 'jellio-login-profile-avatar-wrap');
 
@@ -168,8 +186,9 @@ function buildProfileTile(userId, entry, onForgotten, onFailed) {
   return wrap;
 }
 
-function buildAddTile(onClick) {
+function buildAddTile(index, onClick) {
   const wrap = el('div', 'jellio-login-profile');
+  applyStagger(wrap, index);
   const avatarWrap = el('div', 'jellio-login-profile-avatar-wrap');
 
   const avatar = document.createElement('button');
@@ -216,11 +235,12 @@ function renderProfilePicker(container, remembered) {
   container.appendChild(el('h1', 'jellio-login-heading', 'Who’s watching?'));
   const grid = el('div', 'jellio-login-profile-grid');
 
-  userIds.forEach(function (userId) {
+  userIds.forEach(function (userId, index) {
     grid.appendChild(
       buildProfileTile(
         userId,
         remembered[userId],
+        index,
         function () {
           renderProfilePicker(container, getRememberedUsers());
         },
@@ -232,7 +252,7 @@ function renderProfilePicker(container, remembered) {
   });
 
   grid.appendChild(
-    buildAddTile(function () {
+    buildAddTile(userIds.length, function () {
       showManual('', '');
     }),
   );
