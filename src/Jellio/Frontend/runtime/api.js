@@ -579,20 +579,31 @@ export async function getNextEpisode(item) {
 // page happened to sort first among several hundred titles stamped the
 // same second", not "newest". Confirmed against the original Jellio
 // codebase's own heroCarousel.js before porting the same choice here.
+// Cached the same way views/collections/the current user are: SortBy
+// Random means an uncached second call inside the same TTL window
+// returns a different set, which would defeat app.js's own splash
+// preload (its whole point is warming the exact images the home
+// screen's real heroCarousel.js call renders a moment later, not a
+// different random eight). A minute of "random" staying put is not
+// something a reader can notice on their own.
 export function getHeroCandidates(limit, options) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   const opts = options || {};
-  const params = new URLSearchParams({
-    SortBy: 'Random',
-    Recursive: 'true',
-    IncludeItemTypes: opts.itemTypes || 'Movie,Series',
-    Limit: String(limit || 8),
-    Fields: 'Overview,Genres,ProductionYear,RunTimeTicks,OfficialRating',
-  });
-  if (opts.parentId) params.set('ParentId', opts.parentId);
-  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
-    return (result && result.Items) || [];
+  const itemTypes = opts.itemTypes || 'Movie,Series';
+  const key = 'hero:' + userId + ':' + (opts.parentId || '') + ':' + itemTypes + ':' + (limit || 8);
+  return cached(key, function () {
+    const params = new URLSearchParams({
+      SortBy: 'Random',
+      Recursive: 'true',
+      IncludeItemTypes: itemTypes,
+      Limit: String(limit || 8),
+      Fields: 'Overview,Genres,ProductionYear,RunTimeTicks,OfficialRating',
+    });
+    if (opts.parentId) params.set('ParentId', opts.parentId);
+    return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+      return (result && result.Items) || [];
+    });
   });
 }
 

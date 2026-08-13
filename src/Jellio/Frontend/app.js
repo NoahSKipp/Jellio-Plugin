@@ -4,7 +4,7 @@
 // jellyfin-web showing underneath, untouched, real fallback rather than a
 // broken page.
 import { isAuthenticated, loginScreenBypassed } from './runtime/auth.js';
-import { getUserViews, getCollections, getCurrentUser } from './runtime/api.js';
+import { getUserViews, getCollections, getCurrentUser, getHeroCandidates, getResumeItems, getImageUrl } from './runtime/api.js';
 import { renderLogin } from './screens/login.js';
 import { renderHome } from './screens/home.js';
 import { renderLibrary } from './screens/library.js';
@@ -213,12 +213,49 @@ function withTimeout(promise, ms) {
   });
 }
 
+function prefetchImage(url) {
+  if (!url) return;
+  const img = new Image();
+  img.src = url;
+}
+
+// Real feedback named these two specifically: the hero carousel's own
+// backdrops and the thumbnails of the shows in the first row. Both
+// only get fetched once heroCarousel.js/screens/home.js actually build
+// their <img> tags, which used to mean the reader watched them pop in
+// after the splash had already stepped aside. Requesting the same URLs
+// here first means the browser's own HTTP cache already has them by
+// the time those real elements ask for them, real load rather than a
+// timer pretending to be one.
+//
+// Scoped to the home screen on purpose rather than every possible
+// landing route: which screen loads first only varies on a direct deep
+// link, the ordinary case (a fresh load, a login, a quick sign-in) all
+// land on #/home, and guessing at some other route's own images
+// without knowing which one would mean fetching data most visits never
+// use. getHeroCandidates is cached (see runtime/api.js's own header
+// for why a Random sort needs that here specifically), so this and
+// heroCarousel.js's own later call return the same eight items rather
+// than two different random sets.
+async function preloadHomeImages() {
+  try {
+    const [heroItems, resumeItems] = await Promise.all([getHeroCandidates(8), getResumeItems(10)]);
+    heroItems.forEach(function (item) {
+      prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }));
+    });
+    resumeItems.forEach(function (item) {
+      prefetchImage(getImageUrl(item.Id, 'Primary', { maxWidth: 400 }));
+    });
+  } catch (err) {
+    console.warn('Jellio: could not preload home images', err);
+  }
+}
+
 async function preloadInitialData() {
   showSplash();
-  await withTimeout(
-    Promise.all([getUserViews(), getCollections(), getCurrentUser()]),
-    PRELOAD_TIMEOUT_MS,
-  );
+  const tasks = [getUserViews(), getCollections(), getCurrentUser()];
+  if (parseRoute().path === 'home') tasks.push(preloadHomeImages());
+  await withTimeout(Promise.all(tasks), PRELOAD_TIMEOUT_MS);
   hideSplash();
 }
 
