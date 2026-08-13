@@ -58,10 +58,22 @@ function libraryHash(view) {
   return '#/list?parentId=' + view.Id;
 }
 
+// Anime's own link is Shows' own hash with '&jellioKind=anime' appended
+// (libraryHash() + that marker), so Shows' hash is a literal string
+// prefix of Anime's. A plain prefix check lit up both buttons the
+// moment Anime was the active route, reported live. Requiring the same
+// jellioKind presence on both sides before trusting a prefix keeps the
+// two apart without needing every caller to change what it passes in.
 function isActive(hash) {
   const current = currentHash();
   if (hash === '#/home') return current === '#/home' || current === '#/' || current === '';
-  return current.indexOf(hash) === 0;
+  if (current === hash) return true;
+  if (current.indexOf(hash) !== 0) return false;
+  const rest = current.slice(hash.length);
+  if (rest && rest[0] !== '&' && rest[0] !== '?') return false;
+  const hashHasKind = hash.indexOf('jellioKind=') !== -1;
+  const currentHasKind = current.indexOf('jellioKind=') !== -1;
+  return hashHasKind === currentHasKind;
 }
 
 function buildLink(icon, label, hash) {
