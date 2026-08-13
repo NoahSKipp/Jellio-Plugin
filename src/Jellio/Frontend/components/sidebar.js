@@ -67,9 +67,11 @@ function isActive(hash) {
 function buildLink(icon, label, hash) {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'jellio-sidebar-link' + (isActive(hash) ? ' jellio-sidebar-link-active' : '');
+  const active = isActive(hash);
+  button.className = 'jellio-sidebar-link' + (active ? ' jellio-sidebar-link-active' : '');
   button.title = label;
   button.setAttribute('aria-label', label);
+  if (active) button.setAttribute('aria-current', 'page');
 
   const svgDef = SVG_ICONS[icon];
   let iconEl;

@@ -19,6 +19,7 @@ export async function renderSearch(root) {
   input.type = 'search';
   input.className = 'jellio-search-input';
   input.placeholder = 'Search movies and shows';
+  input.setAttribute('aria-label', 'Search movies and shows');
   input.autofocus = true;
   header.appendChild(input);
   root.appendChild(header);

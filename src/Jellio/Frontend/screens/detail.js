@@ -64,6 +64,7 @@ async function buildSeasonsSection(seriesId) {
   section.appendChild(el('h2', 'jellio-row-title', 'Episodes'));
 
   const tabs = el('div', 'jellio-season-tabs');
+  tabs.setAttribute('role', 'tablist');
   const track = el('div', 'jellio-episode-track');
   section.appendChild(tabs);
   section.appendChild(track);
@@ -71,8 +72,10 @@ async function buildSeasonsSection(seriesId) {
   function selectSeason(season, tabButton) {
     Array.prototype.forEach.call(tabs.children, function (child) {
       child.classList.remove('jellio-season-tab-selected');
+      child.setAttribute('aria-selected', 'false');
     });
     tabButton.classList.add('jellio-season-tab-selected');
+    tabButton.setAttribute('aria-selected', 'true');
     track.textContent = '';
     getEpisodes(seriesId, season.Id)
       .then(function (episodes) {
@@ -88,6 +91,8 @@ async function buildSeasonsSection(seriesId) {
   seasons.forEach(function (season, index) {
     const tab = el('button', 'jellio-season-tab', season.Name || '');
     tab.type = 'button';
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', 'false');
     tab.addEventListener('click', function () {
       selectSeason(season, tab);
     });
