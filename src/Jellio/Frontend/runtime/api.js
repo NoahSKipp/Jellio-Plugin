@@ -465,3 +465,33 @@ export function updateUserPassword(currentPassword, newPassword) {
     NewPw: newPassword,
   });
 }
+
+// A subtitle stream not in text form (PGS, VobSub, any image based
+// format) has no WebVTT representation to hand a <track> element, real
+// distinction confirmed against MediaStream.cs's own IsTextSubtitleStream
+// before writing this: only checked, never guessed at from Codec alone.
+export function getSubtitleStreams(mediaSource) {
+  return (mediaSource.MediaStreams || []).filter(function (stream) {
+    return stream.Type === 'Subtitle' && stream.IsTextSubtitleStream;
+  });
+}
+
+// Real endpoint confirmed against SubtitleController.cs's own registered
+// route before writing this: GET /Videos/{itemId}/{mediaSourceId}/
+// Subtitles/{streamIndex}/Stream.vtt converts any text subtitle format to
+// WebVTT server side, so requesting .vtt always works for a text stream
+// regardless of its real source codec. An already external stream
+// (DeliveryMethod === 'External') carries its own DeliveryUrl instead,
+// confirmed against jellyfin-web's own playbackmanager.js: absolute when
+// IsExternalUrl is set, otherwise still relative to this same server.
+export function buildSubtitleUrl(itemId, mediaSourceId, stream) {
+  if (stream.DeliveryMethod === 'External' && stream.DeliveryUrl) {
+    return stream.IsExternalUrl ? stream.DeliveryUrl : getServerAddress() + stream.DeliveryUrl;
+  }
+  const token = getAccessToken();
+  return (
+    getServerAddress() +
+    '/Videos/' + itemId + '/' + mediaSourceId + '/Subtitles/' + stream.Index + '/Stream.vtt' +
+    (token ? '?ApiKey=' + encodeURIComponent(token) : '')
+  );
+}
