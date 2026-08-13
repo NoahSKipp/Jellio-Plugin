@@ -8,6 +8,7 @@
 import { getUserViews, getCurrentUser, getUserImageUrl } from '../runtime/api.js';
 import { navigateTo, currentHash } from '../runtime/router.js';
 import { openAvatarPicker } from './avatarPicker.js';
+import { toggleNowPlayingPanel, nowPlayingCount } from './nowPlaying.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -99,6 +100,40 @@ function buildLink(icon, label, hash) {
   return button;
 }
 
+// Labelled "Playing" rather than "Now playing": every other row on the
+// rail is a single word, matching the original codebase's own real
+// feedback based reasoning for the same button.
+function buildNowPlayingButton() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'jellio-sidebar-link jellio-sidebar-now-playing';
+  button.title = 'Playing';
+  button.setAttribute('aria-label', 'Now playing');
+  button.setAttribute('aria-haspopup', 'true');
+  button.setAttribute('aria-expanded', 'false');
+  if (nowPlayingCount() > 0) button.classList.add('jellio-sidebar-now-playing-active');
+
+  const icon = document.createElement('span');
+  icon.className = 'material-icons play_circle';
+  icon.setAttribute('aria-hidden', 'true');
+  button.appendChild(icon);
+
+  const badge = document.createElement('span');
+  badge.className = 'jellio-sidebar-now-playing-badge';
+  badge.textContent = String(nowPlayingCount());
+  button.appendChild(badge);
+
+  const labelEl = document.createElement('span');
+  labelEl.className = 'jellio-sidebar-label';
+  labelEl.textContent = 'Playing';
+  button.appendChild(labelEl);
+
+  button.addEventListener('click', function () {
+    toggleNowPlayingPanel();
+  });
+  return button;
+}
+
 async function buildProfileButton() {
   const button = document.createElement('button');
   button.type = 'button';
@@ -182,6 +217,7 @@ export async function renderSidebar(container) {
   spacer.className = 'jellio-sidebar-spacer';
   container.appendChild(spacer);
 
+  container.appendChild(buildNowPlayingButton());
   container.appendChild(await buildProfileButton());
   container.appendChild(buildLink('person', 'Account', '#/account'));
   container.appendChild(buildLink('settings', 'Settings', '#/mypreferencesmenu'));

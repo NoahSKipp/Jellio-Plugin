@@ -12,6 +12,7 @@ import { renderPlayer } from './screens/player.js';
 import { renderService } from './screens/service.js';
 import { renderSettings } from './screens/settings.js';
 import { renderSidebar } from './components/sidebar.js';
+import { startNowPlaying } from './components/nowPlaying.js';
 import { onRouteChange, parseRoute } from './runtime/router.js';
 
 const ROOT_ID = 'jellioRoot';
@@ -91,6 +92,7 @@ async function sync() {
     }
 
     teardownActiveScreen();
+    startNowPlaying();
 
     const root = getRoot();
     root.classList.add('jellio-root-visible');
