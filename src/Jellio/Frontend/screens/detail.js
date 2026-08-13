@@ -158,10 +158,26 @@ export async function renderDetail(root, params) {
     return;
   }
 
+  // A title reached straight from a search result carries a synthetic
+  // placeholder id, not a real library one, confirmed against Gelato's
+  // own real source: SearchActionFilter's own ConvertMetasToDtos sets
+  // dto.Id to a Stremio URI hash and only saves the real metadata for
+  // later insertion. The very first request under that id (this one)
+  // is what actually triggers the insert, and the response above
+  // already describes the real, canonical item, real id included, so
+  // every request this screen makes from here on addresses that one
+  // directly rather than the placeholder still sitting in params. The
+  // original codebase's own canonicalItemId.js exists for the same
+  // reason (its own header documents the same mechanism, several
+  // follow up requests otherwise all racing the same in-progress
+  // insert under the same placeholder).
+  const canonicalId = item.Id || itemId;
+
   const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
   const hero = el('div', 'jellio-detail-hero');
   if (backdropTag) {
-    hero.style.backgroundImage = 'url(' + getImageUrl(itemId, 'Backdrop', { tag: backdropTag, maxWidth: 1600 }) + ')';
+    hero.style.backgroundImage =
+      'url(' + getImageUrl(canonicalId, 'Backdrop', { tag: backdropTag, maxWidth: 1600 }) + ')';
   }
 
   const heroContent = el('div', 'jellio-detail-hero-content');
@@ -188,7 +204,7 @@ export async function renderDetail(root, params) {
     const playButton = el('button', 'jellio-detail-play', 'Play');
     playButton.type = 'button';
     playButton.addEventListener('click', function () {
-      navigateTo('#/play?id=' + itemId);
+      navigateTo('#/play?id=' + canonicalId);
     });
     actions.appendChild(playButton);
   }
@@ -203,7 +219,7 @@ export async function renderDetail(root, params) {
   favoriteButton.addEventListener('click', function () {
     const nextState = !favoriteButton.classList.contains('jellio-detail-favorite-active');
     favoriteButton.disabled = true;
-    setFavorite(itemId, nextState)
+    setFavorite(canonicalId, nextState)
       .then(function (userData) {
         const active = !!(userData && userData.IsFavorite);
         favoriteButton.classList.toggle('jellio-detail-favorite-active', active);
@@ -228,7 +244,7 @@ export async function renderDetail(root, params) {
   }
 
   if (item.Type === 'Series') {
-    const seasonsSection = await buildSeasonsSection(itemId);
+    const seasonsSection = await buildSeasonsSection(canonicalId);
     if (seasonsSection) root.appendChild(seasonsSection);
   }
 
