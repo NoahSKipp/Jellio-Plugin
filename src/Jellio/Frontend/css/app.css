@@ -72,7 +72,8 @@
   gap: 4px;
   width: var(--jellio-sidebar-width);
   height: 100%;
-  padding: 20px 12px;
+  padding: 20px 12px 32px;
+  overflow-y: auto;
   background: var(--jellio-bg-elevated);
   border-right: 1px solid var(--jellio-border-color);
 }
