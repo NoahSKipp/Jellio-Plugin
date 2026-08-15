@@ -1379,6 +1379,80 @@
   cursor: pointer;
 }
 
+/* Centred over the paused frame at the saved position rather than
+   anchored to a corner the way the up next card is: this is the very
+   first thing a reader sees on open, not something surfacing over
+   playback already running. */
+.jellio-player-resume-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.45);
+}
+
+.jellio-player-resume-panel {
+  padding: clamp(20px, 2.4vw, 32px) clamp(24px, 3vw, 40px);
+  border-radius: var(--jellio-card-radius);
+  background: rgb(var(--jellio-bg-elevated-rgb) / 0.82);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  box-shadow: 0 0.5em 2em rgb(0 0 0 / 0.45);
+  text-align: center;
+}
+
+.jellio-player-resume-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.jellio-player-resume-subtitle {
+  margin-top: 0.4em;
+  color: var(--jellio-text-secondary);
+  font-size: 0.85rem;
+}
+
+.jellio-player-resume-actions {
+  display: flex;
+  gap: 0.6em;
+  justify-content: center;
+  margin-top: 1.2em;
+}
+
+.jellio-player-resume-play {
+  padding: 0.6em 1.6em;
+  border: 0;
+  border-radius: 999px;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  font-family: var(--jellio-font-family);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.jellio-player-resume-restart {
+  padding: 0.6em 1.6em;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.jellio-player-resume-play:hover {
+  background: var(--jellio-secondary-variant);
+}
+
+.jellio-player-resume-restart:hover {
+  background: rgb(255 255 255 / 0.18);
+}
+
 .jellio-player-skip {
   position: absolute;
   right: clamp(16px, 3vw, 40px);

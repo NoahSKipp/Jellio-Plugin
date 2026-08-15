@@ -84,6 +84,34 @@ function buildUpNextOverlay(episode, onPlayNow, onDismiss) {
   return { overlay: overlay, playButton: playButton };
 }
 
+// A real choice instead of always just seeking straight to the saved
+// position, ported from Harbor's own player/resume-prompt.tsx idea:
+// shown once, over the paused frame at that exact position (the video
+// element is already seeked there by the time this appears, see
+// renderPlayer's own loadedmetadata handler), Start Over is a real
+// choice this runtime did not offer before rather than something to
+// dig for elsewhere.
+function buildResumePrompt(percent, onResume, onRestart) {
+  const overlay = el('div', 'jellio-player-resume-overlay');
+  const panel = el('div', 'jellio-player-resume-panel');
+  panel.appendChild(el('div', 'jellio-player-resume-title', 'Resume playback?'));
+  if (percent != null) {
+    panel.appendChild(el('div', 'jellio-player-resume-subtitle', percent + '% watched'));
+  }
+  const actions = el('div', 'jellio-player-resume-actions');
+  const resumeButton = el('button', 'jellio-player-resume-play', 'Resume');
+  resumeButton.type = 'button';
+  resumeButton.addEventListener('click', onResume);
+  const restartButton = el('button', 'jellio-player-resume-restart', 'Start Over');
+  restartButton.type = 'button';
+  restartButton.addEventListener('click', onRestart);
+  actions.appendChild(resumeButton);
+  actions.appendChild(restartButton);
+  panel.appendChild(actions);
+  overlay.appendChild(panel);
+  return { overlay: overlay, resumeButton: resumeButton };
+}
+
 // A source's own rich Name (Decorators/MediaSourceManagerDecorator.cs's
 // own GetVersionInfo: the stream's own scraper name, plus description
 // on a second line when there is one) is already the closest thing to
@@ -160,10 +188,17 @@ export async function renderPlayer(root, params) {
 
   const streamUrl = buildStreamUrl(itemId, mediaSource, startTicks);
 
+  // A real saved position asks first rather than always silently
+  // seeking there: autoplay stays off until the reader actually picks
+  // Resume or Start Over below, the paused frame at the saved position
+  // showing through behind that choice instead of playback already
+  // running underneath it.
+  const hasResumePosition = startTicks > 0;
+
   const video = document.createElement('video');
   video.className = 'jellio-player-video';
   video.src = streamUrl;
-  video.autoplay = true;
+  video.autoplay = !hasResumePosition;
   video.playsInline = true;
 
   const controls = el('div', 'jellio-player-controls');
@@ -506,6 +541,27 @@ export async function renderPlayer(root, params) {
   root.appendChild(pauseOverlay);
   root.appendChild(skipButton);
   root.appendChild(controls);
+
+  if (hasResumePosition) {
+    const percent =
+      item.UserData && item.UserData.PlayedPercentage != null
+        ? Math.round(item.UserData.PlayedPercentage)
+        : null;
+    const resumePrompt = buildResumePrompt(
+      percent,
+      function () {
+        resumePrompt.overlay.remove();
+        video.play();
+      },
+      function () {
+        resumePrompt.overlay.remove();
+        video.currentTime = 0;
+        video.play();
+      },
+    );
+    root.appendChild(resumePrompt.overlay);
+    resumePrompt.resumeButton.focus();
+  }
 
   let nextEpisode = null;
   let upNextOverlay = null;
