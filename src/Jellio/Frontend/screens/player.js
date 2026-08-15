@@ -16,6 +16,7 @@
 import {
   getItemDetails,
   getPlaybackInfo,
+  getMediaSources,
   buildStreamUrl,
   reportPlaybackStart,
   reportPlaybackProgress,
@@ -89,6 +90,7 @@ function applySubtitleStyle(video, style) {
   video.style.setProperty('--jellio-subtitle-size', size.rem + 'rem');
   video.style.setProperty('--jellio-subtitle-bg', background.color);
 }
+
 // Fallback only, when Intro Skipper has no Credits segment for this
 // episode: 2 minutes before the end, NuvioWeb's own real default
 // (js/ui/screens/player/playerNextEpisodeRules.js, MINUTES_BEFORE_END
@@ -138,6 +140,66 @@ function buildUpNextOverlay(episode, onPlayNow, onDismiss) {
   return { overlay: overlay, playButton: playButton };
 }
 
+// A real choice instead of always just seeking straight to the saved
+// position, ported from Harbor's own player/resume-prompt.tsx idea:
+// shown once, over the paused frame at that exact position (the video
+// element is already seeked there by the time this appears, see
+// renderPlayer's own loadedmetadata handler), Start Over is a real
+// choice this runtime did not offer before rather than something to
+// dig for elsewhere.
+function buildResumePrompt(percent, onResume, onRestart) {
+  const overlay = el('div', 'jellio-player-resume-overlay');
+  const panel = el('div', 'jellio-player-resume-panel');
+  panel.appendChild(el('div', 'jellio-player-resume-title', 'Resume playback?'));
+  if (percent != null) {
+    panel.appendChild(el('div', 'jellio-player-resume-subtitle', percent + '% watched'));
+  }
+  const actions = el('div', 'jellio-player-resume-actions');
+  const resumeButton = el('button', 'jellio-player-resume-play', 'Resume');
+  resumeButton.type = 'button';
+  resumeButton.addEventListener('click', onResume);
+  const restartButton = el('button', 'jellio-player-resume-restart', 'Start Over');
+  restartButton.type = 'button';
+  restartButton.addEventListener('click', onRestart);
+  actions.appendChild(resumeButton);
+  actions.appendChild(restartButton);
+  panel.appendChild(actions);
+  overlay.appendChild(panel);
+  return { overlay: overlay, resumeButton: resumeButton };
+}
+
+// A source's own rich Name (Decorators/MediaSourceManagerDecorator.cs's
+// own GetVersionInfo: the stream's own scraper name, plus description
+// on a second line when there is one) is already the closest thing to
+// a real quality/source label Gelato hands back, resolution and size
+// are real fields on the same MediaSourceInfo (its own Video
+// MediaStream's Height, its own Size in bytes) rather than parsed back
+// out of that free text.
+function sourceResolutionLabel(source) {
+  const streams = source.MediaStreams || [];
+  const video = streams.filter(function (stream) {
+    return stream.Type === 'Video';
+  })[0];
+  if (!video || !video.Height) return '';
+  if (video.Height >= 2000) return '4K';
+  return video.Height + 'p';
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '';
+  const gb = bytes / (1024 * 1024 * 1024);
+  if (gb >= 1) return gb.toFixed(1) + ' GB';
+  return Math.round(bytes / (1024 * 1024)) + ' MB';
+}
+
+function sourceLabel(source) {
+  const name = (source.Name || '').split('\n')[0] || 'Source';
+  const details = [sourceResolutionLabel(source), formatFileSize(source.Size)]
+    .filter(Boolean)
+    .join(' · ');
+  return details ? name + ' (' + details + ')' : name;
+}
+
 function formatTime(seconds) {
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
   const h = Math.floor(seconds / 3600);
@@ -174,7 +236,7 @@ export async function renderPlayer(root, params) {
     return undefined;
   }
 
-  const mediaSource = playbackInfo && playbackInfo.MediaSources && playbackInfo.MediaSources[0];
+  let mediaSource = playbackInfo && playbackInfo.MediaSources && playbackInfo.MediaSources[0];
   if (!mediaSource) {
     console.warn('Jellio: no playable media source for', itemId);
     return undefined;
@@ -182,10 +244,17 @@ export async function renderPlayer(root, params) {
 
   const streamUrl = buildStreamUrl(itemId, mediaSource, startTicks);
 
+  // A real saved position asks first rather than always silently
+  // seeking there: autoplay stays off until the reader actually picks
+  // Resume or Start Over below, the paused frame at the saved position
+  // showing through behind that choice instead of playback already
+  // running underneath it.
+  const hasResumePosition = startTicks > 0;
+
   const video = document.createElement('video');
   video.className = 'jellio-player-video';
   video.src = streamUrl;
-  video.autoplay = true;
+  video.autoplay = !hasResumePosition;
   video.playsInline = true;
 
   let subtitleStyle = loadSubtitleStyle();
@@ -269,6 +338,8 @@ export async function renderPlayer(root, params) {
     subtitleButton.setAttribute('aria-expanded', 'false');
     styleMenu.classList.add('jellio-player-sleep-menu-hidden');
     styleButton.setAttribute('aria-expanded', 'false');
+    sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
+    sourceButton.setAttribute('aria-expanded', 'false');
     const nowHidden = sleepMenu.classList.toggle('jellio-player-sleep-menu-hidden');
     sleepButton.setAttribute('aria-expanded', String(!nowHidden));
   });
@@ -281,7 +352,6 @@ export async function renderPlayer(root, params) {
       // No status yet is not an error worth surfacing here.
     });
 
-  const subtitleStreams = getSubtitleStreams(mediaSource);
   const subtitleButton = el('button', 'jellio-player-subtitles');
   subtitleButton.type = 'button';
   subtitleButton.setAttribute('aria-label', 'Subtitles');
@@ -324,7 +394,19 @@ export async function renderPlayer(root, params) {
     subtitleButton.setAttribute('aria-expanded', 'false');
   }
 
-  if (subtitleStreams.length) {
+  // Rebuildable rather than built once: a source switch below can hand
+  // back a mediaSource with an entirely different subtitle track list
+  // (a different scraped file has its own real embedded/external
+  // tracks), so the menu has to reflect whichever mediaSource is
+  // actually loaded right now, not the one playback started on.
+  function rebuildSubtitleMenu() {
+    subtitleMenu.textContent = '';
+    const subtitleStreams = getSubtitleStreams(mediaSource);
+    if (!subtitleStreams.length) {
+      subtitleButton.disabled = true;
+      return;
+    }
+    subtitleButton.disabled = false;
     const offOption = el('button', 'jellio-player-sleep-option jellio-player-sleep-option-active', 'Off');
     offOption.type = 'button';
     offOption.addEventListener('click', function () {
@@ -339,17 +421,20 @@ export async function renderPlayer(root, params) {
       });
       subtitleMenu.appendChild(option);
     });
-    subtitleButton.addEventListener('click', function () {
-      sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
-      sleepButton.setAttribute('aria-expanded', 'false');
-      styleMenu.classList.add('jellio-player-sleep-menu-hidden');
-      styleButton.setAttribute('aria-expanded', 'false');
-      const nowHidden = subtitleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
-      subtitleButton.setAttribute('aria-expanded', String(!nowHidden));
-    });
-  } else {
-    subtitleButton.disabled = true;
   }
+
+  subtitleButton.addEventListener('click', function () {
+    sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
+    sleepButton.setAttribute('aria-expanded', 'false');
+    styleMenu.classList.add('jellio-player-sleep-menu-hidden');
+    styleButton.setAttribute('aria-expanded', 'false');
+    sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
+    sourceButton.setAttribute('aria-expanded', 'false');
+    const nowHidden = subtitleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
+    subtitleButton.setAttribute('aria-expanded', String(!nowHidden));
+  });
+
+  rebuildSubtitleMenu();
 
   // A style preference rather than a per stream setting: it stays the
   // reader's own choice across whichever subtitle track, or item, they
@@ -409,9 +494,106 @@ export async function renderPlayer(root, params) {
     sleepButton.setAttribute('aria-expanded', 'false');
     subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
     subtitleButton.setAttribute('aria-expanded', 'false');
+    sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
+    sourceButton.setAttribute('aria-expanded', 'false');
     const nowHidden = styleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
     styleButton.setAttribute('aria-expanded', String(!nowHidden));
   });
+
+  // Every real alternate Gelato resolved for this item (Fields=
+  // MediaSources on the item DTO, backed by GetStaticMediaSources, see
+  // runtime/api.js's own getMediaSources header), not just the one
+  // PlaybackInfo negotiated to start. Fetched in the background rather
+  // than blocking playback on it: a picker with one real option in it
+  // is not worth showing at all, so the button stays disabled until
+  // there is something to switch to.
+  const sourceButton = el('button', 'jellio-player-subtitles');
+  sourceButton.type = 'button';
+  sourceButton.disabled = true;
+  sourceButton.setAttribute('aria-label', 'Sources');
+  sourceButton.setAttribute('aria-haspopup', 'true');
+  sourceButton.setAttribute('aria-expanded', 'false');
+  const sourceIcon = el('span', 'material-icons hd');
+  sourceIcon.setAttribute('aria-hidden', 'true');
+  sourceButton.appendChild(sourceIcon);
+
+  const sourceMenu = el('div', 'jellio-player-sleep-menu jellio-player-sleep-menu-hidden');
+  let sourceOptions = [mediaSource];
+  let switchingSource = false;
+
+  function rebuildSourceMenu() {
+    sourceMenu.textContent = '';
+    sourceOptions.forEach(function (source) {
+      const option = el(
+        'button',
+        'jellio-player-sleep-option' + (source.Id === mediaSource.Id ? ' jellio-player-sleep-option-active' : ''),
+        sourceLabel(source),
+      );
+      option.type = 'button';
+      option.addEventListener('click', function () {
+        sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
+        sourceButton.setAttribute('aria-expanded', 'false');
+        if (source.Id !== mediaSource.Id) switchSource(source);
+      });
+      sourceMenu.appendChild(option);
+    });
+  }
+
+  // Re-negotiates PlaybackInfo against the picked source at the exact
+  // position playback is at right now, the same real POST every source
+  // starts with, then swaps the <video> element's own src to match:
+  // there is no in-place source swap on a live element, only a fresh
+  // load, real behaviour every browser's own media element already has.
+  async function switchSource(source) {
+    if (switchingSource) return;
+    switchingSource = true;
+    const resumeTicks = currentPositionTicks();
+    const wasPlaying = !video.paused;
+    reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
+    try {
+      const info = await getPlaybackInfo(itemId, resumeTicks, source.Id);
+      const negotiated = info && info.MediaSources && info.MediaSources[0];
+      if (!negotiated) return;
+      mediaSource = negotiated;
+      if (activeTrack) {
+        activeTrack.remove();
+        activeTrack = null;
+      }
+      hasReportedStart = false;
+      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks);
+      video.load();
+      if (wasPlaying) video.play();
+      rebuildSubtitleMenu();
+      rebuildSourceMenu();
+    } catch (err) {
+      console.warn('Jellio: could not switch source', err);
+    } finally {
+      switchingSource = false;
+    }
+  }
+
+  sourceButton.addEventListener('click', function () {
+    sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
+    sleepButton.setAttribute('aria-expanded', 'false');
+    subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
+    subtitleButton.setAttribute('aria-expanded', 'false');
+    styleMenu.classList.add('jellio-player-sleep-menu-hidden');
+    styleButton.setAttribute('aria-expanded', 'false');
+    const nowHidden = sourceMenu.classList.toggle('jellio-player-sleep-menu-hidden');
+    sourceButton.setAttribute('aria-expanded', String(!nowHidden));
+  });
+
+  getMediaSources(itemId)
+    .then(function (sources) {
+      if (sources.length > 1) {
+        sourceOptions = sources;
+        sourceButton.disabled = false;
+        rebuildSourceMenu();
+      }
+    })
+    .catch(function (err) {
+      console.warn('Jellio: could not load alternate sources', err);
+    });
 
   controls.appendChild(backButton);
   controls.appendChild(title);
@@ -421,8 +603,11 @@ export async function renderPlayer(root, params) {
   controls.appendChild(subtitleMenu);
   controls.appendChild(styleButton);
   controls.appendChild(styleMenu);
+  controls.appendChild(sourceButton);
+  controls.appendChild(sourceMenu);
   controls.appendChild(sleepButton);
   controls.appendChild(sleepMenu);
+
 
   const pauseOverlay = el('div', 'jellio-player-pause-overlay');
   const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
@@ -488,6 +673,27 @@ export async function renderPlayer(root, params) {
   root.appendChild(pauseOverlay);
   root.appendChild(skipButton);
   root.appendChild(controls);
+
+  if (hasResumePosition) {
+    const percent =
+      item.UserData && item.UserData.PlayedPercentage != null
+        ? Math.round(item.UserData.PlayedPercentage)
+        : null;
+    const resumePrompt = buildResumePrompt(
+      percent,
+      function () {
+        resumePrompt.overlay.remove();
+        video.play();
+      },
+      function () {
+        resumePrompt.overlay.remove();
+        video.currentTime = 0;
+        video.play();
+      },
+    );
+    root.appendChild(resumePrompt.overlay);
+    resumePrompt.resumeButton.focus();
+  }
 
   let nextEpisode = null;
   let upNextOverlay = null;
