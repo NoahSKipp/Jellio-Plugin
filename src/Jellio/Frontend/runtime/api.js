@@ -342,6 +342,28 @@ export function getFavoriteItems(limit) {
   });
 }
 
+// Real endpoint pair, POST/DELETE /Users/{id}/PlayedItems/{itemId}
+// (PlaystateController.cs), the same call the stock UI's own "mark
+// watched" toggle makes. Returns the item's own updated
+// UserItemDataDto, same shape setFavorite below already returns.
+export async function setPlayed(itemId, isPlayed) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const response = await fetch(
+    getServerAddress() + '/Users/' + userId + '/PlayedItems/' + itemId,
+    {
+      method: isPlayed ? 'POST' : 'DELETE',
+      headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()),
+    },
+  );
+  if (!response.ok) {
+    const err = new Error('Request failed: PlayedItems');
+    err.status = response.status;
+    throw err;
+  }
+  return response.json();
+}
+
 // Real endpoint pair, POST/DELETE /Users/{id}/FavoriteItems/{itemId},
 // returns the item's own updated UserItemDataDto (IsFavorite reflects
 // what actually happened server side rather than this runtime assuming
