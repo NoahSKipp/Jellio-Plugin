@@ -372,17 +372,43 @@ export async function setFavorite(itemId, isFavorite) {
 // can just set as its src, no playbackManager involved at all. That
 // module export only orchestrates native's own OSD/queue UI on top of
 // exactly this same real HTTP flow.
-export function getPlaybackInfo(itemId, startTimeTicks) {
+export function getPlaybackInfo(itemId, startTimeTicks, mediaSourceId) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
-  return postJson('/Items/' + itemId + '/PlaybackInfo', {
+  const body = {
     UserId: userId,
     StartTimeTicks: startTimeTicks || 0,
     EnableDirectPlay: true,
     EnableDirectStream: true,
     EnableTranscoding: true,
     AutoOpenLiveStream: true,
-  });
+  };
+  // Real field on PlaybackInfoDto (Jellyfin.Api's own
+  // Models/MediaInfoDtos/PlaybackInfoDto.cs): omitted, the negotiation
+  // picks whichever source GetPlaybackMediaSources defaults to; passed,
+  // it re-negotiates that exact one instead, the same call a source
+  // switch in the player makes with the id the reader just picked.
+  if (mediaSourceId) body.MediaSourceId = mediaSourceId;
+  return postJson('/Items/' + itemId + '/PlaybackInfo', body);
+}
+
+// The item's own full list of real alternate sources (every stream
+// Gelato resolved for it, not just the one PlaybackInfo negotiates),
+// confirmed against DtoService.cs before writing this: MediaSources on
+// a fetched item DTO only populates when ItemFields.MediaSources is
+// explicitly requested, backed by the same GetStaticMediaSources() a
+// stream switcher needs to list from, distinct from
+// GetPlaybackMediaSources (what getPlaybackInfo above negotiates),
+// which always narrows to one.
+export function getMediaSources(itemId) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({ Fields: 'MediaSources' });
+  return getJson('/Users/' + userId + '/Items/' + itemId + '?' + params.toString()).then(
+    function (result) {
+      return (result && result.MediaSources) || [];
+    },
+  );
 }
 
 // 1 second = 10,000,000 ticks, real .NET TimeSpan tick length every
