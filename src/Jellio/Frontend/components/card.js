@@ -3,6 +3,34 @@
 // change (a hover state, a progress bar) only has one place to happen.
 import { getImageUrl } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
+import { attachCardOptionsTrigger } from './cardOptionsMenu.js';
+
+// Rebuilds just the watched badge/progress bar over the poster image,
+// its own function so the options menu's mark watched/unwatched action
+// can refresh a card already on screen instead of needing a full row
+// re-render for something this small.
+function paintCardState(imageWrap, item) {
+  const existingBadge = imageWrap.querySelector('.jellio-card-watched');
+  if (existingBadge) existingBadge.remove();
+  const existingProgress = imageWrap.querySelector('.jellio-card-progress');
+  if (existingProgress) existingProgress.remove();
+
+  const userData = item.UserData || {};
+  if (userData.Played) {
+    const badge = document.createElement('span');
+    badge.className = 'jellio-card-watched material-icons check';
+    badge.setAttribute('aria-hidden', 'true');
+    imageWrap.appendChild(badge);
+  } else if (userData.PlayedPercentage > 0) {
+    const progress = document.createElement('div');
+    progress.className = 'jellio-card-progress';
+    const fill = document.createElement('div');
+    fill.className = 'jellio-card-progress-fill';
+    fill.style.width = Math.min(100, userData.PlayedPercentage) + '%';
+    progress.appendChild(fill);
+    imageWrap.appendChild(progress);
+  }
+}
 
 export function buildCard(item) {
   const card = document.createElement('div');
@@ -28,21 +56,7 @@ export function buildCard(item) {
     imageWrap.appendChild(placeholder);
   }
 
-  const userData = item.UserData || {};
-  if (userData.Played) {
-    const badge = document.createElement('span');
-    badge.className = 'jellio-card-watched material-icons check';
-    badge.setAttribute('aria-hidden', 'true');
-    imageWrap.appendChild(badge);
-  } else if (userData.PlayedPercentage > 0) {
-    const progress = document.createElement('div');
-    progress.className = 'jellio-card-progress';
-    const fill = document.createElement('div');
-    fill.className = 'jellio-card-progress-fill';
-    fill.style.width = Math.min(100, userData.PlayedPercentage) + '%';
-    progress.appendChild(fill);
-    imageWrap.appendChild(progress);
-  }
+  paintCardState(imageWrap, item);
 
   card.appendChild(imageWrap);
 
@@ -65,6 +79,10 @@ export function buildCard(item) {
       event.preventDefault();
       navigateTo('#/item?id=' + item.Id);
     }
+  });
+
+  attachCardOptionsTrigger(card, item, function (updatedItem) {
+    paintCardState(imageWrap, updatedItem);
   });
 
   return card;
