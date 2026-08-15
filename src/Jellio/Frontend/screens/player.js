@@ -34,7 +34,12 @@ import { navigateTo } from '../runtime/router.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
-const UPNEXT_TRIGGER_SECONDS = 30;
+// Fallback only, when Intro Skipper has no Credits segment for this
+// episode: 2 minutes before the end, NuvioWeb's own real default
+// (js/ui/screens/player/playerNextEpisodeRules.js, MINUTES_BEFORE_END
+// mode), not re-derived. Real credits segments below make this the
+// less common path, not the whole rule.
+const UPNEXT_FALLBACK_TRIGGER_SECONDS = 120;
 const UPNEXT_COUNTDOWN_SECONDS = 15;
 
 function el(tag, className, text) {
@@ -328,6 +333,23 @@ export async function renderPlayer(root, params) {
     return null;
   }
 
+  // Ported from NuvioWeb's own shouldShowNextEpisodeCard()
+  // (js/ui/screens/player/playerNextEpisodeRules.js), not re-derived:
+  // a real Credits segment (already fetched for the skip button above)
+  // is what actually starts the outro, and showing the card there
+  // reads as timed to the episode rather than to an arbitrary count
+  // of seconds left. The fixed-seconds rule this used to run
+  // unconditionally is now only the fallback for an episode Intro
+  // Skipper has no segment data for at all.
+  function shouldShowUpNextNow(currentTime, duration) {
+    if (!duration) return false;
+    const credits = skipSegments && skipSegments.Credits;
+    if (credits && credits.End > 0 && credits.Start >= 0) {
+      return currentTime >= credits.Start;
+    }
+    return duration - currentTime <= UPNEXT_FALLBACK_TRIGGER_SECONDS;
+  }
+
   skipButton.addEventListener('click', function () {
     video.currentTime = skipTargetSeconds;
   });
@@ -430,7 +452,7 @@ export async function renderPlayer(root, params) {
       reportPlaybackStart(itemId, mediaSource.Id, currentPositionTicks());
     }
 
-    if (nextEpisode && !upNextDismissed && video.duration && video.duration - video.currentTime <= UPNEXT_TRIGGER_SECONDS) {
+    if (nextEpisode && !upNextDismissed && shouldShowUpNextNow(video.currentTime, video.duration)) {
       showUpNext();
     }
 

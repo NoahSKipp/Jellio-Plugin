@@ -14,6 +14,7 @@ import {
 } from '../runtime/api.js';
 import { buildRecommendationRows, titleKey } from '../runtime/recommend.js';
 import { buildCard } from '../components/card.js';
+import { buildRow } from '../components/row.js';
 import { groupByService, logoSlug, serviceOf } from '../components/services.js';
 import { buildHeroCarousel } from '../components/heroCarousel.js';
 import { navigateTo } from '../runtime/router.js';
@@ -193,18 +194,6 @@ function buildHubStrip(collections) {
     tiles.appendChild(buildHubTile(name));
   });
   section.appendChild(tiles);
-  return section;
-}
-
-function buildRow(title, items) {
-  if (!items || !items.length) return null;
-  const section = el('section', 'jellio-row');
-  section.appendChild(el('h2', 'jellio-row-title', title));
-  const track = el('div', 'jellio-row-track');
-  items.forEach(function (item) {
-    track.appendChild(buildCard(item));
-  });
-  section.appendChild(track);
   return section;
 }
 
