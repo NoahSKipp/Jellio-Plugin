@@ -4,6 +4,7 @@
 import {
   getCurrentUser,
   getResumeItems,
+  getNextUp,
   getFavoriteItems,
   getCollections,
   collectionKind,
@@ -11,6 +12,7 @@ import {
   discoverGenres,
   getGenreItems,
 } from '../runtime/api.js';
+import { buildRecommendationRows, titleKey } from '../runtime/recommend.js';
 import { buildCard } from '../components/card.js';
 import { groupByService, logoSlug, serviceOf } from '../components/services.js';
 import { buildHeroCarousel } from '../components/heroCarousel.js';
@@ -45,6 +47,24 @@ function leadIndex(name) {
   return index === -1 ? LEAD.length : index;
 }
 
+// Shared with runtime/recommend.js's own exclude object (same shape,
+// same titleKey), so a title a "Because you watched" row already
+// picked does not also turn up in a catalog or genre row further down
+// the same page. Catalog and genre rows only ever add to it, never
+// read it back the way pick() reads and writes in the same pass, so
+// there is no ordering constraint here the way there is between
+// recommendation rows.
+function dedupe(items, seen) {
+  const kept = [];
+  items.forEach(function (item) {
+    if (seen[item.Id] || seen[titleKey(item)]) return;
+    seen[item.Id] = true;
+    seen[titleKey(item)] = true;
+    kept.push(item);
+  });
+  return kept;
+}
+
 // "Trending" alone on a page that can carry a movie one and a series
 // one of the same name says nothing about which is which, real
 // feedback the original codebase's own titleFor() already answered:
@@ -57,7 +77,7 @@ function titleFor(name, kind) {
   return name;
 }
 
-async function buildCatalogRows(collections) {
+async function buildCatalogRows(collections, seen) {
   let usable = collections.filter(function (collection) {
     // A service catalog already has a tile in the hub strip and a page
     // behind it (buildHubStrip below, screens/service.js), so a
@@ -92,13 +112,13 @@ async function buildCatalogRows(collections) {
   results.forEach(function (result, index) {
     if (result.status !== 'fulfilled') return;
     const collection = usable[index];
-    const row = buildRow(titleFor(collection.Name, collectionKind(collection)), result.value);
+    const row = buildRow(titleFor(collection.Name, collectionKind(collection)), dedupe(result.value, seen));
     if (row) sections.push(row);
   });
   return sections;
 }
 
-async function buildGenreRows() {
+async function buildGenreRows(seen) {
   try {
     const genres = await discoverGenres(null, 'Movie,Series', GENRE_ROWS);
     const results = await Promise.allSettled(
@@ -109,7 +129,7 @@ async function buildGenreRows() {
     const sections = [];
     results.forEach(function (result, index) {
       if (result.status !== 'fulfilled') return;
-      const row = buildRow(genres[index], result.value);
+      const row = buildRow(genres[index], dedupe(result.value, seen));
       if (row) sections.push(row);
     });
     return sections;
@@ -235,14 +255,40 @@ export async function renderHome(root, params) {
   const rows = el('div', 'jellio-rows');
   root.appendChild(rows);
 
-  const [resumeResult, collectionsResult] = await Promise.allSettled([
+  const [nextUpResult, resumeResult, collectionsResult] = await Promise.allSettled([
+    getNextUp(20),
     getResumeItems(20),
     getCollections(),
   ]);
 
+  // Up Next, then Continue Watching, then the recommendation rows,
+  // real feedback asked for this exact order: the reader's own actual
+  // watch state first (what a show is up to, what was left mid
+  // playback), then what it suggests, ahead of anything the catalog
+  // itself has to say.
+  if (nextUpResult.status === 'fulfilled') {
+    const row = buildRow('Up Next', nextUpResult.value);
+    if (row) rows.appendChild(row);
+  }
+
   if (resumeResult.status === 'fulfilled') {
     const row = buildRow('Continue Watching', resumeResult.value);
     if (row) rows.appendChild(row);
+  }
+
+  // Shared with buildCatalogRows/buildGenreRows below via dedupe():
+  // a title a recommendation row already picked should not also turn
+  // up in a catalog or genre row further down the same page.
+  const seen = {};
+
+  try {
+    const recommendationRows = await buildRecommendationRows(seen);
+    recommendationRows.forEach(function (spec) {
+      const row = buildRow(spec.title, spec.items);
+      if (row) rows.appendChild(row);
+    });
+  } catch (err) {
+    console.warn('Jellio: could not load recommendation rows', err);
   }
 
   if (collectionsResult.status === 'fulfilled') {
@@ -250,13 +296,13 @@ export async function renderHome(root, params) {
     const hub = buildHubStrip(collections);
     if (hub) rows.appendChild(hub);
 
-    const catalogRows = await buildCatalogRows(collections);
+    const catalogRows = await buildCatalogRows(collections, seen);
     catalogRows.forEach(function (row) {
       rows.appendChild(row);
     });
   }
 
-  const genreRows = await buildGenreRows();
+  const genreRows = await buildGenreRows(seen);
   genreRows.forEach(function (row) {
     rows.appendChild(row);
   });

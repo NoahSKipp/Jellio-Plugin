@@ -138,6 +138,116 @@ export function getResumeItems(limit) {
   });
 }
 
+// Real endpoint, GET /Shows/NextUp (Jellyfin.Api's own TvShowsController,
+// route "Shows", confirmed against real source before writing this): the
+// next unwatched episode for every series the reader is partway through,
+// distinct from getResumeItems above (an episode or movie actually
+// stopped mid playback). Based on watch state, not DateCreated, so it
+// does not have the same "means nothing on a Gelato server" problem the
+// rest of this file's own header documents for a plain recency sort.
+export function getNextUp(limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    userId: userId,
+    Limit: String(limit || 20),
+    Fields: 'PrimaryImageAspectRatio',
+  });
+  return getJson('/Shows/NextUp?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
+
+// Seeds for "Because you watched": the reader's own most recently
+// completed titles. IsPlayed is Jellyfin's own definition of finished
+// (every episode, for a series), ported from the original codebase's
+// own recommend.js, real endpoint and real filter, not re-derived.
+export function getRecentlyCompleted(limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    Recursive: 'true',
+    IncludeItemTypes: 'Movie,Series',
+    Filters: 'IsPlayed',
+    SortBy: 'DatePlayed',
+    SortOrder: 'Descending',
+    Limit: String(limit),
+    Fields: 'Genres,People,ProductionYear,CommunityRating',
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
+
+// One seed's own candidate pool for runtime/recommend.js's own scorer:
+// its own genres and its own top billed cast/director, each a
+// separate query narrowed server side rather than scoring the whole
+// library client side to fill one row, same reasoning the original
+// codebase's own candidatePool() documents. Entries carrying a
+// PersonIds hit are tagged viaPerson so the scorer can weight a shared
+// actor without a second People fetch per candidate.
+export async function getRecommendationCandidates(seed, limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return [];
+
+  const genres = seed.Genres || [];
+  const people = (seed.People || [])
+    .filter(function (person) {
+      return person.Id && (person.Type === 'Actor' || person.Type === 'Director');
+    })
+    .slice(0, 5);
+
+  const base =
+    '/Users/' +
+    userId +
+    '/Items?Recursive=true&IncludeItemTypes=Movie,Series&Limit=' +
+    (limit || 100) +
+    '&Fields=Genres,ProductionYear,CommunityRating&SortBy=Random';
+
+  const jobs = [];
+  if (genres.length) {
+    jobs.push(
+      getJson(base + '&Genres=' + encodeURIComponent(genres.join('|')))
+        .then(function (result) {
+          return { tag: 'genre', items: (result && result.Items) || [] };
+        })
+        .catch(function () {
+          return { tag: 'genre', items: [] };
+        }),
+    );
+  }
+  if (people.length) {
+    const personIds = people
+      .map(function (person) {
+        return person.Id;
+      })
+      .join(',');
+    jobs.push(
+      getJson(base + '&PersonIds=' + personIds)
+        .then(function (result) {
+          return { tag: 'person', items: (result && result.Items) || [] };
+        })
+        .catch(function () {
+          return { tag: 'person', items: [] };
+        }),
+    );
+  }
+  if (!jobs.length) return [];
+
+  const results = await Promise.all(jobs);
+  const byId = {};
+  results.forEach(function (result) {
+    result.items.forEach(function (item) {
+      let entry = byId[item.Id];
+      if (!entry) entry = byId[item.Id] = { item: item, viaPerson: false };
+      if (result.tag === 'person') entry.viaPerson = true;
+    });
+  });
+  return Object.keys(byId).map(function (id) {
+    return byId[id];
+  });
+}
+
 
 // Real, confirmed against the original Jellio codebase's own
 // libraryBrowse.js: a BoxSet mixed into a movie/series catalog by an addon
