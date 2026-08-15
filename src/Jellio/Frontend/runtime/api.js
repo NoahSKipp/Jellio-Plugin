@@ -275,6 +275,7 @@ export function getLibraryItems(parentId, collectionType, options) {
     Limit: String(opts.limit || 100),
     StartIndex: String(opts.startIndex || 0),
   });
+  if (opts.genre) params.set('Genres', opts.genre);
   return getJson('/Users/' + userId + '/Items?' + params.toString());
 }
 
