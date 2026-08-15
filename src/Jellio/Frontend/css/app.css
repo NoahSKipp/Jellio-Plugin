@@ -59,6 +59,16 @@
   flex: 0 0 var(--jellio-sidebar-width);
 }
 
+/* Hidden rather than emptied: app.js's own runSync() used to clear
+   this mount's own content outright for the player route, which left
+   components/sidebar.js's own "already built" marker on a now empty
+   container, and the next real navigation found nothing left to
+   update. The built rail sits here unrendered instead, so leaving the
+   player needs no rebuild either. */
+.jellio-root-fullscreen .jellio-sidebar-mount {
+  display: none;
+}
+
 .jellio-content {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -2233,6 +2243,66 @@
 
 .jellio-login-cancel:hover {
   color: var(--jellio-text-color);
+}
+
+/* components/splash.js's own overlay. z-index above #jellioRoot's own
+   9999 (app.css's own token for that), so this covers the shell while
+   it is still empty rather than sitting behind it. */
+#jellioSplash {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 2.4vw, 36px);
+  background: var(--jellio-bg-color);
+  opacity: 1;
+  transition: opacity 420ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#jellioSplash.jellio-splash-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.jellio-splash-mark {
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.jellio-splash-spinner {
+  width: clamp(28px, 2.6vw, 40px);
+  height: clamp(28px, 2.6vw, 40px);
+  border-radius: 50%;
+  border: 3px solid rgb(255 255 255 / 0.16);
+  border-top-color: var(--jellio-secondary-color);
+  animation: jellio-splash-spin 800ms linear infinite;
+}
+
+@keyframes jellio-splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Tactile press feedback, ported nowhere from the original codebase
+   since neither this nor jellio-login-submit's own hover state existed
+   there either: added directly, real feedback asked for "more
+   animations where it fits", and a primary action button with no
+   response to being pressed was the plainest gap to close. */
+.jellio-settings-button,
+.jellio-login-submit {
+  transition: background-color 160ms ease, transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jellio-settings-button:active,
+.jellio-login-submit:active {
+  transform: scale(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {
