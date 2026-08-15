@@ -698,6 +698,19 @@
   height: 100%;
   object-fit: contain;
   background: #000;
+  --jellio-subtitle-size: 1.3rem;
+  --jellio-subtitle-bg: rgb(0 0 0 / 0.5);
+}
+
+/* Real WebVTT rendering, styled through the two custom properties
+   screens/player.js's own applySubtitleStyle() sets directly on this
+   element: ::cue inherits custom properties down from the element it
+   renders on top of, the same real Chromium/Firefox behaviour every
+   other subtitle style picker on the web already relies on, not a
+   guess this runtime is making on its own. */
+.jellio-player-video::cue {
+  font-size: var(--jellio-subtitle-size);
+  background-color: var(--jellio-subtitle-bg);
 }
 
 .jellio-player-pause-overlay {
@@ -873,6 +886,44 @@
 
 .jellio-player-sleep-option-active {
   color: var(--jellio-secondary-color);
+}
+
+.jellio-player-style-menu {
+  position: absolute;
+  right: clamp(16px, 3vw, 40px);
+  bottom: 4.5em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8em;
+  min-width: 16em;
+  padding: 0.8em;
+  border-radius: var(--jellio-card-radius);
+  background: var(--jellio-bg-elevated);
+  border: 1px solid var(--jellio-border-color);
+}
+
+.jellio-player-style-group-label {
+  padding: 0 0.4em 0.4em;
+  color: var(--jellio-text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.jellio-player-style-group-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.jellio-player-style-group-options .jellio-player-sleep-option {
+  padding: 0.4em 0.8em;
+  border: 1px solid var(--jellio-border-color);
+  border-radius: 999px;
+}
+
+.jellio-player-style-group-options .jellio-player-sleep-option-active {
+  border-color: var(--jellio-secondary-color);
 }
 
 .jellio-sidebar-avatar-mount {

@@ -35,6 +35,62 @@ import { navigateTo } from '../runtime/router.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
+const SUBTITLE_STYLE_KEY = 'jellioSubtitleStyle';
+const SUBTITLE_SIZES = [
+  { value: 'small', label: 'Small', rem: 1 },
+  { value: 'medium', label: 'Medium', rem: 1.3 },
+  { value: 'large', label: 'Large', rem: 1.7 },
+  { value: 'xlarge', label: 'Extra large', rem: 2.1 },
+];
+const SUBTITLE_BACKGROUNDS = [
+  { value: 'none', label: 'None', color: 'transparent' },
+  { value: 'semi', label: 'Semi', color: 'rgb(0 0 0 / 0.5)' },
+  { value: 'solid', label: 'Solid', color: 'rgb(0 0 0 / 0.9)' },
+];
+const DEFAULT_SUBTITLE_STYLE = { size: 'medium', background: 'semi' };
+
+// Persisted the same way this runtime persists anything client only
+// (avatar picker's own preset choice, sleep timer's own real server
+// side state aside): plain localStorage, no server round trip for a
+// display preference nothing server side needs to know about.
+function loadSubtitleStyle() {
+  try {
+    const raw = window.localStorage.getItem(SUBTITLE_STYLE_KEY);
+    if (!raw) return Object.assign({}, DEFAULT_SUBTITLE_STYLE);
+    const parsed = JSON.parse(raw);
+    return {
+      size: SUBTITLE_SIZES.some((s) => s.value === parsed.size) ? parsed.size : DEFAULT_SUBTITLE_STYLE.size,
+      background: SUBTITLE_BACKGROUNDS.some((b) => b.value === parsed.background)
+        ? parsed.background
+        : DEFAULT_SUBTITLE_STYLE.background,
+    };
+  } catch (err) {
+    return Object.assign({}, DEFAULT_SUBTITLE_STYLE);
+  }
+}
+
+function saveSubtitleStyle(style) {
+  try {
+    window.localStorage.setItem(SUBTITLE_STYLE_KEY, JSON.stringify(style));
+  } catch (err) {
+    // A private/full storage quota is not worth surfacing here, the
+    // style still applies for the rest of this playback session.
+  }
+}
+
+// ::cue only takes the values this runtime's own stylesheet sets on it
+// (css/app.css's own .jellio-player-video::cue rule reads these same
+// two custom properties), inherited down from whatever sets them on
+// the video element itself, real behaviour every Chromium/Firefox
+// WebVTT renderer already gives a custom property, not something this
+// runtime is guessing works.
+function applySubtitleStyle(video, style) {
+  const size = SUBTITLE_SIZES.filter((s) => s.value === style.size)[0] || SUBTITLE_SIZES[1];
+  const background = SUBTITLE_BACKGROUNDS.filter((b) => b.value === style.background)[0] || SUBTITLE_BACKGROUNDS[1];
+  video.style.setProperty('--jellio-subtitle-size', size.rem + 'rem');
+  video.style.setProperty('--jellio-subtitle-bg', background.color);
+}
+
 // Fallback only, when Intro Skipper has no Credits segment for this
 // episode: 2 minutes before the end, NuvioWeb's own real default
 // (js/ui/screens/player/playerNextEpisodeRules.js, MINUTES_BEFORE_END
@@ -201,6 +257,9 @@ export async function renderPlayer(root, params) {
   video.autoplay = !hasResumePosition;
   video.playsInline = true;
 
+  let subtitleStyle = loadSubtitleStyle();
+  applySubtitleStyle(video, subtitleStyle);
+
   const controls = el('div', 'jellio-player-controls');
 
   const backButton = el('button', 'jellio-player-back');
@@ -277,6 +336,8 @@ export async function renderPlayer(root, params) {
   sleepButton.addEventListener('click', function () {
     subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
     subtitleButton.setAttribute('aria-expanded', 'false');
+    styleMenu.classList.add('jellio-player-sleep-menu-hidden');
+    styleButton.setAttribute('aria-expanded', 'false');
     sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
     sourceButton.setAttribute('aria-expanded', 'false');
     const nowHidden = sleepMenu.classList.toggle('jellio-player-sleep-menu-hidden');
@@ -365,6 +426,8 @@ export async function renderPlayer(root, params) {
   subtitleButton.addEventListener('click', function () {
     sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
     sleepButton.setAttribute('aria-expanded', 'false');
+    styleMenu.classList.add('jellio-player-sleep-menu-hidden');
+    styleButton.setAttribute('aria-expanded', 'false');
     sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
     sourceButton.setAttribute('aria-expanded', 'false');
     const nowHidden = subtitleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
@@ -372,6 +435,70 @@ export async function renderPlayer(root, params) {
   });
 
   rebuildSubtitleMenu();
+
+  // A style preference rather than a per stream setting: it stays the
+  // reader's own choice across whichever subtitle track, or item, they
+  // pick next, same reasoning behind persisting it at all.
+  const styleButton = el('button', 'jellio-player-subtitles');
+  styleButton.type = 'button';
+  styleButton.setAttribute('aria-label', 'Subtitle style');
+  styleButton.setAttribute('aria-haspopup', 'true');
+  styleButton.setAttribute('aria-expanded', 'false');
+  const styleIcon = el('span', 'material-icons text_fields');
+  styleIcon.setAttribute('aria-hidden', 'true');
+  styleButton.appendChild(styleIcon);
+
+  const styleMenu = el('div', 'jellio-player-style-menu jellio-player-sleep-menu-hidden');
+
+  function buildStyleGroup(label, options, currentValue, onPick) {
+    const group = el('div', 'jellio-player-style-group');
+    group.appendChild(el('div', 'jellio-player-style-group-label', label));
+    const optionRow = el('div', 'jellio-player-style-group-options');
+    options.forEach(function (option) {
+      const optionButton = el(
+        'button',
+        'jellio-player-sleep-option' + (option.value === currentValue ? ' jellio-player-sleep-option-active' : ''),
+        option.label,
+      );
+      optionButton.type = 'button';
+      optionButton.addEventListener('click', function () {
+        onPick(option.value);
+        Array.prototype.forEach.call(optionRow.children, function (child) {
+          child.classList.remove('jellio-player-sleep-option-active');
+        });
+        optionButton.classList.add('jellio-player-sleep-option-active');
+      });
+      optionRow.appendChild(optionButton);
+    });
+    group.appendChild(optionRow);
+    return group;
+  }
+
+  styleMenu.appendChild(
+    buildStyleGroup('Size', SUBTITLE_SIZES, subtitleStyle.size, function (value) {
+      subtitleStyle = Object.assign({}, subtitleStyle, { size: value });
+      applySubtitleStyle(video, subtitleStyle);
+      saveSubtitleStyle(subtitleStyle);
+    }),
+  );
+  styleMenu.appendChild(
+    buildStyleGroup('Background', SUBTITLE_BACKGROUNDS, subtitleStyle.background, function (value) {
+      subtitleStyle = Object.assign({}, subtitleStyle, { background: value });
+      applySubtitleStyle(video, subtitleStyle);
+      saveSubtitleStyle(subtitleStyle);
+    }),
+  );
+
+  styleButton.addEventListener('click', function () {
+    sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
+    sleepButton.setAttribute('aria-expanded', 'false');
+    subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
+    subtitleButton.setAttribute('aria-expanded', 'false');
+    sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
+    sourceButton.setAttribute('aria-expanded', 'false');
+    const nowHidden = styleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
+    styleButton.setAttribute('aria-expanded', String(!nowHidden));
+  });
 
   // Every real alternate Gelato resolved for this item (Fields=
   // MediaSources on the item DTO, backed by GetStaticMediaSources, see
@@ -450,6 +577,8 @@ export async function renderPlayer(root, params) {
     sleepButton.setAttribute('aria-expanded', 'false');
     subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
     subtitleButton.setAttribute('aria-expanded', 'false');
+    styleMenu.classList.add('jellio-player-sleep-menu-hidden');
+    styleButton.setAttribute('aria-expanded', 'false');
     const nowHidden = sourceMenu.classList.toggle('jellio-player-sleep-menu-hidden');
     sourceButton.setAttribute('aria-expanded', String(!nowHidden));
   });
@@ -472,10 +601,13 @@ export async function renderPlayer(root, params) {
   controls.appendChild(playPauseButton);
   controls.appendChild(subtitleButton);
   controls.appendChild(subtitleMenu);
+  controls.appendChild(styleButton);
+  controls.appendChild(styleMenu);
   controls.appendChild(sourceButton);
   controls.appendChild(sourceMenu);
   controls.appendChild(sleepButton);
   controls.appendChild(sleepMenu);
+
 
   const pauseOverlay = el('div', 'jellio-player-pause-overlay');
   const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
