@@ -32,6 +32,7 @@ import {
   TICKS_PER_SECOND,
 } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
+import { invalidateHomeSections } from './home.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
@@ -838,6 +839,11 @@ export async function renderPlayer(root, params) {
     if (upNextCountdownInterval) window.clearInterval(upNextCountdownInterval);
     if (hasReportedStart) {
       reportPlaybackStopped(itemId, mediaSource.Id, currentPositionTicks());
+      // Up Next and Continue Watching are exactly the two home rows a
+      // real playback session changes, so home's own preloaded sections
+      // have to be re-derived the next time it's visited rather than
+      // keep serving what was true before this session started.
+      invalidateHomeSections();
     }
     video.pause();
     video.removeAttribute('src');

@@ -218,6 +218,97 @@ async function renderFavorites(root) {
   }
 }
 
+// Every row this screen needs, real DOM elements (buildRow's own
+// output) rather than plain data: an <img> already has its own src set
+// the instant it exists, loading regardless of whether it is actually
+// attached to the document yet, so building these while the splash is
+// still up (app.js's own preloadHomeSections() call) means the browser
+// is already fetching every thumbnail this screen needs before the
+// reader ever sees the page, not after. Memoized so the real render
+// below reuses these same elements instead of building (and
+// re-fetching) a second set: real feedback was that rows kept loading
+// in slowly one at a time after the splash had already stepped aside,
+// traced to this screen firing every one of these calls fresh on its
+// own right as it rendered, on top of whatever the splash had already
+// asked for separately.
+let homeSectionsPromise = null;
+
+// Reset on leaving playback (screens/player.js's own cleanup calls
+// this) rather than left to rot for the rest of the session: Up
+// Next and Continue Watching are exactly the two rows a real playback
+// session changes, so the next visit to home has to re-derive them,
+// not keep serving what was true before that session started.
+export function invalidateHomeSections() {
+  homeSectionsPromise = null;
+}
+
+async function buildHomeSections() {
+  const sections = [];
+
+  const [nextUpResult, resumeResult, collectionsResult] = await Promise.allSettled([
+    getNextUp(20),
+    getResumeItems(20),
+    getCollections(),
+  ]);
+
+  // Up Next, then Continue Watching, then the recommendation rows,
+  // real feedback asked for this exact order: the reader's own actual
+  // watch state first (what a show is up to, what was left mid
+  // playback), then what it suggests, ahead of anything the catalog
+  // itself has to say.
+  if (nextUpResult.status === 'fulfilled') {
+    const row = buildRow('Up Next', nextUpResult.value);
+    if (row) sections.push(row);
+  }
+
+  if (resumeResult.status === 'fulfilled') {
+    const row = buildRow('Continue Watching', resumeResult.value);
+    if (row) sections.push(row);
+  }
+
+  // Shared with buildCatalogRows/buildGenreRows below via dedupe():
+  // a title a recommendation row already picked should not also turn
+  // up in a catalog or genre row further down the same page.
+  const seen = {};
+
+  try {
+    const recommendationRows = await buildRecommendationRows(seen);
+    recommendationRows.forEach(function (spec) {
+      const row = buildRow(spec.title, spec.items);
+      if (row) sections.push(row);
+    });
+  } catch (err) {
+    console.warn('Jellio: could not load recommendation rows', err);
+  }
+
+  if (collectionsResult.status === 'fulfilled') {
+    const collections = collectionsResult.value;
+    const hub = buildHubStrip(collections);
+    if (hub) sections.push(hub);
+
+    const catalogRows = await buildCatalogRows(collections, seen);
+    catalogRows.forEach(function (row) {
+      sections.push(row);
+    });
+  }
+
+  const genreRows = await buildGenreRows(seen);
+  genreRows.forEach(function (row) {
+    sections.push(row);
+  });
+
+  return sections;
+}
+
+// app.js's own preloadInitialData() calls this directly while the
+// splash is still up; renderHome() below calls it again and gets the
+// same in-flight or already-resolved promise back, never a second
+// fetch.
+export function preloadHomeSections() {
+  if (!homeSectionsPromise) homeSectionsPromise = buildHomeSections();
+  return homeSectionsPromise;
+}
+
 export async function renderHome(root, params) {
   root.textContent = '';
   root.className = 'jellio-content jellio-screen-home';
@@ -244,56 +335,9 @@ export async function renderHome(root, params) {
   const rows = el('div', 'jellio-rows');
   root.appendChild(rows);
 
-  const [nextUpResult, resumeResult, collectionsResult] = await Promise.allSettled([
-    getNextUp(20),
-    getResumeItems(20),
-    getCollections(),
-  ]);
-
-  // Up Next, then Continue Watching, then the recommendation rows,
-  // real feedback asked for this exact order: the reader's own actual
-  // watch state first (what a show is up to, what was left mid
-  // playback), then what it suggests, ahead of anything the catalog
-  // itself has to say.
-  if (nextUpResult.status === 'fulfilled') {
-    const row = buildRow('Up Next', nextUpResult.value);
-    if (row) rows.appendChild(row);
-  }
-
-  if (resumeResult.status === 'fulfilled') {
-    const row = buildRow('Continue Watching', resumeResult.value);
-    if (row) rows.appendChild(row);
-  }
-
-  // Shared with buildCatalogRows/buildGenreRows below via dedupe():
-  // a title a recommendation row already picked should not also turn
-  // up in a catalog or genre row further down the same page.
-  const seen = {};
-
-  try {
-    const recommendationRows = await buildRecommendationRows(seen);
-    recommendationRows.forEach(function (spec) {
-      const row = buildRow(spec.title, spec.items);
-      if (row) rows.appendChild(row);
-    });
-  } catch (err) {
-    console.warn('Jellio: could not load recommendation rows', err);
-  }
-
-  if (collectionsResult.status === 'fulfilled') {
-    const collections = collectionsResult.value;
-    const hub = buildHubStrip(collections);
-    if (hub) rows.appendChild(hub);
-
-    const catalogRows = await buildCatalogRows(collections, seen);
-    catalogRows.forEach(function (row) {
-      rows.appendChild(row);
-    });
-  }
-
-  const genreRows = await buildGenreRows(seen);
-  genreRows.forEach(function (row) {
-    rows.appendChild(row);
+  const sections = await preloadHomeSections();
+  sections.forEach(function (section) {
+    rows.appendChild(section);
   });
 
   return hero.destroy;

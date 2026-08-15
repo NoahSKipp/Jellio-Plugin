@@ -4,9 +4,9 @@
 // jellyfin-web showing underneath, untouched, real fallback rather than a
 // broken page.
 import { isAuthenticated, loginScreenBypassed } from './runtime/auth.js';
-import { getUserViews, getCollections, getCurrentUser, getHeroCandidates, getResumeItems, getImageUrl } from './runtime/api.js';
+import { getUserViews, getCollections, getCurrentUser, getHeroCandidates, getImageUrl } from './runtime/api.js';
 import { renderLogin } from './screens/login.js';
-import { renderHome } from './screens/home.js';
+import { renderHome, preloadHomeSections } from './screens/home.js';
 import { renderLibrary } from './screens/library.js';
 import { renderSearch } from './screens/search.js';
 import { renderDetail } from './screens/detail.js';
@@ -230,42 +230,50 @@ function prefetchImage(url) {
   img.src = url;
 }
 
-// Real feedback named these two specifically: the hero carousel's own
-// backdrops and the thumbnails of the shows in the first row. Both
-// only get fetched once heroCarousel.js/screens/home.js actually build
-// their <img> tags, which used to mean the reader watched them pop in
-// after the splash had already stepped aside. Requesting the same URLs
-// here first means the browser's own HTTP cache already has them by
-// the time those real elements ask for them, real load rather than a
-// timer pretending to be one.
+// The hero carousel's own backdrops specifically: heroCarousel.js
+// builds its own <img> tags only once it mounts, which used to mean
+// the reader watched them pop in after the splash had already stepped
+// aside. Requesting the same URLs here first means the browser's own
+// HTTP cache already has them by the time that real element asks for
+// them. getHeroCandidates is cached (see runtime/api.js's own header
+// for why a Random sort needs that here specifically), so this and
+// heroCarousel.js's own later call return the same eight items rather
+// than two different random sets.
+async function preloadHeroImages() {
+  try {
+    const heroItems = await getHeroCandidates(8);
+    heroItems.forEach(function (item) {
+      prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }));
+    });
+  } catch (err) {
+    console.warn('Jellio: could not preload hero images', err);
+  }
+}
+
+// Real feedback: rows kept loading in slowly, one at a time, after the
+// splash had already stepped aside, not just their images but the row
+// data itself (Up Next, recommendations, catalog and genre rows, every
+// one of them its own real request screens/home.js used to only fire
+// once it actually rendered). preloadHomeSections() builds those same
+// rows as real DOM now, while the splash is still up: every <img> in
+// them already has a real src set the instant it exists, so the
+// browser is fetching every thumbnail this screen needs before the
+// reader ever sees the page. renderHome() calls the same function
+// again and gets these same already built elements back, not a second
+// fetch.
 //
 // Scoped to the home screen on purpose rather than every possible
 // landing route: which screen loads first only varies on a direct deep
 // link, the ordinary case (a fresh load, a login, a quick sign-in) all
-// land on #/home, and guessing at some other route's own images
-// without knowing which one would mean fetching data most visits never
-// use. getHeroCandidates is cached (see runtime/api.js's own header
-// for why a Random sort needs that here specifically), so this and
-// heroCarousel.js's own later call return the same eight items rather
-// than two different random sets.
-async function preloadHomeImages() {
-  try {
-    const [heroItems, resumeItems] = await Promise.all([getHeroCandidates(8), getResumeItems(10)]);
-    heroItems.forEach(function (item) {
-      prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }));
-    });
-    resumeItems.forEach(function (item) {
-      prefetchImage(getImageUrl(item.Id, 'Primary', { maxWidth: 400 }));
-    });
-  } catch (err) {
-    console.warn('Jellio: could not preload home images', err);
-  }
-}
-
+// land on #/home, and guessing at some other route's own data without
+// knowing which one would mean fetching data most visits never use.
 async function preloadInitialData() {
   showSplash();
   const tasks = [getUserViews(), getCollections(), getCurrentUser()];
-  if (parseRoute().path === 'home') tasks.push(preloadHomeImages());
+  if (parseRoute().path === 'home') {
+    tasks.push(preloadHeroImages());
+    tasks.push(preloadHomeSections());
+  }
   await withTimeout(Promise.all(tasks), PRELOAD_TIMEOUT_MS);
   hideSplash();
 }
