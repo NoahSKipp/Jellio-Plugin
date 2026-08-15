@@ -24,6 +24,19 @@ import { buildLibraryCoverflow } from '../components/libraryCoverflow.js';
 const GENRE_ROWS = 6;
 const ROW_LIMIT = 20;
 
+// Ported in spirit from NuvioWeb's own filterPicker.js: a sort/filter
+// control over the library's own top row rather than a full rebuild of
+// the page, the per genre rows below already cover "browse by genre"
+// as fixed shortcuts. value is "SortBy:SortOrder", the same two real
+// query params getLibraryItems already accepts.
+const SORT_OPTIONS = [
+  { value: 'DateCreated:Descending', label: 'Recently added' },
+  { value: 'SortName:Ascending', label: 'Name (A-Z)' },
+  { value: 'SortName:Descending', label: 'Name (Z-A)' },
+  { value: 'CommunityRating:Descending', label: 'Top rated' },
+  { value: 'PremiereDate:Descending', label: 'Newest release' },
+];
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -79,25 +92,84 @@ export async function renderLibrary(root, params) {
   header.appendChild(heading);
   root.appendChild(header);
 
+  const filterBar = el('div', 'jellio-library-filters');
+  const sortSelect = document.createElement('select');
+  sortSelect.className = 'jellio-library-filter-select';
+  sortSelect.setAttribute('aria-label', 'Sort by');
+  SORT_OPTIONS.forEach(function (option) {
+    const optionEl = document.createElement('option');
+    optionEl.value = option.value;
+    optionEl.textContent = option.label;
+    sortSelect.appendChild(optionEl);
+  });
+  filterBar.appendChild(sortSelect);
+
+  const genreSelect = document.createElement('select');
+  genreSelect.className = 'jellio-library-filter-select';
+  genreSelect.setAttribute('aria-label', 'Genre');
+  const allGenresOption = document.createElement('option');
+  allGenresOption.value = '';
+  allGenresOption.textContent = 'All genres';
+  genreSelect.appendChild(allGenresOption);
+  genreSelect.disabled = true;
+  filterBar.appendChild(genreSelect);
+  root.appendChild(filterBar);
+
   const rows = el('div', 'jellio-rows');
   root.appendChild(rows);
 
   const destroy = mountCoverflow(root, { parentId, itemTypes: itemType });
 
-  const [itemResult, latestResult] = await Promise.allSettled([
-    getItem(parentId),
-    getLibraryItems(parentId, collectionType, { limit: ROW_LIMIT, sortBy: 'DateCreated', sortOrder: 'Descending' }),
-  ]);
+  let mainRow = null;
 
-  heading.textContent = itemResult.status === 'fulfilled' && itemResult.value ? itemResult.value.Name : '';
-
-  if (latestResult.status === 'fulfilled') {
-    const row = buildRow('Recently added', (latestResult.value && latestResult.value.Items) || []);
-    if (row) rows.appendChild(row);
+  function sortLabel(value) {
+    const match = SORT_OPTIONS.filter(function (option) {
+      return option.value === value;
+    })[0];
+    return (match && match.label) || 'Browse';
   }
+
+  // Governs only this page's own top row, the genre rows below stay
+  // fixed "browse by genre" shortcuts either way: real feedback wanted
+  // a way to sort or filter what that top row shows without rebuilding
+  // the whole page around one control.
+  async function loadMainRow() {
+    const parts = sortSelect.value.split(':');
+    const genre = genreSelect.value;
+    let items = [];
+    try {
+      const result = await getLibraryItems(parentId, collectionType, {
+        limit: ROW_LIMIT,
+        sortBy: parts[0],
+        sortOrder: parts[1],
+        genre: genre || undefined,
+      });
+      items = (result && result.Items) || [];
+    } catch (err) {
+      console.warn('Jellio: could not load library items', err);
+    }
+    const newRow = buildRow(genre || sortLabel(sortSelect.value), items);
+    if (mainRow) mainRow.remove();
+    mainRow = newRow;
+    if (newRow) rows.insertBefore(newRow, rows.firstChild);
+  }
+
+  sortSelect.addEventListener('change', loadMainRow);
+  genreSelect.addEventListener('change', loadMainRow);
+
+  const [itemResult] = await Promise.allSettled([getItem(parentId), loadMainRow()]);
+  heading.textContent = itemResult.status === 'fulfilled' && itemResult.value ? itemResult.value.Name : '';
 
   try {
     const genres = await discoverGenres(parentId, itemType, GENRE_ROWS);
+    genres.forEach(function (genre) {
+      const optionEl = document.createElement('option');
+      optionEl.value = genre;
+      optionEl.textContent = genre;
+      genreSelect.appendChild(optionEl);
+    });
+    genreSelect.disabled = !genres.length;
+
     const genreItemLists = await Promise.allSettled(
       genres.map(function (genre) {
         return getGenreItems(parentId, itemType, genre, ROW_LIMIT);

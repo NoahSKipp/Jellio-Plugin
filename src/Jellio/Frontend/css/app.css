@@ -352,6 +352,28 @@
   font-weight: 700;
 }
 
+.jellio-library-filters {
+  display: flex;
+  gap: 0.6em;
+  padding: 0 var(--jellio-safe-gutter) clamp(12px, 1.6vw, 20px);
+}
+
+.jellio-library-filter-select {
+  padding: 0.5em 0.9em;
+  border: 1px solid var(--jellio-border-color);
+  border-radius: 999px;
+  background: var(--jellio-bg-elevated);
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.jellio-library-filter-select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .jellio-library-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
