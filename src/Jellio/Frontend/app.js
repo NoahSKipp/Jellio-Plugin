@@ -4,6 +4,7 @@
 // jellyfin-web showing underneath, untouched, real fallback rather than a
 // broken page.
 import { isAuthenticated, loginScreenBypassed } from './runtime/auth.js';
+import { getUserViews, getCollections, getCurrentUser, getHeroCandidates, getResumeItems, getImageUrl } from './runtime/api.js';
 import { renderLogin } from './screens/login.js';
 import { renderHome } from './screens/home.js';
 import { renderLibrary } from './screens/library.js';
@@ -15,9 +16,35 @@ import { renderSettings } from './screens/settings.js';
 import { renderPerson } from './screens/person.js';
 import { renderSidebar } from './components/sidebar.js';
 import { startNowPlaying } from './components/nowPlaying.js';
+import { showSplash, hideSplash } from './components/splash.js';
 import { onRouteChange, parseRoute } from './runtime/router.js';
 
 const ROOT_ID = 'jellioRoot';
+
+// Content fades in on every screen swap, ported as a real feature
+// rather than the "not smooth" real feedback left it: getRoot() below
+// already rebuilds .jellio-content fresh on every navigation, so this
+// is imperative (content.animate(), the Web Animations API) rather
+// than a CSS class, since a screen's own render function always
+// overwrites content.className wholesale (root.className = 'jellio-
+// content jellio-screen-home', for one real example) the instant it
+// runs, which would wipe a class added here before ever painting.
+// matchMedia is read once at module load rather than kept reactive:
+// this app does not need to notice an OS setting flip mid session, and
+// prefers-reduced-motion changing back and forth inside one is not a
+// real case to design around.
+const REDUCED_MOTION = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+function fadeInContent(content) {
+  if (REDUCED_MOTION || !content || typeof content.animate !== 'function') return;
+  content.animate(
+    [
+      { opacity: 0, transform: 'translateY(10px)' },
+      { opacity: 1, transform: 'translateY(0)' },
+    ],
+    { duration: 260, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+  );
+}
 
 // Every route path this runtime has a real screen for. Library routes
 // (movies/tv/music/books/homevideos/musicvideos, plus the generic list
@@ -58,11 +85,17 @@ const FULLSCREEN_ROUTES = new Set(['play']);
 // missed the case seen live a second time: the .jellio-shell wrapper
 // survived while just the sidebar mount and content div inside it did
 // not, so that check still found "a shell" and skipped rebuilding.
-// Rebuilding the inner structure on every call sidesteps having to know
-// which element vanishes: every screen and renderSidebar already clear
-// and repopulate their own container the moment they run, so handing
-// them a freshly built empty one each time costs nothing real, and
-// there is no in between paint for a rebuild to visibly flash.
+//
+// Rebuilding the inner structure unconditionally on every call fixed
+// that, but it is also what made the sidebar icons visibly flicker on
+// every single navigation, reported live separately: a fresh, empty
+// <nav> replaced the real one every time regardless of whether
+// anything had actually gone missing, and components/sidebar.js's own
+// renderSidebar had to rebuild every icon from nothing to fill it back
+// in. Checking for the two children this self-heal actually cares
+// about, rather than rebuilding regardless of whether either is
+// really gone, keeps the same real fix for the same real bug without
+// paying its cost on every ordinary call.
 function getRoot() {
   let root = document.getElementById(ROOT_ID);
   if (!root) {
@@ -70,11 +103,16 @@ function getRoot() {
     root.id = ROOT_ID;
     document.body.appendChild(root);
   }
-  root.innerHTML =
-    '<div class="jellio-shell">' +
-    '<nav class="jellio-sidebar-mount"></nav>' +
-    '<main class="jellio-content"></main>' +
-    '</div>';
+  const shell = root.querySelector('.jellio-shell');
+  const sidebarMount = shell && shell.querySelector('.jellio-sidebar-mount');
+  const content = shell && shell.querySelector('.jellio-content');
+  if (!shell || !sidebarMount || !content) {
+    root.innerHTML =
+      '<div class="jellio-shell">' +
+      '<nav class="jellio-sidebar-mount"></nav>' +
+      '<main class="jellio-content"></main>' +
+      '</div>';
+  }
   return root;
 }
 
@@ -155,6 +193,81 @@ async function renderUnauthenticated() {
   const content = root.querySelector('.jellio-content');
   const result = await renderLogin(content);
   activeCleanup = typeof result === 'function' ? result : null;
+  fadeInContent(content);
+}
+
+// Every screen's own real cost, on this run and every one after it, is
+// the sidebar's own three calls (runtime/api.js's own cache makes the
+// after-this-one cost free): shown once, right after a real session is
+// confirmed, so the very first authenticated paint already has warm
+// data instead of the sidebar and the first screen both racing the
+// network cold. A hard cap keeps a slow network from holding the
+// reader on a blank splash indefinitely: showing the app with a cold
+// cache is a worse first paint than what came before this, but still
+// better than one that never arrives.
+const PRELOAD_TIMEOUT_MS = 4000;
+let preloaded = false;
+
+function withTimeout(promise, ms) {
+  return new Promise(function (resolve) {
+    const timer = window.setTimeout(resolve, ms);
+    promise.then(
+      function () {
+        window.clearTimeout(timer);
+        resolve();
+      },
+      function () {
+        window.clearTimeout(timer);
+        resolve();
+      },
+    );
+  });
+}
+
+function prefetchImage(url) {
+  if (!url) return;
+  const img = new Image();
+  img.src = url;
+}
+
+// Real feedback named these two specifically: the hero carousel's own
+// backdrops and the thumbnails of the shows in the first row. Both
+// only get fetched once heroCarousel.js/screens/home.js actually build
+// their <img> tags, which used to mean the reader watched them pop in
+// after the splash had already stepped aside. Requesting the same URLs
+// here first means the browser's own HTTP cache already has them by
+// the time those real elements ask for them, real load rather than a
+// timer pretending to be one.
+//
+// Scoped to the home screen on purpose rather than every possible
+// landing route: which screen loads first only varies on a direct deep
+// link, the ordinary case (a fresh load, a login, a quick sign-in) all
+// land on #/home, and guessing at some other route's own images
+// without knowing which one would mean fetching data most visits never
+// use. getHeroCandidates is cached (see runtime/api.js's own header
+// for why a Random sort needs that here specifically), so this and
+// heroCarousel.js's own later call return the same eight items rather
+// than two different random sets.
+async function preloadHomeImages() {
+  try {
+    const [heroItems, resumeItems] = await Promise.all([getHeroCandidates(8), getResumeItems(10)]);
+    heroItems.forEach(function (item) {
+      prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }));
+    });
+    resumeItems.forEach(function (item) {
+      prefetchImage(getImageUrl(item.Id, 'Primary', { maxWidth: 400 }));
+    });
+  } catch (err) {
+    console.warn('Jellio: could not preload home images', err);
+  }
+}
+
+async function preloadInitialData() {
+  showSplash();
+  const tasks = [getUserViews(), getCollections(), getCurrentUser()];
+  if (parseRoute().path === 'home') tasks.push(preloadHomeImages());
+  await withTimeout(Promise.all(tasks), PRELOAD_TIMEOUT_MS);
+  hideSplash();
 }
 
 async function runSync() {
@@ -167,6 +280,11 @@ async function runSync() {
       }
       await renderUnauthenticated();
       return;
+    }
+
+    if (!preloaded) {
+      preloaded = true;
+      await preloadInitialData();
     }
 
     const route = parseRoute();
@@ -188,16 +306,23 @@ async function runSync() {
     const sidebarMount = root.querySelector('.jellio-sidebar-mount');
     const content = root.querySelector('.jellio-content');
 
+    // The player route used to wipe the sidebar mount's own content
+    // outright, which meant components/sidebar.js's own dataset marker
+    // for "already built" survived on the (now empty) container while
+    // the links it referred to did not, so the very next real
+    // navigation's fast path found nothing to update and the rail
+    // stayed empty. css/app.css's own .jellio-root-fullscreen rule
+    // hides the mount instead now, so the built rail is simply sitting
+    // there, unrendered, the moment a real route wants it again, no
+    // rebuild needed either way.
     const tasks = [screen(content, route.params)];
-    if (FULLSCREEN_ROUTES.has(route.path)) {
-      sidebarMount.textContent = '';
-      sidebarMount.className = 'jellio-sidebar-mount';
-    } else {
+    if (!FULLSCREEN_ROUTES.has(route.path)) {
       tasks.push(renderSidebar(sidebarMount));
     }
 
     const results = await Promise.all(tasks);
     activeCleanup = typeof results[0] === 'function' ? results[0] : null;
+    fadeInContent(content);
   } catch (err) {
     console.warn('Jellio: screen render failed, falling back to native page', err);
     hide();
