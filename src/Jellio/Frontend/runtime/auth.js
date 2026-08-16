@@ -300,6 +300,25 @@ export function getAuthHeaders() {
   return { Authorization: buildAuthHeader() };
 }
 
+// Real, unauthenticated Jellyfin endpoint (GET /Users/Public,
+// Jellyfin.Api/Controllers/UserController.cs's own GetPublicUsers,
+// read before writing this): a real admin's own per-user "Display
+// this user on the login screen" toggle (UserPolicy.IsHidden) is
+// already enforced server side, this runtime only has to render
+// whatever comes back, not filter anything itself. The one real case
+// this covers that remembered sign-in cannot: a device that has never
+// signed in here before still gets a real profile grid instead of a
+// bare username field, the same first-run experience native's own
+// login page already gives every user who opted into it.
+export async function getPublicUsers() {
+  const response = await fetch(getServerAddress() + '/Users/Public', {
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) return [];
+  const result = await response.json();
+  return Array.isArray(result) ? result : [];
+}
+
 // Real Jellyfin endpoint, checked against apps/legacy/controllers/session/
 // login/index.js before writing this: POST /Users/AuthenticateByName with
 // {Username, Pw}, response carries {AccessToken, User}. No native ApiClient
