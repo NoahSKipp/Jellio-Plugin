@@ -20,7 +20,14 @@
   --jellio-card-gap: clamp(12px, 1vw, 18px);
   --jellio-focus-color-rgb: 255 255 255;
   --jellio-safe-gutter: clamp(28px, 3vw, 56px);
-  --jellio-sidebar-width: clamp(13.5em, 15vw, 16.5em);
+  /* A fixed width on purpose, not a clamp against vw: a persistent rail
+     that resizes itself on every real viewport change (a tablet
+     rotating, a browser's own address bar collapsing on scroll, split
+     screen multitasking) reads as broken, not responsive, real feedback
+     reported directly as "the sidebar keeps changing size". em still
+     scales it with a reader's own font-size preference, the one axis
+     worth tracking; vw never bought anything this rail actually needed. */
+  --jellio-sidebar-width: 15em;
 }
 
 /* Covers the native page rather than removing it: native jellyfin-web
