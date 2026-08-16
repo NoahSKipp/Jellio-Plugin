@@ -18,6 +18,7 @@ import {
   forgetRememberedUser,
   quickSignIn,
   bypassLoginScreen,
+  getPublicUsers,
 } from '../runtime/auth.js';
 import { getUserImageUrl } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
@@ -40,11 +41,12 @@ function completeSignIn() {
   document.dispatchEvent(new CustomEvent('jellio:session-captured'));
 }
 
-// Quick Connect, a no-password public user grid and "forgot password"
-// are all real native login page features this screen does not
-// reimplement, so this stays reachable everywhere on the screen rather
-// than only from the manual form: a remembered profile's own owner may
-// still need one of those, not only someone with no profile saved yet.
+// Quick Connect and "forgot password" are real native login page
+// features this screen does not reimplement (the public user grid
+// below is, real feedback asked for it directly), so this stays
+// reachable everywhere on the screen rather than only from the manual
+// form: a remembered or public profile's own owner may still need one
+// of those, not only someone with no profile visible at all.
 function buildBypassLink() {
   const link = el('button', 'jellio-login-cancel', 'Use classic sign-in');
   link.type = 'button';
@@ -186,6 +188,66 @@ function buildProfileTile(userId, entry, index, onForgotten, onFailed) {
   return wrap;
 }
 
+// A user visible here has never necessarily signed in on this device
+// before (getPublicUsers() in runtime/auth.js only mirrors a real
+// admin's own "Display this user on the login screen" toggle, server
+// side), so there is no remembered AccessToken to reuse the way
+// quickSignIn() does for a tile in the other list. HasPassword is a
+// real, if formally obsolete, UserDto field jellyfin-web's own login
+// page still checks the same way before deciding whether a password
+// is even worth asking for; AuthenticateByName with an empty Pw is
+// the same real request a passwordless account's own native sign in
+// already sends. Either path ends by calling setSession, which
+// rememberUser()s this same profile on the way, so the very next
+// visit finds it in the other list instead, with a real quick sign-in
+// token this time.
+function buildPublicUserTile(user, index, onNeedsPassword) {
+  const wrap = el('div', 'jellio-login-profile');
+  applyStagger(wrap, index);
+
+  const avatarWrap = el('div', 'jellio-login-profile-avatar-wrap');
+
+  const avatar = document.createElement('button');
+  avatar.type = 'button';
+  avatar.className = 'jellio-login-profile-avatar';
+  avatar.setAttribute('aria-label', 'Sign in as ' + (user.Name || ''));
+
+  if (user.PrimaryImageTag) {
+    avatar.style.backgroundImage =
+      "url('" + getUserImageUrl(user.Id, user.PrimaryImageTag, { maxWidth: 300 }) + "')";
+  } else {
+    const icon = el('span', 'material-icons person jellio-login-profile-icon');
+    icon.setAttribute('aria-hidden', 'true');
+    avatar.appendChild(icon);
+  }
+
+  const hasPassword = user.HasPassword !== false && user.HasConfiguredPassword !== false;
+
+  avatar.addEventListener('click', function () {
+    if (!hasPassword) {
+      avatar.disabled = true;
+      authenticateByName(user.Name || '', '')
+        .then(function () {
+          completeSignIn();
+        })
+        .catch(function () {
+          avatar.disabled = false;
+          onNeedsPassword(user.Name || '');
+        });
+      return;
+    }
+    onNeedsPassword(user.Name || '');
+  });
+
+  avatarWrap.appendChild(avatar);
+
+  const name = el('span', 'jellio-login-profile-name', user.Name || '');
+
+  wrap.appendChild(avatarWrap);
+  wrap.appendChild(name);
+  return wrap;
+}
+
 function buildAddTile(index, onClick) {
   const wrap = el('div', 'jellio-login-profile');
   applyStagger(wrap, index);
@@ -206,8 +268,22 @@ function buildAddTile(index, onClick) {
   return wrap;
 }
 
-function renderProfilePicker(container, remembered) {
+// Remembered wins on overlap: that entry carries a real AccessToken
+// (quickSignIn, one click, no password redone), where a public-only
+// listing for the same real user has never signed in on this device
+// and could only ever offer the slower authenticateByName path below.
+function publicOnlyUsers(remembered, publicUsers) {
+  return publicUsers.filter(function (user) {
+    return user && user.Id && !remembered[user.Id];
+  });
+}
+
+function renderProfilePicker(container, remembered, publicUsers) {
   container.textContent = '';
+
+  function rerender() {
+    renderProfilePicker(container, getRememberedUsers(), publicUsers);
+  }
 
   function showManual(prefillName, message) {
     container.textContent = '';
@@ -216,34 +292,31 @@ function renderProfilePicker(container, remembered) {
       buildManualForm({
         username: prefillName,
         message: message,
-        onCancel: Object.keys(remembered).length
-          ? function () {
-              renderProfilePicker(container, getRememberedUsers());
-            }
-          : null,
+        onCancel: Object.keys(remembered).length || publicOnly.length ? rerender : null,
       }),
     );
     container.appendChild(buildBypassLink());
   }
 
-  const userIds = Object.keys(remembered);
-  if (!userIds.length) {
+  const rememberedIds = Object.keys(remembered);
+  const publicOnly = publicOnlyUsers(remembered, publicUsers);
+
+  if (!rememberedIds.length && !publicOnly.length) {
     showManual('', '');
     return;
   }
 
   container.appendChild(el('h1', 'jellio-login-heading', 'Who’s watching?'));
   const grid = el('div', 'jellio-login-profile-grid');
+  let index = 0;
 
-  userIds.forEach(function (userId, index) {
+  rememberedIds.forEach(function (userId) {
     grid.appendChild(
       buildProfileTile(
         userId,
         remembered[userId],
-        index,
-        function () {
-          renderProfilePicker(container, getRememberedUsers());
-        },
+        index++,
+        rerender,
         function (name) {
           showManual(name, 'That saved sign-in no longer works. Sign in again.');
         },
@@ -251,8 +324,16 @@ function renderProfilePicker(container, remembered) {
     );
   });
 
+  publicOnly.forEach(function (user) {
+    grid.appendChild(
+      buildPublicUserTile(user, index++, function (name) {
+        showManual(name, '');
+      }),
+    );
+  });
+
   grid.appendChild(
-    buildAddTile(userIds.length, function () {
+    buildAddTile(index, function () {
       showManual('', '');
     }),
   );
@@ -268,5 +349,13 @@ export async function renderLogin(root) {
   const screen = el('div', 'jellio-login-screen');
   root.appendChild(screen);
 
-  renderProfilePicker(screen, getRememberedUsers());
+  let publicUsers = [];
+  try {
+    publicUsers = await getPublicUsers();
+  } catch (err) {
+    // A device that has signed in here before still gets the
+    // remembered list, real endpoint or not.
+  }
+
+  renderProfilePicker(screen, getRememberedUsers(), publicUsers);
 }
