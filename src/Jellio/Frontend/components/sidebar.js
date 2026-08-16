@@ -295,7 +295,21 @@ export async function renderSidebar(container) {
   }
   container.dataset.jellioBuilt = '1';
   container.textContent = '';
-  container.className = 'jellio-sidebar';
+  // Real bug caught here: overwriting className to just 'jellio-sidebar'
+  // dropped 'jellio-sidebar-mount' from this same node, so app.js's own
+  // getRoot() self-heal check (shell.querySelector('.jellio-sidebar-
+  // mount')) stopped finding it the instant this function's own first
+  // real call finished, on every session, and rebuilt the whole shell
+  // from scratch on every single navigation after that as a result,
+  // defeating this function's own "build once" fast path above before
+  // it ever got a real second call to skip on. A fresh mount recreated
+  // by that rebuild starts its own flex-basis layout over from nothing
+  // before css/app.css's own classes finish resolving on it, a real,
+  // visible size change on every navigation, not the moving CSS unit
+  // fixed earlier. Keeping both classes on the same node is enough:
+  // self-heal keeps finding the real mount it already has, and this
+  // function's own fast path above finally gets to run for real.
+  container.className = 'jellio-sidebar-mount jellio-sidebar';
 
   container.appendChild(buildLink('home', 'Home', '#/home'));
   container.appendChild(buildLink('search', 'Search', '#/search'));
