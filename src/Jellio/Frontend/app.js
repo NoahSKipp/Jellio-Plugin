@@ -15,6 +15,7 @@ import { renderService } from './screens/service.js';
 import { renderSettings } from './screens/settings.js';
 import { renderPerson } from './screens/person.js';
 import { renderSidebar } from './components/sidebar.js';
+import { renderMobileNav } from './components/mobileNav.js';
 import { startNowPlaying } from './components/nowPlaying.js';
 import { showSplash, hideSplash } from './components/splash.js';
 import { onRouteChange, parseRoute } from './runtime/router.js';
@@ -106,12 +107,14 @@ function getRoot() {
   const shell = root.querySelector('.jellio-shell');
   const sidebarMount = shell && shell.querySelector('.jellio-sidebar-mount');
   const content = shell && shell.querySelector('.jellio-content');
-  if (!shell || !sidebarMount || !content) {
+  const mobileNavMount = root.querySelector('.jellio-mobile-nav-mount');
+  if (!shell || !sidebarMount || !content || !mobileNavMount) {
     root.innerHTML =
       '<div class="jellio-shell">' +
       '<nav class="jellio-sidebar-mount"></nav>' +
       '<main class="jellio-content"></main>' +
-      '</div>';
+      '</div>' +
+      '<nav class="jellio-mobile-nav-mount"></nav>';
   }
   return root;
 }
@@ -189,6 +192,10 @@ async function renderUnauthenticated() {
   const sidebarMount = root.querySelector('.jellio-sidebar-mount');
   sidebarMount.textContent = '';
   sidebarMount.className = 'jellio-sidebar-mount';
+
+  const mobileNavMount = root.querySelector('.jellio-mobile-nav-mount');
+  mobileNavMount.textContent = '';
+  mobileNavMount.className = 'jellio-mobile-nav-mount';
 
   const content = root.querySelector('.jellio-content');
   const result = await renderLogin(content);
@@ -312,6 +319,7 @@ async function runSync() {
     root.classList.toggle('jellio-root-fullscreen', FULLSCREEN_ROUTES.has(route.path));
 
     const sidebarMount = root.querySelector('.jellio-sidebar-mount');
+    const mobileNavMount = root.querySelector('.jellio-mobile-nav-mount');
     const content = root.querySelector('.jellio-content');
 
     // The player route used to wipe the sidebar mount's own content
@@ -320,12 +328,13 @@ async function runSync() {
     // the links it referred to did not, so the very next real
     // navigation's fast path found nothing to update and the rail
     // stayed empty. css/app.css's own .jellio-root-fullscreen rule
-    // hides the mount instead now, so the built rail is simply sitting
-    // there, unrendered, the moment a real route wants it again, no
-    // rebuild needed either way.
+    // hides both nav mounts instead now, so the built rail or pill is
+    // simply sitting there, unrendered, the moment a real route wants
+    // it again, no rebuild needed either way.
     const tasks = [screen(content, route.params)];
     if (!FULLSCREEN_ROUTES.has(route.path)) {
       tasks.push(renderSidebar(sidebarMount));
+      tasks.push(renderMobileNav(mobileNavMount));
     }
 
     const results = await Promise.all(tasks);
