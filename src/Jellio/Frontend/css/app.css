@@ -198,15 +198,19 @@
   display: none;
 }
 
-/* Raised from 47.99em (phone only): real feedback from an actual
-   tablet showed the rail and the pill both on screen at once there,
-   the rail because this rule's own old threshold never covered a
-   tablet's own width, the pill because its own default was flex all
-   along, correct only once one of the two rules here always wins.
-   79.99em covers every real tablet width this project has been
-   tested against, landscape included, leaving only genuine
-   desktop/laptop widths on the rail. */
-@media (max-width: 79.99em) {
+/* pointer:coarse, not a width threshold: a real tablet's own CSS
+   viewport can sit well past any width worth calling "mobile" (some
+   report native pixel width directly, no virtual viewport scaling),
+   so no width value this project picked ever reliably caught every
+   real tablet, confirmed live twice over on two different width
+   thresholds. This asks the real question instead: is the primary
+   input a finger, not a mouse. The width clause stays only for a real
+   desktop window resized down narrow by hand, still mouse-driven, the
+   one case pointer:coarse cannot cover by itself. app.js's own
+   applyResponsiveNav() enforces the same switch again in inline
+   style, this rule is the fallback for whatever renders before that
+   runs. */
+@media (pointer: coarse), (max-width: 47.99em) {
   .jellio-sidebar-mount {
     display: none;
   }

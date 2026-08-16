@@ -129,16 +129,24 @@ function getRoot() {
 
 // Belt and suspenders over css/app.css's own media query at the same
 // breakpoint: a real tablet kept showing the rail and the pill both at
-// once even after that breakpoint was already widened to cover it,
-// reported live a second time on a server confirmed already running
-// the fixed release, which only fits a stylesheet response that never
-// actually refreshed on that device, whatever layer between here and
-// there is holding onto the old one. app.js's own script tag is
-// confirmed to reload on every real release (it is the one thing that
-// visibly changed each time this was tested), so enforcing the same
-// switch again here, in inline style, wins over a stale stylesheet
-// regardless of why it went stale.
-const MOBILE_NAV_QUERY = '(max-width: 79.99em)';
+// once, and widening the width threshold twice over did not fix it,
+// confirmed with a real headless run at 1024px (matches the mobile
+// side of a width query exactly as written) that this rule alone was
+// never the real problem. The real one: a tablet's own real CSS
+// viewport can sit well past any width worth calling "mobile" (some
+// report their native pixel width directly, no virtual viewport
+// scaling at all), so no width threshold this project picks will ever
+// reliably catch every real tablet. pointer:coarse asks the real
+// question this was always trying to ask with a width proxy instead:
+// is the primary input here a finger, not a mouse, true on every
+// touchscreen regardless of how wide its own viewport reports, false
+// on a real desktop/laptop even in a narrow window. The old width
+// check stays as an OR only for the one case pointer:coarse cannot
+// cover on its own: a real desktop browser resized down narrow by
+// hand, still mouse-driven, still wants the rail to fit rather than
+// stay full width, same real case components/mobileNav.js's own
+// original spec called "mobile" in the first place.
+const MOBILE_NAV_QUERY = '(pointer: coarse), (max-width: 47.99em)';
 const mobileNavQuery = window.matchMedia ? window.matchMedia(MOBILE_NAV_QUERY) : null;
 
 function applyResponsiveNav() {
