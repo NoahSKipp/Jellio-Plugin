@@ -57,9 +57,18 @@ public class FrontendController : ControllerBase
         var cacheable =
             extension.Equals(".woff2", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".svg", StringComparison.OrdinalIgnoreCase);
+        // no-store rather than no-cache: reported live, twice, a real
+        // tablet kept showing css/app.css's own old rules well after a
+        // release confirmed to carry the fix, which only fits a cache
+        // somewhere between here and there treating a validator-less
+        // no-cache response as freely reusable rather than always
+        // revalidating it the way the spec says to. no-store leaves
+        // nothing for that kind of cache to hold onto in the first
+        // place, real fix rather than a guess at why no-cache alone
+        // was not enough.
         Response.Headers.CacheControl = cacheable
             ? "public, max-age=31536000, immutable"
-            : "no-cache";
+            : "no-store";
         return File(stream, contentType);
     }
 }

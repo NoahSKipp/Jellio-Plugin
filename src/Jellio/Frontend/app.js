@@ -127,6 +127,42 @@ function getRoot() {
   return root;
 }
 
+// Belt and suspenders over css/app.css's own media query at the same
+// breakpoint: a real tablet kept showing the rail and the pill both at
+// once even after that breakpoint was already widened to cover it,
+// reported live a second time on a server confirmed already running
+// the fixed release, which only fits a stylesheet response that never
+// actually refreshed on that device, whatever layer between here and
+// there is holding onto the old one. app.js's own script tag is
+// confirmed to reload on every real release (it is the one thing that
+// visibly changed each time this was tested), so enforcing the same
+// switch again here, in inline style, wins over a stale stylesheet
+// regardless of why it went stale.
+const MOBILE_NAV_QUERY = '(max-width: 79.99em)';
+const mobileNavQuery = window.matchMedia ? window.matchMedia(MOBILE_NAV_QUERY) : null;
+
+function applyResponsiveNav() {
+  const root = document.getElementById(ROOT_ID);
+  if (!root) return;
+  const sidebarMount = root.querySelector('.jellio-sidebar-mount');
+  const mobileNavMount = root.querySelector('.jellio-mobile-nav-mount');
+  if (!sidebarMount || !mobileNavMount) return;
+
+  if (root.classList.contains('jellio-root-fullscreen')) {
+    sidebarMount.style.display = 'none';
+    mobileNavMount.style.display = 'none';
+    return;
+  }
+
+  const mobile = Boolean(mobileNavQuery && mobileNavQuery.matches);
+  sidebarMount.style.display = mobile ? 'none' : '';
+  mobileNavMount.style.display = mobile ? 'flex' : 'none';
+}
+
+if (mobileNavQuery) {
+  mobileNavQuery.addEventListener('change', applyResponsiveNav);
+}
+
 function hide() {
   const root = document.getElementById(ROOT_ID);
   if (root) {
@@ -196,6 +232,7 @@ async function renderUnauthenticated() {
 
   const root = getRoot();
   root.classList.add('jellio-root-visible', 'jellio-root-fullscreen');
+  applyResponsiveNav();
 
   const sidebarMount = root.querySelector('.jellio-sidebar-mount');
   sidebarMount.textContent = '';
@@ -395,6 +432,7 @@ async function runSync() {
     const root = getRoot();
     root.classList.add('jellio-root-visible');
     root.classList.toggle('jellio-root-fullscreen', FULLSCREEN_ROUTES.has(route.path));
+    applyResponsiveNav();
 
     const sidebarMount = root.querySelector('.jellio-sidebar-mount');
     const mobileNavMount = root.querySelector('.jellio-mobile-nav-mount');
