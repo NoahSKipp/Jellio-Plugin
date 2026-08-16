@@ -264,11 +264,11 @@ async function renderUnauthenticated() {
 // network cold. A hard cap keeps a slow network from holding the
 // reader on a blank splash indefinitely: showing the app with a cold
 // cache is a worse first paint than what came before this, but still
-// better than one that never arrives. Raised from the original 4s: real
-// feedback on a genuinely slow connection (hotel wifi, reported
-// directly) asked for every library's own coverflow to preload too,
-// real extra work worth a longer real cap rather than bailing on it
-// sooner than a slow connection needs.
+// better than one that never arrives. preloadInitialData() below now
+// only ever queues one real screen's own images (home's rows, or the
+// one library a route actually landed on), not every library at once,
+// so this cap is generous rather than tight even on a genuinely slow
+// connection.
 const PRELOAD_TIMEOUT_MS = 8000;
 let preloaded = false;
 
@@ -360,17 +360,22 @@ function runTrackedTasks(tasks) {
 // data instead of the sidebar and the first screen both racing the
 // network cold.
 //
-// Real feedback: "preload all libraries", not just whichever screen
-// happens to load first. getUserViews() resolves before the rest of
-// the task list can even be built (every library task needs a real
-// library id), so it is awaited directly here rather than queued
-// alongside everything else; every real library it returns then gets
-// its own coverflow task, same real preload trick preloadHomeSections()
-// already uses. Home's own rows are still their own task on top of
-// that, scoped to home specifically since a coverflow is the one thing
-// every library page shares, but home's row data (Up Next,
-// recommendations, catalog and genre rows) is its own screen's job
-// alone.
+// Used to warm every real library's own coverflow here too ("preload
+// all libraries", real feedback at the time), pulled after later real
+// feedback on a genuinely bad connection asked the opposite question:
+// why does Nuvio itself not feel this slow on the same wifi. The real
+// answer was not the wifi alone. Every one of this runtime's own
+// images is a real Jellyfin /Items/{id}/Images/{type} request, resized
+// server side on a cache miss, served off this one self-hosted box's
+// own upload, not a CDN edge the way Nuvio's own poster/backdrop
+// sources are; warming every library at once meant a hundred-plus of
+// those landing on that one box within the same few seconds on every
+// single cold load, home included. Only the screen actually on
+// screen, home's own rows or the one real library a route landed on,
+// earns a preload task now; opening a different library later pays
+// its own real cost then, the same moment Nuvio would pay it too,
+// instead of every session paying every library's cost up front
+// regardless of whether it is ever opened.
 async function preloadInitialData() {
   showSplash();
 
@@ -386,23 +391,25 @@ async function preloadInitialData() {
     console.warn('Jellio: could not preload library list', err);
   }
 
-  if (parseRoute().path === 'home') {
+  const route = parseRoute();
+
+  if (route.path === 'home') {
     tasks.push({ label: 'Featured', run: preloadHeroImages });
     tasks.push({ label: 'Home', run: preloadHomeSections });
-  }
-
-  views
-    .filter(function (view) {
-      return !!view.CollectionType;
-    })
-    .forEach(function (view) {
+  } else {
+    const currentParentId = route.params.get('topParentId') || route.params.get('parentId');
+    const currentView = views.filter(function (view) {
+      return view.CollectionType && view.Id === currentParentId;
+    })[0];
+    if (currentView) {
       tasks.push({
-        label: view.Name || 'Library',
+        label: currentView.Name || 'Library',
         run: function () {
-          return preloadLibraryCoverflow(view);
+          return preloadLibraryCoverflow(currentView);
         },
       });
-    });
+    }
+  }
 
   await withTimeout(runTrackedTasks(tasks), PRELOAD_TIMEOUT_MS);
   hideSplash();
