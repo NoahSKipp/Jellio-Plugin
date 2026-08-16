@@ -7,7 +7,7 @@
 import { getCurrentUser, updateUserPassword, getSleepTimerStatus, cancelSleepTimer } from '../runtime/api.js';
 import { logout } from '../runtime/auth.js';
 import { openAvatarPicker } from '../components/avatarPicker.js';
-import { refreshProfileAvatar } from '../components/sidebar.js';
+import { refreshProfileAvatar } from '../components/navShared.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
