@@ -132,6 +132,38 @@ async function syncNativeCredentials(accessToken, user) {
   }
 }
 
+// syncNativeCredentials above only ever helps a native reconnect that
+// has not happened yet: real jellyfin-apiclient-javascript source
+// (src/apiClient.js), read before writing this, keeps its own actual
+// "am I logged in" state in a plain in-memory flag on the ApiClient
+// instance itself (_loggedIn, set by setAuthenticationInfo), read once
+// at that instance's own construction and never re-polled from
+// localStorage afterward. Writing jellyfin_credentials after the fact
+// changes nothing about a native ApiClient instance already sitting in
+// memory since this page's own load, real bug found live: signing in
+// here still bounced straight into native's own login/select-user
+// screen on the very next real navigation, since window.Emby.Page.show()
+// (runtime/router.js's own navigateTo, used for every real navigation
+// so native's own click handlers still work) runs through native's own
+// route guard, which reads that same stale in-memory flag, not
+// anything this runtime writes to storage. setAuthenticationInfo is a
+// plain property assignment, no network request, so this carries none
+// of the real risk a full native reconnect already showed on this
+// exact codebase's own prior attempt at this (this file's own header,
+// "the exact mechanism that later got pulled"): that risk was
+// specifically in re-running validateAuthentication() over the
+// network, which this never does.
+function syncNativeApiClientState(accessToken, user) {
+  try {
+    if (window.ApiClient && typeof window.ApiClient.setAuthenticationInfo === 'function') {
+      window.ApiClient.setAuthenticationInfo(accessToken, user.Id);
+    }
+  } catch (err) {
+    // Native's own guard stays wrong for the rest of this page's life
+    // if this fails, not this runtime's own real session.
+  }
+}
+
 // The one real completion signal a login can give this runtime: a
 // server response carrying a fresh AccessToken and User. Called either
 // after this runtime's own direct authenticateByName call, or by the
@@ -147,6 +179,7 @@ export function setSession(accessToken, user) {
   writeJson(SERVER_ADDRESS_KEY, getServerAddress());
   rememberUser(accessToken, user);
   syncNativeCredentials(accessToken, user);
+  syncNativeApiClientState(accessToken, user);
 }
 
 // This runtime's own {userId: {accessToken, name, primaryImageTag, ts}}
