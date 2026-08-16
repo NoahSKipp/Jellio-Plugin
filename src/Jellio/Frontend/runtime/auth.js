@@ -16,6 +16,7 @@ const STORAGE_PREFIX = 'jellio_auth::';
 const SERVER_ADDRESS_KEY = STORAGE_PREFIX + 'serverAddress';
 const DEVICE_ID_KEY = STORAGE_PREFIX + 'deviceId';
 const SESSION_KEY = STORAGE_PREFIX + 'session';
+const NATIVE_CREDENTIALS_KEY = 'jellyfin_credentials';
 
 const CLIENT_NAME = 'Jellio';
 const CLIENT_VERSION = '0.1.0';
@@ -88,6 +89,49 @@ export function getCurrentUser() {
   return session ? session.user || null : null;
 }
 
+// A login this runtime's own authenticateByName/quickSignIn handles
+// never touches native jellyfin-web's own ApiClient at all (this
+// file's own header explains why), which left native with no session
+// of its own: the very next unmigrated route, or a plain reload before
+// this runtime's own bootstrap took over, found native's own
+// 'jellyfin_credentials' store empty and asked to sign in a second
+// time, reported live on a cold cache. Real shape, read from
+// jellyfin-apiclient-javascript's own credentials.js (addOrUpdateServer)
+// before writing this, not guessed at: a Servers array keyed by each
+// server's own real Id, AccessToken/UserId making an entry "signed in"
+// the moment connectionManager.connect() finds it. Best effort: a
+// failed /System/Info/Public call here only loses native's own free
+// ride, not this runtime's own real session, which setSession below
+// has already committed by the time this runs.
+async function syncNativeCredentials(accessToken, user) {
+  try {
+    const response = await fetch(getServerAddress() + '/System/Info/Public');
+    if (!response.ok) return;
+    const info = await response.json();
+    if (!info || !info.Id) return;
+
+    const existing = readJson(NATIVE_CREDENTIALS_KEY);
+    const servers = (existing && Array.isArray(existing.Servers) ? existing.Servers : []).filter(function (
+      server,
+    ) {
+      return server.Id !== info.Id;
+    });
+    servers.push({
+      Id: info.Id,
+      AccessToken: accessToken,
+      UserId: user.Id,
+      ManualAddress: getServerAddress(),
+      LocalAddress: getServerAddress(),
+      Name: info.ServerName || '',
+      DateLastAccessed: Date.now(),
+      UserLinkType: 'Linked',
+    });
+    writeJson(NATIVE_CREDENTIALS_KEY, { Servers: servers });
+  } catch (err) {
+    // Best effort, see header above.
+  }
+}
+
 // The one real completion signal a login can give this runtime: a
 // server response carrying a fresh AccessToken and User. Called either
 // after this runtime's own direct authenticateByName call, or by the
@@ -102,6 +146,7 @@ export function setSession(accessToken, user) {
   });
   writeJson(SERVER_ADDRESS_KEY, getServerAddress());
   rememberUser(accessToken, user);
+  syncNativeCredentials(accessToken, user);
 }
 
 // This runtime's own {userId: {accessToken, name, primaryImageTag, ts}}
