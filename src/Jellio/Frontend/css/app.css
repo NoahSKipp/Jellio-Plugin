@@ -501,6 +501,22 @@
   white-space: nowrap;
 }
 
+/* Up Next/Continue Watching only, components/card.js's own
+   episodeSubtitle(): the series name alone (jellio-card-title above)
+   does not say where in it a given episode sits, real feedback was
+   there was no way to tell a bare episode thumbnail and title apart
+   from any other row's. Secondary text colour and a touch smaller,
+   same relationship the title/subtitle pairing already has on
+   screens/detail.js's own header. */
+.jellio-card-subtitle {
+  margin-top: 0.15em;
+  font-size: 0.76em;
+  color: var(--jellio-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .jellio-card:hover .jellio-card-image,
 .jellio-card:focus-visible .jellio-card-image {
   transform: scale(1.06);

@@ -32,12 +32,36 @@ function paintCardState(imageWrap, item) {
   }
 }
 
+// Up Next/Continue Watching hand this the same Episode item Jellyfin
+// itself uses for the row: item.Name is only ever the episode's own
+// title ("Chapter One"), the series it belongs to and where in it
+// this episode sits are separate real fields on the same object
+// (SeriesName, ParentIndexNumber, IndexNumber), already present on
+// every real /Shows/NextUp and .../Items/Resume response without
+// asking for extra Fields, real feedback was that a bare episode
+// title with no series name gave no way to tell rows of unrelated
+// shows apart at a glance.
+function episodeSubtitle(item) {
+  const hasSeason = typeof item.ParentIndexNumber === 'number';
+  const hasEpisode = typeof item.IndexNumber === 'number';
+  let code = '';
+  if (hasSeason && hasEpisode) {
+    code = 'S' + item.ParentIndexNumber + ' E' + item.IndexNumber;
+  } else if (hasEpisode) {
+    code = 'E' + item.IndexNumber;
+  }
+  if (code && item.Name) return code + ': ' + item.Name;
+  return code || item.Name || '';
+}
+
 export function buildCard(item) {
+  const isEpisode = item.Type === 'Episode' && !!item.SeriesName;
+
   const card = document.createElement('div');
   card.className = 'jellio-card';
   card.tabIndex = 0;
   card.setAttribute('role', 'button');
-  card.setAttribute('aria-label', item.Name || '');
+  card.setAttribute('aria-label', isEpisode ? item.SeriesName + ' - ' + episodeSubtitle(item) : item.Name || '');
 
   const imageWrap = document.createElement('div');
   imageWrap.className = 'jellio-card-image-wrap';
@@ -62,8 +86,15 @@ export function buildCard(item) {
 
   const title = document.createElement('div');
   title.className = 'jellio-card-title';
-  title.textContent = item.Name || '';
+  title.textContent = isEpisode ? item.SeriesName : item.Name || '';
   card.appendChild(title);
+
+  if (isEpisode) {
+    const subtitle = document.createElement('div');
+    subtitle.className = 'jellio-card-subtitle';
+    subtitle.textContent = episodeSubtitle(item);
+    card.appendChild(subtitle);
+  }
 
   // #/item rather than native's own #/details: screens/detail.js's own
   // Play button hands off to the real #/details route for actual
