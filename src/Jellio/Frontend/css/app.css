@@ -26,7 +26,19 @@
 /* Covers the native page rather than removing it: native jellyfin-web
    keeps running underneath, unaware, so a screen this runtime has not
    built yet can just stay hidden here and native rendering shows through
-   with nothing to reconcile. */
+   with nothing to reconcile.
+   font-size pinned here on purpose: jellyfin-web's own fonts.sized.scss
+   sets the real <html> element's own font-size from a min-height media
+   query (20px at 720px, 27px at 1000px), live, not just at load, so
+   every em in this file was quietly resizing with it, the sidebar rail
+   the most visible of them (its own width is an em based clamp) but
+   never the only one. Every em anywhere in this file now resolves
+   against this fixed local root instead of that moving one, real
+   feedback reported directly as the rail changing size on its own.
+   rem could not fix this on its own (rem always means the true page
+   root's own font-size, this override or not), so every rem in this
+   file was converted to em alongside this: same value, now anchored
+   here instead of drifting with jellyfin-web's own breakpoints. */
 #jellioRoot {
   display: none;
   position: fixed;
@@ -34,6 +46,7 @@
   z-index: 9999;
   background: var(--jellio-bg-color);
   font-family: var(--jellio-font-family);
+  font-size: 16px;
   color: var(--jellio-text-color);
 }
 
@@ -169,7 +182,7 @@
 
 .jellio-home-greeting {
   margin: 0;
-  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  font-size: clamp(1.4em, 2.2vw, 2em);
   font-weight: 700;
 }
 
@@ -183,7 +196,7 @@
 .jellio-row-title {
   margin: 0 0 0.6em;
   padding: 0 var(--jellio-safe-gutter);
-  font-size: clamp(1rem, 1.3vw, 1.3rem);
+  font-size: clamp(1em, 1.3vw, 1.3em);
   font-weight: 700;
 }
 
@@ -235,7 +248,7 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: var(--jellio-text-color);
-  font-size: 1.5rem;
+  font-size: 1.5em;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -300,7 +313,7 @@
    the app's own copy, not the dimmer secondary tone. */
 .jellio-card-title {
   margin-top: 0.5em;
-  font-size: 0.85rem;
+  font-size: 0.85em;
   color: var(--jellio-text-color);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -333,7 +346,7 @@
   border-radius: 50%;
   background: var(--jellio-secondary-color);
   color: var(--jellio-on-secondary);
-  font-size: 1rem;
+  font-size: 1em;
 }
 
 .jellio-card-progress {
@@ -374,7 +387,7 @@
   background: transparent;
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: 0.9rem;
+  font-size: 0.9em;
   text-align: left;
   cursor: pointer;
 }
@@ -391,7 +404,7 @@
 
 .jellio-library-title {
   margin: 0;
-  font-size: clamp(1.3rem, 2vw, 1.8rem);
+  font-size: clamp(1.3em, 2vw, 1.8em);
   font-weight: 700;
 }
 
@@ -408,7 +421,7 @@
   background: var(--jellio-bg-elevated);
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: 0.85rem;
+  font-size: 0.85em;
   cursor: pointer;
 }
 
@@ -441,7 +454,7 @@
   background: var(--jellio-card-bg);
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: 1rem;
+  font-size: 1em;
 }
 
 .jellio-search-input:focus {
@@ -474,7 +487,7 @@
 
 .jellio-detail-title {
   margin: 0 0 0.3em;
-  font-size: clamp(1.8rem, 3.6vw, 3rem);
+  font-size: clamp(1.8em, 3.6vw, 3em);
   font-weight: 800;
 }
 
@@ -483,13 +496,13 @@
   gap: 0.8em;
   margin-bottom: 0.6em;
   color: var(--jellio-text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.9em;
 }
 
 .jellio-detail-genres {
   margin-bottom: 1em;
   color: var(--jellio-text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.9em;
 }
 
 .jellio-detail-actions {
@@ -505,7 +518,7 @@
   color: var(--jellio-on-secondary);
   font-family: var(--jellio-font-family);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1em;
   cursor: pointer;
 }
 
@@ -521,7 +534,7 @@
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1em;
   cursor: pointer;
 }
 
@@ -576,7 +589,7 @@
 
 .jellio-cast-name {
   margin-top: 0.5em;
-  font-size: 0.8rem;
+  font-size: 0.8em;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -584,7 +597,7 @@
 }
 
 .jellio-cast-role {
-  font-size: 0.75rem;
+  font-size: 0.75em;
   color: var(--jellio-text-tertiary);
   text-align: center;
   overflow: hidden;
@@ -670,7 +683,7 @@
   border-radius: 0.4em;
   background: rgb(0 0 0 / 0.6);
   color: var(--jellio-text-color);
-  font-size: 0.75rem;
+  font-size: 0.75em;
   font-weight: 700;
 }
 
@@ -683,7 +696,7 @@
 }
 
 .jellio-episode-overview {
-  font-size: 0.82rem;
+  font-size: 0.82em;
   color: var(--jellio-text-secondary);
   line-height: 1.4;
   display: -webkit-box;
@@ -708,7 +721,7 @@
   height: 100%;
   object-fit: contain;
   background: #000;
-  --jellio-subtitle-size: 1.3rem;
+  --jellio-subtitle-size: 1.3em;
   --jellio-subtitle-bg: rgb(0 0 0 / 0.5);
 }
 
@@ -754,7 +767,7 @@
 }
 
 .jellio-player-pause-title {
-  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-size: clamp(1.4em, 3vw, 2.2em);
   font-weight: 700;
   margin-bottom: 0.4em;
 }
@@ -826,7 +839,7 @@
 }
 
 .jellio-player-time {
-  font-size: 0.8rem;
+  font-size: 0.8em;
   color: var(--jellio-text-secondary);
   flex: 0 0 auto;
 }
@@ -915,7 +928,7 @@
 .jellio-player-style-group-label {
   padding: 0 0.4em 0.4em;
   color: var(--jellio-text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.75em;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -983,7 +996,7 @@
 
 .jellio-avatar-picker-title {
   margin: 0 0 1em;
-  font-size: 1.2rem;
+  font-size: 1.2em;
   font-weight: 700;
 }
 
@@ -1022,7 +1035,7 @@
 .jellio-avatar-picker-status {
   margin: 1em 0 0;
   color: var(--jellio-text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.85em;
 }
 
 .jellio-player-sleep-option:hover {
@@ -1071,7 +1084,7 @@
 }
 
 .jellio-hub-tile-name {
-  font-size: clamp(0.78rem, 0.9vw, 1rem);
+  font-size: clamp(0.78em, 0.9vw, 1em);
   font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -1119,7 +1132,7 @@
 
 .jellio-service-eyebrow {
   color: var(--jellio-text-tertiary);
-  font-size: clamp(0.58rem, 0.66vw, 0.72rem);
+  font-size: clamp(0.58em, 0.66vw, 0.72em);
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1131,7 +1144,7 @@
   align-items: center;
   gap: 0.4em;
   margin: 0.15em 0 0;
-  font-size: clamp(1.9rem, 3.4vw, 3.6rem);
+  font-size: clamp(1.9em, 3.4vw, 3.6em);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.01em;
@@ -1148,7 +1161,7 @@
 .jellio-service-blurb {
   margin: 0.7em 0 0;
   color: var(--jellio-text-secondary);
-  font-size: clamp(0.76rem, 0.85vw, 0.92rem);
+  font-size: clamp(0.76em, 0.85vw, 0.92em);
 }
 
 .jellio-service-empty {
@@ -1156,7 +1169,7 @@
   padding: 0 var(--jellio-safe-gutter) clamp(24px, 3vw, 60px);
   max-width: 46em;
   color: var(--jellio-text-secondary);
-  font-size: clamp(0.8rem, 0.9vw, 0.98rem);
+  font-size: clamp(0.8em, 0.9vw, 0.98em);
   line-height: 1.6;
 }
 
@@ -1180,7 +1193,7 @@
   border-radius: 999px;
   background: rgb(255 255 255 / 0.08);
   color: var(--jellio-text-secondary);
-  font-size: clamp(0.7rem, 0.78vw, 0.84rem);
+  font-size: clamp(0.7em, 0.78vw, 0.84em);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -1209,7 +1222,7 @@
 
 .jellio-settings-title {
   margin: 0;
-  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  font-size: clamp(1.4em, 2.2vw, 2em);
   font-weight: 700;
 }
 
@@ -1220,7 +1233,7 @@
 
 .jellio-settings-section-title {
   margin: 0 0 0.8em;
-  font-size: clamp(1.05rem, 1.4vw, 1.3rem);
+  font-size: clamp(1.05em, 1.4vw, 1.3em);
   font-weight: 700;
 }
 
@@ -1238,7 +1251,7 @@
   background: var(--jellio-card-bg);
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+  font-size: clamp(0.9em, 1.1vw, 1.05em);
   box-sizing: border-box;
 }
 
@@ -1250,7 +1263,7 @@
 .jellio-settings-status {
   margin: 0;
   color: var(--jellio-text-secondary);
-  font-size: clamp(0.85rem, 1vw, 1rem);
+  font-size: clamp(0.85em, 1vw, 1em);
 }
 
 .jellio-settings-button {
@@ -1262,7 +1275,7 @@
   color: var(--jellio-on-secondary);
   font-family: var(--jellio-font-family);
   font-weight: 700;
-  font-size: clamp(0.85rem, 1vw, 1rem);
+  font-size: clamp(0.85em, 1vw, 1em);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1419,7 +1432,7 @@
 
 .jellio-player-upnext-eyebrow {
   color: var(--jellio-text-tertiary);
-  font-size: 0.68rem;
+  font-size: 0.68em;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1447,7 +1460,7 @@
   color: var(--jellio-on-secondary);
   font-family: var(--jellio-font-family);
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.8em;
   cursor: pointer;
 }
 
@@ -1458,7 +1471,7 @@
   background: rgb(255 255 255 / 0.08);
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: 0.8rem;
+  font-size: 0.8em;
   cursor: pointer;
 }
 
@@ -1488,14 +1501,14 @@
 }
 
 .jellio-player-resume-title {
-  font-size: 1.3rem;
+  font-size: 1.3em;
   font-weight: 700;
 }
 
 .jellio-player-resume-subtitle {
   margin-top: 0.4em;
   color: var(--jellio-text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.85em;
 }
 
 .jellio-player-resume-actions {
@@ -1513,7 +1526,7 @@
   color: var(--jellio-on-secondary);
   font-family: var(--jellio-font-family);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.9em;
   cursor: pointer;
 }
 
@@ -1524,7 +1537,7 @@
   background: rgb(255 255 255 / 0.1);
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: 0.9rem;
+  font-size: 0.9em;
   cursor: pointer;
 }
 
@@ -1548,7 +1561,7 @@
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.85em;
   cursor: pointer;
   opacity: 1;
   transition: opacity 0.2s ease;
@@ -1767,7 +1780,7 @@
 
 .jellio-person-name {
   margin: 0 0 0.5em;
-  font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+  font-size: clamp(1.6em, 2.6vw, 2.4em);
   font-weight: 800;
 }
 
@@ -1898,7 +1911,7 @@
   margin: 0;
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: clamp(1.2rem, 2vw, 2.1rem);
+  font-size: clamp(1.2em, 2vw, 2.1em);
   font-weight: 700;
   line-height: 1.1;
 }
@@ -1906,7 +1919,7 @@
 .jellio-coverflow-meta {
   color: var(--jellio-text-secondary);
   font-family: var(--jellio-font-family);
-  font-size: clamp(0.62rem, 0.72vw, 0.78rem);
+  font-size: clamp(0.62em, 0.72vw, 0.78em);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1929,7 +1942,7 @@
   background: var(--jellio-secondary-color);
   color: var(--jellio-on-secondary);
   font-family: var(--jellio-font-family);
-  font-size: clamp(0.72rem, 0.8vw, 0.9rem);
+  font-size: clamp(0.72em, 0.8vw, 0.9em);
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -2044,7 +2057,7 @@
   margin: 0 0 clamp(20px, 2.4vw, 40px);
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: clamp(1.6rem, 2.6vw, 2.6rem);
+  font-size: clamp(1.6em, 2.6vw, 2.6em);
   font-weight: 700;
   text-align: center;
 }
@@ -2123,7 +2136,7 @@
 
 .jellio-login-profile-icon,
 .jellio-login-profile-avatar-add .material-icons {
-  font-size: clamp(2rem, 3vw, 3rem);
+  font-size: clamp(2em, 3vw, 3em);
 }
 
 .jellio-login-profile-name {
@@ -2133,7 +2146,7 @@
   overflow: hidden;
   color: var(--jellio-text-secondary);
   font-family: var(--jellio-font-family);
-  font-size: clamp(0.82rem, 0.95vw, 1rem);
+  font-size: clamp(0.82em, 0.95vw, 1em);
   font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -2159,7 +2172,7 @@
   border-radius: 50%;
   background: rgb(0 0 0 / 0.7);
   color: var(--jellio-text-color);
-  font-size: 1rem;
+  font-size: 1em;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
@@ -2190,7 +2203,7 @@
   background: var(--jellio-card-bg);
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: 1rem;
+  font-size: 1em;
 }
 
 .jellio-login-input:focus {
@@ -2203,7 +2216,7 @@
   margin: 0.4em 0;
   color: var(--jellio-text-secondary);
   font-family: var(--jellio-font-family);
-  font-size: 0.85rem;
+  font-size: 0.85em;
   text-align: center;
 }
 
@@ -2215,7 +2228,7 @@
   background: var(--jellio-secondary-color);
   color: var(--jellio-on-secondary);
   font-family: var(--jellio-font-family);
-  font-size: 1rem;
+  font-size: 1em;
   font-weight: 700;
   cursor: pointer;
   transition: background-color 160ms ease;
@@ -2270,7 +2283,7 @@
 .jellio-splash-mark {
   color: var(--jellio-text-color);
   font-family: var(--jellio-font-family);
-  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-size: clamp(1.8em, 3vw, 2.8em);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
