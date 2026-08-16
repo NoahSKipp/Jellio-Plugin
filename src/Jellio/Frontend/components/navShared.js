@@ -146,6 +146,12 @@ export async function getPrimaryNavLinks() {
   views.forEach(function (view) {
     if (view === moviesView || view === tvView || view === realAnimeView) return;
     if (!view.CollectionType) return;
+    // The boxsets library ("Collections" in the native library list) has
+    // no real screen behind it here, streamingHub.js's own collections
+    // work covers the same real content already, so it earns no nav
+    // link at all rather than one that goes nowhere useful, real
+    // feedback asked for it gone outright, not just deprioritised.
+    if (view.CollectionType === 'boxsets') return;
     links.push({ icon: 'library', label: view.Name, hash: libraryHash(view) });
   });
 

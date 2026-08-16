@@ -198,7 +198,15 @@
   display: none;
 }
 
-@media (max-width: 47.99em) {
+/* Raised from 47.99em (phone only): real feedback from an actual
+   tablet showed the rail and the pill both on screen at once there,
+   the rail because this rule's own old threshold never covered a
+   tablet's own width, the pill because its own default was flex all
+   along, correct only once one of the two rules here always wins.
+   79.99em covers every real tablet width this project has been
+   tested against, landscape included, leaving only genuine
+   desktop/laptop widths on the rail. */
+@media (max-width: 79.99em) {
   .jellio-sidebar-mount {
     display: none;
   }
@@ -227,6 +235,12 @@
 }
 
 .jellio-mobile-nav {
+  /* Every size below is em against this, so bumping it once here
+     scales icons, labels and padding together rather than a dozen
+     separate values: real feedback called the whole pill "way too
+     small", not any one part of it, once a real tablet's own width
+     started reaching this bar instead of only a phone's. */
+  font-size: 19px;
   position: fixed;
   left: 50%;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
@@ -235,7 +249,7 @@
   display: flex;
   align-items: center;
   max-width: calc(100vw - 2 * var(--jellio-safe-gutter));
-  padding: 0.5em 0.6em;
+  padding: 0.6em 0.7em;
   border-radius: 999px;
   background: rgb(var(--jellio-bg-elevated-rgb) / 0.82);
   border: 1px solid rgb(255 255 255 / 0.1);
@@ -270,10 +284,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15em;
+  gap: 0.2em;
   flex: 0 0 auto;
-  min-width: 3.1em;
-  padding: 0.4em 0.5em;
+  min-width: 3.4em;
+  padding: 0.45em 0.55em;
   border: 0;
   border-radius: 999px;
   background: transparent;
