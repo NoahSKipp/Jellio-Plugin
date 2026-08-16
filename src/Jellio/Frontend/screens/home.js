@@ -286,10 +286,14 @@ async function buildHomeSections() {
     const hub = buildHubStrip(collections);
     if (hub) sections.push(hub);
 
-    const catalogRows = await buildCatalogRows(collections, seen);
-    catalogRows.forEach(function (row) {
-      sections.push(row);
-    });
+    try {
+      const catalogRows = await buildCatalogRows(collections, seen);
+      catalogRows.forEach(function (row) {
+        sections.push(row);
+      });
+    } catch (err) {
+      console.warn('Jellio: could not load catalog rows', err);
+    }
   }
 
   const genreRows = await buildGenreRows(seen);
@@ -303,9 +307,25 @@ async function buildHomeSections() {
 // app.js's own preloadInitialData() calls this directly while the
 // splash is still up; renderHome() below calls it again and gets the
 // same in-flight or already-resolved promise back, never a second
-// fetch.
+// fetch. Real bug caught here: a rejected promise is exactly as
+// memoizable as a resolved one, so one real failure (a flaky request
+// buildHomeSections() above did not itself guard) used to cache that
+// same rejection forever, and every future call, this one included,
+// re-threw it straight out of renderHome() with nothing there to catch
+// it either, which app.js's own runSync() then read as the whole
+// screen render failing and fell all the way back to native for the
+// rest of the session. Catching here means this promise itself can
+// never reject, and clearing the cache on that same path means the
+// very next visit to home gets a real, fresh attempt instead of the
+// same dead promise served forever.
 export function preloadHomeSections() {
-  if (!homeSectionsPromise) homeSectionsPromise = buildHomeSections();
+  if (!homeSectionsPromise) {
+    homeSectionsPromise = buildHomeSections().catch(function (err) {
+      console.warn('Jellio: could not build home sections', err);
+      homeSectionsPromise = null;
+      return [];
+    });
+  }
   return homeSectionsPromise;
 }
 
