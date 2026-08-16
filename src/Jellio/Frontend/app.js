@@ -4,7 +4,14 @@
 // jellyfin-web showing underneath, untouched, real fallback rather than a
 // broken page.
 import { isAuthenticated, loginScreenBypassed } from './runtime/auth.js';
-import { getUserViews, getCollections, getCurrentUser, getHeroCandidates, getImageUrl } from './runtime/api.js';
+import {
+  getUserViews,
+  getCollections,
+  getCurrentUser,
+  getHeroCandidates,
+  getImageUrl,
+  itemTypesForKind,
+} from './runtime/api.js';
 import { renderLogin } from './screens/login.js';
 import { renderHome, preloadHomeSections } from './screens/home.js';
 import { renderLibrary } from './screens/library.js';
@@ -16,7 +23,8 @@ import { renderSettings } from './screens/settings.js';
 import { renderPerson } from './screens/person.js';
 import { renderSidebar } from './components/sidebar.js';
 import { startNowPlaying } from './components/nowPlaying.js';
-import { showSplash, hideSplash } from './components/splash.js';
+import { showSplash, hideSplash, setSplashTotal, reportSplashStep } from './components/splash.js';
+import { buildLibraryCoverflow } from './components/libraryCoverflow.js';
 import { onRouteChange, parseRoute } from './runtime/router.js';
 
 const ROOT_ID = 'jellioRoot';
@@ -204,8 +212,12 @@ async function renderUnauthenticated() {
 // network cold. A hard cap keeps a slow network from holding the
 // reader on a blank splash indefinitely: showing the app with a cold
 // cache is a worse first paint than what came before this, but still
-// better than one that never arrives.
-const PRELOAD_TIMEOUT_MS = 4000;
+// better than one that never arrives. Raised from the original 4s: real
+// feedback on a genuinely slow connection (hotel wifi, reported
+// directly) asked for every library's own coverflow to preload too,
+// real extra work worth a longer real cap rather than bailing on it
+// sooner than a slow connection needs.
+const PRELOAD_TIMEOUT_MS = 8000;
 let preloaded = false;
 
 function withTimeout(promise, ms) {
@@ -240,41 +252,107 @@ function prefetchImage(url) {
 // heroCarousel.js's own later call return the same eight items rather
 // than two different random sets.
 async function preloadHeroImages() {
+  const heroItems = await getHeroCandidates(8);
+  heroItems.forEach(function (item) {
+    prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }));
+  });
+}
+
+// Builds one real library's own coverflow (components/libraryCoverflow.js,
+// the same component screens/library.js mounts), same trick
+// preloadHomeSections() already uses: a real <img> already has its own
+// src set the instant it exists, loading regardless of whether it is
+// attached to the document, so this element never needs to be shown
+// anywhere for its own images to already be in flight. Destroyed right
+// after: this throwaway instance's own auto-advance timer would
+// otherwise keep firing forever for a carousel nobody is looking at.
+async function preloadLibraryCoverflow(view) {
+  const coverflow = buildLibraryCoverflow({
+    parentId: view.Id,
+    itemTypes: itemTypesForKind(view.CollectionType),
+  });
   try {
-    const heroItems = await getHeroCandidates(8);
-    heroItems.forEach(function (item) {
-      prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }));
-    });
-  } catch (err) {
-    console.warn('Jellio: could not preload hero images', err);
+    await coverflow.ready;
+  } finally {
+    coverflow.destroy();
   }
 }
 
-// Real feedback: rows kept loading in slowly, one at a time, after the
-// splash had already stepped aside, not just their images but the row
-// data itself (Up Next, recommendations, catalog and genre rows, every
-// one of them its own real request screens/home.js used to only fire
-// once it actually rendered). preloadHomeSections() builds those same
-// rows as real DOM now, while the splash is still up: every <img> in
-// them already has a real src set the instant it exists, so the
-// browser is fetching every thumbnail this screen needs before the
-// reader ever sees the page. renderHome() calls the same function
-// again and gets these same already built elements back, not a second
-// fetch.
+// Runs every queued task in parallel, reporting each one to the splash
+// (components/splash.js's own progress bar and status line, real
+// feedback on a slow connection asked for both) the moment it settles,
+// success or failure either way: a library with nothing worth a
+// coverflow, or a request that failed outright, still counts as one
+// real step done rather than stalling the counter on it.
+function runTrackedTasks(tasks) {
+  setSplashTotal(tasks.length);
+  return Promise.all(
+    tasks.map(function (task) {
+      return task.run().then(
+        function () {
+          reportSplashStep(task.label);
+        },
+        function (err) {
+          console.warn('Jellio: preload step failed', task.label, err);
+          reportSplashStep(task.label);
+        },
+      );
+    }),
+  );
+}
+
+// Every screen's own real cost, on this run and every one after it, is
+// the sidebar's own three calls (runtime/api.js's own cache makes the
+// after-this-one cost free): shown once, right after a real session is
+// confirmed, so the very first authenticated paint already has warm
+// data instead of the sidebar and the first screen both racing the
+// network cold.
 //
-// Scoped to the home screen on purpose rather than every possible
-// landing route: which screen loads first only varies on a direct deep
-// link, the ordinary case (a fresh load, a login, a quick sign-in) all
-// land on #/home, and guessing at some other route's own data without
-// knowing which one would mean fetching data most visits never use.
+// Real feedback: "preload all libraries", not just whichever screen
+// happens to load first. getUserViews() resolves before the rest of
+// the task list can even be built (every library task needs a real
+// library id), so it is awaited directly here rather than queued
+// alongside everything else; every real library it returns then gets
+// its own coverflow task, same real preload trick preloadHomeSections()
+// already uses. Home's own rows are still their own task on top of
+// that, scoped to home specifically since a coverflow is the one thing
+// every library page shares, but home's row data (Up Next,
+// recommendations, catalog and genre rows) is its own screen's job
+// alone.
 async function preloadInitialData() {
   showSplash();
-  const tasks = [getUserViews(), getCollections(), getCurrentUser()];
-  if (parseRoute().path === 'home') {
-    tasks.push(preloadHeroImages());
-    tasks.push(preloadHomeSections());
+
+  const tasks = [
+    { label: 'Account', run: getCurrentUser },
+    { label: 'Streaming services', run: getCollections },
+  ];
+
+  let views = [];
+  try {
+    views = await getUserViews();
+  } catch (err) {
+    console.warn('Jellio: could not preload library list', err);
   }
-  await withTimeout(Promise.all(tasks), PRELOAD_TIMEOUT_MS);
+
+  if (parseRoute().path === 'home') {
+    tasks.push({ label: 'Featured', run: preloadHeroImages });
+    tasks.push({ label: 'Home', run: preloadHomeSections });
+  }
+
+  views
+    .filter(function (view) {
+      return !!view.CollectionType;
+    })
+    .forEach(function (view) {
+      tasks.push({
+        label: view.Name || 'Library',
+        run: function () {
+          return preloadLibraryCoverflow(view);
+        },
+      });
+    });
+
+  await withTimeout(runTrackedTasks(tasks), PRELOAD_TIMEOUT_MS);
   hideSplash();
 }
 
