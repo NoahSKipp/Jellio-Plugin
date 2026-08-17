@@ -930,7 +930,8 @@
   padding: 0 clamp(16px, 3vw, 40px);
 }
 
-.jellio-player-error-back {
+.jellio-player-error-back,
+.jellio-detail-error-back {
   padding: 0.6em 1.6em;
   border: 0;
   border-radius: 999px;
@@ -941,8 +942,25 @@
   cursor: pointer;
 }
 
-.jellio-player-error-back:hover {
+.jellio-player-error-back:hover,
+.jellio-detail-error-back:hover {
   background: rgb(255 255 255 / 0.18);
+}
+
+/* screens/detail.js's own renderDetailError(): a series episode card
+   navigates straight to #/item, so a failed lookup here left a
+   reader looking at exactly nothing, same real shape the player
+   error state above already fixed, not a fullscreen route like that
+   one though, so this centers in the ordinary scrollable content
+   area instead of claiming the whole viewport height. */
+.jellio-detail-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
+  text-align: center;
+  padding: clamp(80px, 20vh, 160px) var(--jellio-safe-gutter);
 }
 
 /* screens/player.js's own switchSource() and attemptPlay() real

@@ -9,6 +9,26 @@ import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setFavorite } fro
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 
+// A failed item lookup used to just console.warn and return, leaving
+// root exactly as blank as root.textContent = '' left it: a series's
+// own episode card navigates straight here, so a reader clicking an
+// episode saw nothing happen at all, same silent failure shape found
+// and fixed on the search screen, the boot splash and the player
+// screen's own three negotiation failures. A real message plus a real
+// way back is the same fix again here.
+function renderDetailError(root, message) {
+  root.textContent = '';
+  const wrap = el('div', 'jellio-detail-error');
+  wrap.appendChild(el('p', 'jellio-service-empty', message));
+  const back = el('button', 'jellio-detail-error-back', 'Back to Home');
+  back.type = 'button';
+  back.addEventListener('click', function () {
+    navigateTo('#/home');
+  });
+  wrap.appendChild(back);
+  root.appendChild(wrap);
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -151,13 +171,17 @@ export async function renderDetail(root, params) {
   root.className = 'jellio-content jellio-screen-detail';
 
   const itemId = params.get('id');
-  if (!itemId) return;
+  if (!itemId) {
+    renderDetailError(root, 'Nothing to show.');
+    return;
+  }
 
   let item;
   try {
     item = await getItemDetails(itemId);
   } catch (err) {
     console.warn('Jellio: could not load item details', err);
+    renderDetailError(root, 'Could not load this title. Check your connection and try again.');
     return;
   }
 
