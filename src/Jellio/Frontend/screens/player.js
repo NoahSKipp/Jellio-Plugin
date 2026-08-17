@@ -34,6 +34,7 @@ import {
 import { navigateTo } from '../runtime/router.js';
 import { invalidateHomeSections } from './home.js';
 import { sourceLabel } from '../components/streamPicker.js';
+import { rememberSourceChoice } from '../runtime/streamMemory.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
@@ -534,6 +535,7 @@ export async function renderPlayer(root, params) {
       const negotiated = info && info.MediaSources && info.MediaSources[0];
       if (!negotiated) return;
       mediaSource = negotiated;
+      rememberSourceChoice(item, source);
       if (activeTrack) {
         activeTrack.remove();
         activeTrack = null;

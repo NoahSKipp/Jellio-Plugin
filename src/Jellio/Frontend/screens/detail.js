@@ -4,7 +4,10 @@
 // straight through to #/play, real playback, PlaybackInfo negotiation
 // plus a bare <video> element, see screens/player.js's own header for
 // why that needed no access to jellyfin-web's own playbackManager at
-// all, when there is not).
+// all, when there is not). Change Stream forces that same picker open
+// regardless of a remembered choice or a one option list, the one way
+// back to it from here once either of those would otherwise skip past
+// it straight to Play, same reason the in-player Sources menu exists.
 import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setFavorite } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
@@ -210,6 +213,13 @@ export async function renderDetail(root, params) {
       openStreamPicker(item);
     });
     actions.appendChild(playButton);
+
+    const changeStreamButton = el('button', 'jellio-detail-change-stream', 'Change Stream');
+    changeStreamButton.type = 'button';
+    changeStreamButton.addEventListener('click', function () {
+      openStreamPicker(item, { forceShow: true });
+    });
+    actions.appendChild(changeStreamButton);
   }
 
   const isFavorite = !!(item.UserData && item.UserData.IsFavorite);

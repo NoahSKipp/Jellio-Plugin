@@ -8,6 +8,7 @@ import { getCurrentUser, updateUserPassword, getSleepTimerStatus, cancelSleepTim
 import { logout } from '../runtime/auth.js';
 import { openAvatarPicker } from '../components/avatarPicker.js';
 import { refreshProfileAvatar } from '../components/navShared.js';
+import { isRememberEnabled, setRememberEnabled } from '../runtime/streamMemory.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -112,6 +113,38 @@ async function buildSleepTimerSection() {
   return section;
 }
 
+// A button that names its own current state rather than a checkbox,
+// same reasoning nothing else on this page uses a bare input: every
+// other action here already reads as a real sentence (Change avatar,
+// Cancel timer, Sign out), so this one does too.
+function buildPlaybackSection() {
+  const section = el('section', 'jellio-settings-section');
+  section.appendChild(el('h2', 'jellio-settings-section-title', 'Playback'));
+  section.appendChild(
+    el(
+      'p',
+      'jellio-settings-status',
+      'When there is more than one stream to choose from, remember the last one picked for this title (or, for an episode, this show) and skip straight to it next time.',
+    ),
+  );
+
+  const toggle = el('button', 'jellio-settings-button', '');
+  toggle.type = 'button';
+
+  function refresh() {
+    toggle.textContent = isRememberEnabled() ? 'Remembering streams: On' : 'Remembering streams: Off';
+  }
+  refresh();
+
+  toggle.addEventListener('click', function () {
+    setRememberEnabled(!isRememberEnabled());
+    refresh();
+  });
+
+  section.appendChild(toggle);
+  return section;
+}
+
 export async function renderSettings(root) {
   root.textContent = '';
   root.className = 'jellio-content jellio-screen-settings';
@@ -148,6 +181,7 @@ export async function renderSettings(root) {
 
   root.appendChild(buildPasswordSection());
   root.appendChild(await buildSleepTimerSection());
+  root.appendChild(buildPlaybackSection());
 
   const account = el('section', 'jellio-settings-section');
   const logoutButton = el('button', 'jellio-settings-button jellio-settings-button-danger', 'Sign out');

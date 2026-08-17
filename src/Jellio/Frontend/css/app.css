@@ -749,6 +749,22 @@
   color: var(--jellio-secondary-color);
 }
 
+.jellio-detail-change-stream {
+  padding: 0.7em 1.6em;
+  border: 1px solid var(--jellio-border-color);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-weight: 700;
+  font-size: 1em;
+  cursor: pointer;
+}
+
+.jellio-detail-change-stream:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+
 .jellio-detail-overview {
   max-width: 48em;
   margin: clamp(16px, 2vw, 28px) var(--jellio-safe-gutter);

@@ -17,6 +17,7 @@
 // describe the same data.
 import { getMediaSources, getImageUrl } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
+import { findRememberedSource, rememberSourceChoice } from '../runtime/streamMemory.js';
 
 const OVERLAY_ID = 'jellioStreamPicker';
 
@@ -104,6 +105,7 @@ function buildSourceCard(item, source) {
 
   card.addEventListener('click', function () {
     closeStreamPicker();
+    rememberSourceChoice(item, source);
     navigateTo(playHash(item.Id, source.Id));
   });
 
@@ -114,7 +116,14 @@ function buildSourceCard(item, source) {
 // all, same reasoning screens/player.js's own mid-playback Sources
 // button already uses for a one-option list: straight to Play instead,
 // same as before this existed.
-export async function openStreamPicker(item) {
+//
+// forceShow skips both that check and the remembered match below it:
+// screens/detail.js's own Change Stream button passes it, the one real
+// way back to this list once a remembered choice would otherwise keep
+// skipping straight past it, same reasoning the in-player Sources menu
+// already exists for once playback has actually started.
+export async function openStreamPicker(item, options) {
+  const forceShow = !!(options && options.forceShow);
   closeStreamPicker();
 
   let sources = [];
@@ -124,9 +133,17 @@ export async function openStreamPicker(item) {
     console.warn('Jellio: could not load sources for the stream picker', err);
   }
 
-  if (sources.length <= 1) {
+  if (!forceShow && sources.length <= 1) {
     navigateTo(playHash(item.Id, sources[0] && sources[0].Id));
     return;
+  }
+
+  if (!forceShow) {
+    const remembered = findRememberedSource(item, sources);
+    if (remembered) {
+      navigateTo(playHash(item.Id, remembered.Id));
+      return;
+    }
   }
 
   const overlay = el('div', 'jellio-stream-picker-overlay');
