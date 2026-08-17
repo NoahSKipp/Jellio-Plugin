@@ -210,6 +210,20 @@ export async function renderDetail(root, params) {
       openStreamPicker(item);
     });
     actions.appendChild(playButton);
+
+    // Play alone already reopens the picker on its own whenever there
+    // is real more than one source and "remember my stream choice" is
+    // off; this exists for when it is on, real feedback asked for a
+    // way back to the picker from here specifically without going
+    // through Settings, for a remembered choice that stopped working.
+    // forceChoice: true skips only that remembered shortcut, a title
+    // with one real source still has nothing to change to either way.
+    const changeStreamButton = el('button', 'jellio-detail-change-stream', 'Change Stream');
+    changeStreamButton.type = 'button';
+    changeStreamButton.addEventListener('click', function () {
+      openStreamPicker(item, { forceChoice: true });
+    });
+    actions.appendChild(changeStreamButton);
   }
 
   const isFavorite = !!(item.UserData && item.UserData.IsFavorite);

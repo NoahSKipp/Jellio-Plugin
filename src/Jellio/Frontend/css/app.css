@@ -723,7 +723,8 @@
   background: var(--jellio-secondary-variant);
 }
 
-.jellio-detail-favorite {
+.jellio-detail-favorite,
+.jellio-detail-change-stream {
   padding: 0.7em 1.6em;
   border: 1px solid var(--jellio-border-color);
   border-radius: 999px;
@@ -735,7 +736,8 @@
   cursor: pointer;
 }
 
-.jellio-detail-favorite:hover {
+.jellio-detail-favorite:hover,
+.jellio-detail-change-stream:hover {
   background: rgb(255 255 255 / 0.08);
 }
 
@@ -1461,6 +1463,68 @@
   margin: 0;
   color: var(--jellio-text-secondary);
   font-size: clamp(0.85em, 1vw, 1em);
+}
+
+/* Remember my stream choice, screens/settings.js's own Playback
+   section: this codebase's first real toggle switch, a plain hidden
+   checkbox driving a styled sibling track/thumb, the standard
+   accessible pattern for one rather than a div with a click handler
+   pretending to be one. */
+.jellio-settings-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  margin-bottom: 0.8em;
+  cursor: pointer;
+}
+
+.jellio-settings-toggle-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.jellio-settings-toggle-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.6em;
+  height: 1.5em;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.14);
+  transition: background-color 160ms ease;
+}
+
+.jellio-settings-toggle-track::before {
+  content: '';
+  position: absolute;
+  top: 0.15em;
+  left: 0.15em;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  background: var(--jellio-text-color);
+  transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jellio-settings-toggle-input:checked + .jellio-settings-toggle-track {
+  background: var(--jellio-secondary-color);
+}
+
+.jellio-settings-toggle-input:checked + .jellio-settings-toggle-track::before {
+  transform: translateX(1.1em);
+  background: var(--jellio-on-secondary);
+}
+
+.jellio-settings-toggle-input:focus-visible + .jellio-settings-toggle-track {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}
+
+.jellio-settings-toggle-label {
+  color: var(--jellio-text-color);
+  font-weight: 500;
 }
 
 .jellio-settings-button {
