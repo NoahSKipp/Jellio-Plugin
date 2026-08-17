@@ -1146,10 +1146,13 @@
   display: flex;
   flex-direction: column;
   min-width: 8em;
+  max-width: calc(100vw - 2 * clamp(16px, 3vw, 40px));
+  max-height: min(60vh, 24em);
   border-radius: var(--jellio-card-radius);
   background: var(--jellio-bg-elevated);
   border: 1px solid var(--jellio-border-color);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .jellio-player-sleep-menu-hidden {
@@ -1170,6 +1173,15 @@
   color: var(--jellio-secondary-color);
 }
 
+/* min-width alone, with no cap on the other side, let two full groups
+   (Size's four pills, Background's three) run taller than a real
+   short mobile viewport had room for above bottom: 4.5em, and wider
+   than a narrow one had room for at right: clamp(...) alone, both
+   silently clipped by .jellio-root-fullscreen .jellio-content's own
+   overflow: hidden rather than visibly overflowing where it would at
+   least have been obvious. max-height plus its own scroll and a real
+   max-width keep the whole menu inside the viewport it is drawn over
+   instead of past whichever edge is currently the tighter one. */
 .jellio-player-style-menu {
   position: absolute;
   right: clamp(16px, 3vw, 40px);
@@ -1178,6 +1190,9 @@
   flex-direction: column;
   gap: 0.8em;
   min-width: 16em;
+  max-width: calc(100vw - 2 * clamp(16px, 3vw, 40px));
+  max-height: min(60vh, 24em);
+  overflow-y: auto;
   padding: 0.8em;
   border-radius: var(--jellio-card-radius);
   background: var(--jellio-bg-elevated);
