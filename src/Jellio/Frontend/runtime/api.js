@@ -439,40 +439,70 @@ export function getMediaSources(itemId) {
 // already uses.
 export const TICKS_PER_SECOND = 10000000;
 
-// This used to build a Static: true stream URL unconditionally, no
-// matter what getPlaybackInfo's own real negotiation actually said
-// about the mediaSource it returned. Real Jellyfin's own
-// MediaSourceInfo (Jellyfin.Api's own Models/MediaInfoDtos, the same
-// DTO getPlaybackInfo above already returns SupportsDirectPlay/
-// SupportsDirectStream/TranscodingUrl on) is explicit about which of
-// those two is actually true for a given source: Static direct play
-// only works when the browser can decode the source's own real
-// container and codecs as they are, which a scraped Gelato release is
-// routinely not (HEVC in MKV, DTS/AC3 audio, every one of them a real
-// non-starter for direct <video> playback in a browser), reported live
-// as picking a stream landing on a dead player with nothing playing
-// and no error either, exactly what forcing an undecodable Static
-// stream on a <video> element looks like: the request succeeds, the
-// element just has nothing it can actually decode. EnableTranscoding:
-// true on that same negotiation already asks the server for a real
-// TranscodingUrl (an HLS master playlist, ready to use as-is) for
-// exactly this case, this runtime just never looked at it before.
-export function buildStreamUrl(itemId, mediaSource, startTimeTicks) {
-  const canDirectPlay =
-    mediaSource && (mediaSource.SupportsDirectPlay || mediaSource.SupportsDirectStream);
-  if (!canDirectPlay && mediaSource && mediaSource.TranscodingUrl) {
-    return getServerAddress() + mediaSource.TranscodingUrl;
-  }
+// getPlaybackInfo() above sends no real DeviceProfile at all, so its
+// own real MediaSourceInfo.SupportsDirectPlay is not a real answer
+// about whether this browser specifically can decode the source: with
+// nothing telling the server what a bare <video> element here can
+// actually play, real Jellyfin negotiation has nothing to evaluate
+// compatibility against, confirmed live as still landing on a dead
+// player after trusting that same flag first. TranscodingUrl carries
+// the same real blind spot, and even a correctly populated one is
+// routinely an HLS master playlist (MediaSourceInfo's own
+// TranscodingSubProtocol, "hls" far more often than "http" on a real
+// negotiation with no profile guiding it toward progressive output),
+// which a bare <video> element cannot parse at all outside Safari, no
+// different a dead end than the Static bug this already replaced.
+// Deciding this client side instead, against the source's own real
+// Container and MediaStreams codecs, is the one answer that does not
+// depend on any of that: a browser's own real decode support is fixed
+// and well known, not something any server side negotiation is needed
+// to discover. Not direct playable, the fallback is a real forced
+// progressive transcode (VideoCodec=h264&AudioCodec=aac, Static
+// omitted so the server actually transcodes rather than serving the
+// source's own real bytes as is), never HLS, so this always stays
+// something a bare <video> element can play with no shim of its own.
+const DIRECT_PLAY_CONTAINERS = new Set(['mp4', 'webm', 'm4v']);
+const DIRECT_PLAY_VIDEO_CODECS = new Set(['h264', 'vp8', 'vp9', 'av1']);
+const DIRECT_PLAY_AUDIO_CODECS = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac']);
 
+function canBrowserDirectPlay(mediaSource) {
+  if (!mediaSource) return false;
+  if (mediaSource.SupportsDirectPlay === false && mediaSource.SupportsDirectStream === false) {
+    return false;
+  }
+  const container = String(mediaSource.Container || '').toLowerCase();
+  if (!DIRECT_PLAY_CONTAINERS.has(container)) return false;
+
+  const streams = mediaSource.MediaStreams || [];
+  const video = streams.filter(function (stream) {
+    return stream.Type === 'Video';
+  })[0];
+  const audio = streams.filter(function (stream) {
+    return stream.Type === 'Audio';
+  })[0];
+  if (video && !DIRECT_PLAY_VIDEO_CODECS.has(String(video.Codec || '').toLowerCase())) return false;
+  if (audio && !DIRECT_PLAY_AUDIO_CODECS.has(String(audio.Codec || '').toLowerCase())) return false;
+  return true;
+}
+
+export function buildStreamUrl(itemId, mediaSource, startTimeTicks) {
   const token = getAccessToken();
-  const container = (mediaSource && mediaSource.Container) || 'mp4';
+  const mediaSourceId = (mediaSource && mediaSource.Id) || itemId;
+  const directPlay = canBrowserDirectPlay(mediaSource);
+  const container = directPlay ? (mediaSource && mediaSource.Container) || 'mp4' : 'mp4';
+
   const params = new URLSearchParams({
-    Static: 'true',
-    MediaSourceId: (mediaSource && mediaSource.Id) || itemId,
+    MediaSourceId: mediaSourceId,
     DeviceId: getDeviceId(),
     api_key: token || '',
     StartTimeTicks: String(startTimeTicks || 0),
   });
+  if (directPlay) {
+    params.set('Static', 'true');
+  } else {
+    params.set('VideoCodec', 'h264');
+    params.set('AudioCodec', 'aac');
+  }
   return getServerAddress() + '/Videos/' + itemId + '/stream.' + container + '?' + params.toString();
 }
 
