@@ -295,10 +295,50 @@ function withTimeout(promise, ms) {
   });
 }
 
-function prefetchImage(url) {
+function prefetchImage(url, priority) {
   if (!url) return;
   const img = new Image();
+  // Real fetchPriority hint, not a guess: this whole preload step now
+  // fires dozens of image requests at once (hero backdrops, the fix
+  // below adds home row thumbnails on top of that), a single tiny
+  // avatar sitting in that same real burst has no reason to expect a
+  // browser's own connection scheduling to favour it over a much
+  // bigger poster or backdrop it happens to be racing.
+  if (priority) img.fetchPriority = priority;
   img.src = url;
+}
+
+// The premise every preload task below this point already believed
+// about a detached <img>, real src set the instant it exists, loading
+// regardless of whether anything has appended it yet, is true, but
+// only for a plain one: components/card.js's own buildCard() (every
+// home row, every library grid) and components/libraryCoverflow.js's
+// own buildSlide() both set loading="lazy" on their real <img>, and a
+// lazy image with no layout at all to measure an intersection against
+// never starts its own real request, detached or not, confirmed live
+// (a detached eager <img>'s own request fires immediately, a detached
+// lazy one never fires at all until something actually appends it
+// where a reader can see it). Reported as home still taking a long
+// time to build and its images still taking a long time to load even
+// after the boot splash itself was fixed to stay up for real work:
+// preloadHomeSections() below was building every one of those rows
+// for real, correctly, the whole time, and every one of their own
+// images sat there doing nothing regardless, because none of them
+// were ever really the plain kind this whole architecture assumed.
+// Walking back over the same DOM already built and prefetching a real
+// copy of each lazy image's own src the plain way is the fix, not
+// touching loading="lazy" itself: that attribute is still exactly
+// right for a library grid genuinely holding hundreds of posters,
+// this only ever needs to cover what a reader lands on immediately.
+function prefetchLazyImages(roots, limit) {
+  const images = [];
+  (Array.isArray(roots) ? roots : [roots]).forEach(function (root) {
+    images.push.apply(images, root.querySelectorAll('img[loading="lazy"]'));
+  });
+  const count = limit != null ? Math.min(limit, images.length) : images.length;
+  for (let i = 0; i < count; i += 1) {
+    prefetchImage(images[i].src);
+  }
 }
 
 // components/navShared.js's own paintAvatar() only ever set an <img>
@@ -316,7 +356,7 @@ async function preloadAccount() {
   const user = await getCurrentUser();
   const imageTag = user && user.PrimaryImageTag;
   if (user && imageTag) {
-    prefetchImage(getUserImageUrl(user.Id, imageTag, { maxWidth: 80 }));
+    prefetchImage(getUserImageUrl(user.Id, imageTag, { maxWidth: 80 }), 'high');
   }
   return user;
 }
@@ -337,14 +377,36 @@ async function preloadHeroImages() {
   });
 }
 
+// A home row's own real card count adds up fast across every row
+// (screens/home.js's own CATALOG_ROW_LIMIT and GENRE_ROW_LIMIT are 24
+// each, up to a dozen rows total on a real catalog), the exact shape
+// of request burst preloadInitialData()'s own header already explains
+// choosing one screen's worth over every library's worth to avoid.
+// Every one of those cards is loading="lazy" regardless (see
+// prefetchLazyImages() above), so only the reader's own real first
+// paint, roughly two rows worth, earns a forced prefetch here; a
+// third row and beyond still loads the same moment scrolling it into
+// view already would have, same real cost Nuvio itself would pay
+// there too, not paid up front for a row that might never get
+// scrolled to at all.
+const HOME_PRELOAD_IMAGE_LIMIT = 20;
+
+async function preloadHomeRows() {
+  const sections = await preloadHomeSections();
+  prefetchLazyImages(sections, HOME_PRELOAD_IMAGE_LIMIT);
+  return sections;
+}
+
 // Builds one real library's own coverflow (components/libraryCoverflow.js,
-// the same component screens/library.js mounts), same trick
-// preloadHomeSections() already uses: a real <img> already has its own
-// src set the instant it exists, loading regardless of whether it is
-// attached to the document, so this element never needs to be shown
-// anywhere for its own images to already be in flight. Destroyed right
-// after: this throwaway instance's own auto-advance timer would
-// otherwise keep firing forever for a carousel nobody is looking at.
+// the same component screens/library.js mounts). Its own real <img>
+// is loading="lazy" (see prefetchLazyImages() above), so ready
+// resolving is only ever the underlying candidate fetch finishing,
+// not any image actually starting; prefetchLazyImages() below does
+// that part for real, all of them, the same fixed 8-slide candidate
+// list preloadHeroImages() above already prefetches in full. Destroyed
+// right after either way: this throwaway instance's own auto-advance
+// timer would otherwise keep firing forever for a carousel nobody is
+// looking at.
 async function preloadLibraryCoverflow(view) {
   const coverflow = buildLibraryCoverflow({
     parentId: view.Id,
@@ -352,6 +414,7 @@ async function preloadLibraryCoverflow(view) {
   });
   try {
     await coverflow.ready;
+    prefetchLazyImages(coverflow.element);
   } finally {
     coverflow.destroy();
   }
@@ -422,7 +485,7 @@ async function preloadInitialData() {
 
   if (route.path === 'home') {
     tasks.push({ label: 'Featured', run: preloadHeroImages });
-    tasks.push({ label: 'Home', run: preloadHomeSections });
+    tasks.push({ label: 'Home', run: preloadHomeRows });
   } else {
     const currentParentId = route.params.get('topParentId') || route.params.get('parentId');
     const currentView = views.filter(function (view) {
