@@ -170,6 +170,27 @@ function buildResumePrompt(percent, onResume, onRestart) {
   return { overlay: overlay, resumeButton: resumeButton };
 }
 
+// Every failure below this point used to just console.warn and return
+// undefined, leaving root exactly as blank as root.textContent = ''
+// left it: picking a stream Gelato could no longer actually resolve
+// (a dead debrid link, an expired scrape) read as playback simply not
+// starting, no different from working correctly and just taking a
+// moment, the same silent-failure shape already found and fixed on
+// the search screen and the boot splash. A real message plus a real
+// way back out of the dead route is the same fix again here.
+function renderPlaybackError(root, itemId, message) {
+  root.textContent = '';
+  const wrap = el('div', 'jellio-player-error');
+  wrap.appendChild(el('p', 'jellio-service-empty', message));
+  const back = el('button', 'jellio-player-error-back', 'Back');
+  back.type = 'button';
+  back.addEventListener('click', function () {
+    navigateTo(itemId ? '#/item?id=' + itemId : '#/home');
+  });
+  wrap.appendChild(back);
+  root.appendChild(wrap);
+}
+
 function formatTime(seconds) {
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
   const h = Math.floor(seconds / 3600);
@@ -186,13 +207,17 @@ export async function renderPlayer(root, params) {
   root.className = 'jellio-content jellio-screen-player';
 
   const itemId = params.get('id');
-  if (!itemId) return undefined;
+  if (!itemId) {
+    renderPlaybackError(root, null, 'Nothing to play.');
+    return undefined;
+  }
 
   let item;
   try {
     item = await getItemDetails(itemId);
   } catch (err) {
     console.warn('Jellio: could not load item for playback', err);
+    renderPlaybackError(root, itemId, 'Could not load this title. Check your connection and try again.');
     return undefined;
   }
 
@@ -212,12 +237,20 @@ export async function renderPlayer(root, params) {
     playbackInfo = await getPlaybackInfo(itemId, startTicks, preferredMediaSourceId);
   } catch (err) {
     console.warn('Jellio: could not negotiate playback', err);
+    renderPlaybackError(root, itemId, 'Could not start playback. Check your connection and try again.');
     return undefined;
   }
 
   let mediaSource = playbackInfo && playbackInfo.MediaSources && playbackInfo.MediaSources[0];
   if (!mediaSource) {
     console.warn('Jellio: no playable media source for', itemId);
+    renderPlaybackError(
+      root,
+      itemId,
+      preferredMediaSourceId
+        ? 'That stream is no longer available. Pick a different one.'
+        : 'No playable stream was found for this title.',
+    );
     return undefined;
   }
 
@@ -273,7 +306,7 @@ export async function renderPlayer(root, params) {
   playPauseIcon.setAttribute('aria-hidden', 'true');
   playPauseButton.appendChild(playPauseIcon);
   playPauseButton.addEventListener('click', function () {
-    if (video.paused) video.play();
+    if (video.paused) attemptPlay();
     else video.pause();
   });
 
@@ -500,6 +533,45 @@ export async function renderPlayer(root, params) {
   let sourceOptions = [mediaSource];
   let switchingSource = false;
 
+  // switchSource() below used to fail exactly as silently as the three
+  // routes into this whole screen already fixed above: the old source
+  // just kept playing (or sitting paused) with nothing telling the
+  // reader the source they just picked did not actually take, reading
+  // as switching streams simply not doing anything. A toast is enough
+  // here, unlike those three: the player itself is not blank, there is
+  // already a real screen worth keeping in front of the reader.
+  let toastTimer = null;
+  function showPlayerToast(message) {
+    let toast = root.querySelector('.jellio-player-toast');
+    if (!toast) {
+      toast = el('div', 'jellio-player-toast');
+      root.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('jellio-player-toast-visible');
+    if (toastTimer) window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () {
+      toast.classList.remove('jellio-player-toast-visible');
+    }, 4000);
+  }
+
+  // video.play() returns a promise that can reject (a still-loading
+  // source, a browser autoplay policy, the source erroring out
+  // server side) and nothing anywhere in this file was ever looking
+  // at whether it did: the play/pause button, the resume prompt below,
+  // all called it and moved on, so a rejection here read as clicking
+  // Play and genuinely nothing happening, no different from the three
+  // routes into this screen already fixed above for the same reason.
+  function attemptPlay() {
+    const playResult = video.play();
+    if (playResult && typeof playResult.catch === 'function') {
+      playResult.catch(function (err) {
+        console.warn('Jellio: could not start playback', err);
+        showPlayerToast('Could not start playback. Try pressing play again.');
+      });
+    }
+  }
+
   function rebuildSourceMenu() {
     sourceMenu.textContent = '';
     sourceOptions.forEach(function (source) {
@@ -532,7 +604,10 @@ export async function renderPlayer(root, params) {
     try {
       const info = await getPlaybackInfo(itemId, resumeTicks, source.Id);
       const negotiated = info && info.MediaSources && info.MediaSources[0];
-      if (!negotiated) return;
+      if (!negotiated) {
+        showPlayerToast('That stream is no longer available.');
+        return;
+      }
       mediaSource = negotiated;
       if (activeTrack) {
         activeTrack.remove();
@@ -541,11 +616,12 @@ export async function renderPlayer(root, params) {
       hasReportedStart = false;
       video.src = buildStreamUrl(itemId, mediaSource, resumeTicks);
       video.load();
-      if (wasPlaying) video.play();
+      if (wasPlaying) attemptPlay();
       rebuildSubtitleMenu();
       rebuildSourceMenu();
     } catch (err) {
       console.warn('Jellio: could not switch source', err);
+      showPlayerToast('Could not switch streams. Check your connection and try again.');
     } finally {
       switchingSource = false;
     }
@@ -662,12 +738,12 @@ export async function renderPlayer(root, params) {
       percent,
       function () {
         resumePrompt.overlay.remove();
-        video.play();
+        attemptPlay();
       },
       function () {
         resumePrompt.overlay.remove();
         video.currentTime = 0;
-        video.play();
+        attemptPlay();
       },
     );
     root.appendChild(resumePrompt.overlay);
