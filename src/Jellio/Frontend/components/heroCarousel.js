@@ -9,6 +9,7 @@
 // non-Series item also gets a real Play button straight into #/play.
 import { getHeroCandidates, getImageUrl } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
+import { openStreamPicker } from './streamPicker.js';
 
 const ROTATE_MS = 9000;
 const CANDIDATE_LIMIT = 8;
@@ -146,7 +147,7 @@ export function buildHeroCarousel(options) {
 
   playButton.addEventListener('click', function () {
     if (!items.length) return;
-    navigateTo('#/play?id=' + items[index].Id);
+    openStreamPicker(items[index]);
   });
   infoButton.addEventListener('click', function () {
     if (!items.length) return;
