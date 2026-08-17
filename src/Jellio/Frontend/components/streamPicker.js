@@ -23,18 +23,21 @@ const OVERLAY_ID = 'jellioStreamPicker';
 // Client only, same reasoning screens/player.js's own subtitle style
 // pref already uses (SUBTITLE_STYLE_KEY): a real per-title choice, not
 // a server side account setting Jellyfin itself has any concept of.
-// REMEMBERED_SOURCES_KEY is a plain {itemId: mediaSourceId} map rather
-// than one single slot, since remembering only the most recent title's
-// own choice would forget every other title's the moment a second one
-// was ever played.
+// REMEMBERED_SOURCES_KEY is a plain {itemId: {mediaSourceId, ts}} map
+// rather than one single slot, since remembering only the most recent
+// title's own choice would forget every other title's the moment a
+// second one was ever played. On by default, real feedback asked for
+// it: absent from storage reads as on rather than off, only an
+// explicit '0' this screen's own toggle wrote turns it off.
 const REMEMBER_ENABLED_KEY = 'jellioRememberStream';
 const REMEMBERED_SOURCES_KEY = 'jellioRememberedStreamSources';
+const REMEMBER_TTL_MS = 4 * 24 * 60 * 60 * 1000;
 
 export function isRememberStreamEnabled() {
   try {
-    return window.localStorage.getItem(REMEMBER_ENABLED_KEY) === '1';
+    return window.localStorage.getItem(REMEMBER_ENABLED_KEY) !== '0';
   } catch (err) {
-    return false;
+    return true;
   }
 }
 
@@ -46,10 +49,33 @@ export function setRememberStreamEnabled(enabled) {
   }
 }
 
+// A choice past REMEMBER_TTL_MS is dropped as it is found rather than
+// kept around stale: a source Gelato resolved days ago is exactly the
+// kind of thing real feedback called "bad" (a dead debrid link, a
+// torrent with no seeders left anymore), asking again after a real
+// few days is the safer default, not a real inconvenience for a title
+// actually still being watched inside that window.
 function readRememberedSources() {
   try {
     const raw = window.localStorage.getItem(REMEMBERED_SOURCES_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const map = raw ? JSON.parse(raw) : {};
+    const now = Date.now();
+    let changed = false;
+    Object.keys(map).forEach(function (itemId) {
+      const entry = map[itemId];
+      if (!entry || typeof entry.ts !== 'number' || now - entry.ts > REMEMBER_TTL_MS) {
+        delete map[itemId];
+        changed = true;
+      }
+    });
+    if (changed) {
+      try {
+        window.localStorage.setItem(REMEMBERED_SOURCES_KEY, JSON.stringify(map));
+      } catch (err) {
+        // Stale entries just get re-filtered on the next real read.
+      }
+    }
+    return map;
   } catch (err) {
     return {};
   }
@@ -58,7 +84,7 @@ function readRememberedSources() {
 function rememberSourceChoice(itemId, mediaSourceId) {
   try {
     const map = readRememberedSources();
-    map[itemId] = mediaSourceId;
+    map[itemId] = { mediaSourceId: mediaSourceId, ts: Date.now() };
     window.localStorage.setItem(REMEMBERED_SOURCES_KEY, JSON.stringify(map));
   } catch (err) {
     // A choice not remembered just asks again next time, not fatal.
@@ -180,7 +206,8 @@ export async function openStreamPicker(item, options) {
   }
 
   if (!opts.forceChoice && isRememberStreamEnabled()) {
-    const rememberedId = readRememberedSources()[item.Id];
+    const remembered = readRememberedSources()[item.Id];
+    const rememberedId = remembered && remembered.mediaSourceId;
     const stillOffered = rememberedId && sources.some(function (source) {
       return source.Id === rememberedId;
     });
