@@ -112,7 +112,7 @@ function buildPlaybackSection() {
     el(
       'p',
       'jellio-settings-status',
-      'Skip the stream picker on a repeat play once you have chosen a stream for a title. Use Change Stream on that title’s own page if a remembered one stops working.',
+      'Skip the stream picker on a repeat play once you have chosen a stream for a title, remembered for 4 days. Use Change Stream on that title’s own page if a remembered one stops working.',
     ),
   );
 
