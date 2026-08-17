@@ -24,6 +24,17 @@ export async function renderSearch(root) {
   header.appendChild(input);
   root.appendChild(header);
 
+  // No feedback at all between "typed something" and "cards appeared"
+  // used to make a slow or failed request (Gelato resolving a remote
+  // catalog is not instant, and a real server error left the grid
+  // exactly as empty as it started) look identical to search doing
+  // nothing whatsoever, reported live as exactly that. This one line
+  // is the whole fix: every branch below now leaves it saying
+  // something a reader can tell apart from silence.
+  const status = document.createElement('p');
+  status.className = 'jellio-service-empty jellio-search-status';
+  root.appendChild(status);
+
   const grid = document.createElement('div');
   grid.className = 'jellio-library-grid';
   root.appendChild(grid);
@@ -33,6 +44,7 @@ export async function renderSearch(root) {
 
   function runSearch(term) {
     const thisRequest = ++requestId;
+    status.textContent = 'Searching…';
     searchItems(term)
       .then(function (items) {
         if (thisRequest !== requestId) return;
@@ -40,9 +52,13 @@ export async function renderSearch(root) {
         items.forEach(function (item) {
           grid.appendChild(buildCard(item));
         });
+        status.textContent = items.length ? '' : 'No results for “' + term + '”.';
       })
       .catch(function (err) {
+        if (thisRequest !== requestId) return;
         console.warn('Jellio: search failed', err);
+        grid.textContent = '';
+        status.textContent = 'Search failed. Check your connection and try again.';
       });
   }
 
@@ -50,7 +66,9 @@ export async function renderSearch(root) {
     if (timer) window.clearTimeout(timer);
     const term = input.value.trim();
     if (!term) {
+      requestId += 1;
       grid.textContent = '';
+      status.textContent = '';
       return;
     }
     timer = window.setTimeout(function () {

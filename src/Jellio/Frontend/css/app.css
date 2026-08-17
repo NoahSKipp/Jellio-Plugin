@@ -659,6 +659,10 @@
   border-color: var(--jellio-secondary-color);
 }
 
+.jellio-search-status {
+  padding-top: 0;
+}
+
 .jellio-detail-hero {
   position: relative;
   min-height: clamp(320px, 50vw, 560px);
