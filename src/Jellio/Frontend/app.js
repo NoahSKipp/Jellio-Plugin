@@ -261,15 +261,21 @@ async function renderUnauthenticated() {
 // after-this-one cost free): shown once, right after a real session is
 // confirmed, so the very first authenticated paint already has warm
 // data instead of the sidebar and the first screen both racing the
-// network cold. A hard cap keeps a slow network from holding the
-// reader on a blank splash indefinitely: showing the app with a cold
-// cache is a worse first paint than what came before this, but still
-// better than one that never arrives. preloadInitialData() below now
-// only ever queues one real screen's own images (home's rows, or the
-// one library a route actually landed on), not every library at once,
-// so this cap is generous rather than tight even on a genuinely slow
-// connection.
-const PRELOAD_TIMEOUT_MS = 8000;
+// network cold. This used to cap out at 8 seconds on the theory that a
+// blank splash was worse than a cold first paint, reported live as
+// exactly backwards: on a slow connection the cap fired before the
+// hero/home-rows requests it was racing actually finished, hiding the
+// one thing telling the reader anything was happening and handing them
+// an empty hero shell and empty rows that then sat blank, with no
+// spinner, for however much longer those same requests really took.
+// The splash's own progress bar already tracks real steps, not a
+// guess, so staying up until they are actually done is strictly
+// better than guessing wrong about when to give up on them. What is
+// still real to guard against is a request that never resolves at
+// all, no timeout of its own (runtime/api.js's own getJson has none):
+// this stays as that last resort only, high enough it is never the
+// one deciding how home's own first paint looks on merely slow wifi.
+const PRELOAD_TIMEOUT_MS = 45000;
 let preloaded = false;
 
 function withTimeout(promise, ms) {
