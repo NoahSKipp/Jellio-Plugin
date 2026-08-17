@@ -1,10 +1,13 @@
 // Metadata view for one item: backdrop, title, overview, genres, cast.
-// Play opens this runtime's own player at #/play, real playback
-// (PlaybackInfo negotiation plus a bare <video> element, see
-// screens/player.js's own header for why that needed no access to
-// jellyfin-web's own playbackManager at all).
+// Play opens components/streamPicker.js's own picker first when there
+// is real more than one source to choose from (that same file falls
+// straight through to #/play, real playback, PlaybackInfo negotiation
+// plus a bare <video> element, see screens/player.js's own header for
+// why that needed no access to jellyfin-web's own playbackManager at
+// all, when there is not).
 import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setFavorite } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
+import { openStreamPicker } from '../components/streamPicker.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -204,7 +207,7 @@ export async function renderDetail(root, params) {
     const playButton = el('button', 'jellio-detail-play', 'Play');
     playButton.type = 'button';
     playButton.addEventListener('click', function () {
-      navigateTo('#/play?id=' + canonicalId);
+      openStreamPicker(item);
     });
     actions.appendChild(playButton);
   }

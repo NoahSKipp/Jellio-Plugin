@@ -33,6 +33,7 @@ import {
 } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { invalidateHomeSections } from './home.js';
+import { sourceLabel } from '../components/streamPicker.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
@@ -169,38 +170,6 @@ function buildResumePrompt(percent, onResume, onRestart) {
   return { overlay: overlay, resumeButton: resumeButton };
 }
 
-// A source's own rich Name (Decorators/MediaSourceManagerDecorator.cs's
-// own GetVersionInfo: the stream's own scraper name, plus description
-// on a second line when there is one) is already the closest thing to
-// a real quality/source label Gelato hands back, resolution and size
-// are real fields on the same MediaSourceInfo (its own Video
-// MediaStream's Height, its own Size in bytes) rather than parsed back
-// out of that free text.
-function sourceResolutionLabel(source) {
-  const streams = source.MediaStreams || [];
-  const video = streams.filter(function (stream) {
-    return stream.Type === 'Video';
-  })[0];
-  if (!video || !video.Height) return '';
-  if (video.Height >= 2000) return '4K';
-  return video.Height + 'p';
-}
-
-function formatFileSize(bytes) {
-  if (!bytes) return '';
-  const gb = bytes / (1024 * 1024 * 1024);
-  if (gb >= 1) return gb.toFixed(1) + ' GB';
-  return Math.round(bytes / (1024 * 1024)) + ' MB';
-}
-
-function sourceLabel(source) {
-  const name = (source.Name || '').split('\n')[0] || 'Source';
-  const details = [sourceResolutionLabel(source), formatFileSize(source.Size)]
-    .filter(Boolean)
-    .join(' · ');
-  return details ? name + ' (' + details + ')' : name;
-}
-
 function formatTime(seconds) {
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
   const h = Math.floor(seconds / 3600);
@@ -229,9 +198,18 @@ export async function renderPlayer(root, params) {
 
   const startTicks = (item.UserData && item.UserData.PlaybackPositionTicks) || 0;
 
+  // components/streamPicker.js's own real choice, when there was more
+  // than one to choose from: negotiates that exact source instead of
+  // whichever one GetPlaybackMediaSources would have defaulted to.
+  // Absent on every other route that reaches here (a resumed Up Next
+  // card, the hero's own Play button skipping the picker outright for
+  // a one-source item), same default negotiation as before the picker
+  // existed.
+  const preferredMediaSourceId = params.get('mediaSourceId') || undefined;
+
   let playbackInfo;
   try {
-    playbackInfo = await getPlaybackInfo(itemId, startTicks);
+    playbackInfo = await getPlaybackInfo(itemId, startTicks, preferredMediaSourceId);
   } catch (err) {
     console.warn('Jellio: could not negotiate playback', err);
     return undefined;
