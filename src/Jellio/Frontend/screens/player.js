@@ -820,6 +820,37 @@ export async function renderPlayer(root, params) {
     return Math.round((video.currentTime || 0) * TICKS_PER_SECOND);
   }
 
+  // A <video> element that fails to actually decode its own real src,
+  // the browser's own generic broken-video placeholder painted over
+  // whatever this screen had built around it, controls and all, with
+  // nothing from this runtime itself saying why, reported live and
+  // matching exactly what buildStreamUrl() above was doing wrong: a
+  // Static direct play URL forced on a source getPlaybackInfo's own
+  // real negotiation never actually said the browser could decode as
+  // is. That real cause is fixed above, but a browser's own decode
+  // failure is never fully preventable from here (a dead debrid link,
+  // a codec still outside what this browser supports even
+  // transcoded), so this stays regardless: before this screen ever
+  // got a first real frame, the whole thing was dead already, same
+  // treatment the three negotiation failures above already get: a
+  // real message and a way back out rather than the browser's own
+  // silent placeholder. After a first real frame did play, whatever
+  // broke it after the fact gets the same toast switchSource()'s own
+  // failures already use, the rest of this screen still being worth
+  // keeping in front of the reader at that point.
+  video.addEventListener('error', function () {
+    if (hasReportedStart) {
+      showPlayerToast('Playback stopped unexpectedly. Try a different stream.');
+      return;
+    }
+    cleanup();
+    renderPlaybackError(
+      root,
+      itemId,
+      'This stream could not be played. Try a different one from Change Stream.',
+    );
+  });
+
   video.addEventListener('loadedmetadata', function () {
     if (startTicks > 0) {
       video.currentTime = startTicks / TICKS_PER_SECOND;
@@ -888,7 +919,12 @@ export async function renderPlayer(root, params) {
     reportPlaybackProgress(itemId, mediaSource.Id, lastReportedTicks, video.paused);
   }, PROGRESS_REPORT_MS);
 
-  return function cleanup() {
+  // A real function declaration, hoisted, rather than the plain arrow
+  // this used to just return directly: the video's own error listener
+  // above now calls this same real teardown itself on a dead first
+  // load rather than duplicating what it already does, and needs to
+  // reach it from earlier in this same function body.
+  function cleanup() {
     window.clearInterval(progressInterval);
     if (upNextCountdownInterval) window.clearInterval(upNextCountdownInterval);
     if (hasReportedStart) {
@@ -902,5 +938,7 @@ export async function renderPlayer(root, params) {
     video.pause();
     video.removeAttribute('src');
     video.load();
-  };
+  }
+
+  return cleanup;
 }
