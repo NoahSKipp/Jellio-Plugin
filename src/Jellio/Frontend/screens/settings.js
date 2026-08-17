@@ -3,11 +3,16 @@
 // (Display, Home, Playback, Subtitles and the rest stay there, out of
 // scope here), the same native fallback discipline every other screen in
 // this codebase already follows: this covers only what has a real,
-// confirmed endpoint and a clear place in a small account page.
+// confirmed endpoint and a clear place in a small account page. Remember
+// my stream choice is the one real exception to "a confirmed endpoint":
+// components/streamPicker.js's own preference has no server side
+// concept at all, client only, same as screens/player.js's own
+// subtitle style.
 import { getCurrentUser, updateUserPassword, getSleepTimerStatus, cancelSleepTimer } from '../runtime/api.js';
 import { logout } from '../runtime/auth.js';
 import { openAvatarPicker } from '../components/avatarPicker.js';
 import { refreshProfileAvatar } from '../components/navShared.js';
+import { isRememberStreamEnabled, setRememberStreamEnabled } from '../components/streamPicker.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -75,6 +80,42 @@ function buildPasswordSection() {
   });
 
   section.appendChild(form);
+  return section;
+}
+
+// components/streamPicker.js's own real gate: on, a picker with a
+// remembered choice for that title skips straight to it instead of
+// asking again; off, every title with real more than one source asks
+// every time, same as before this setting existed. screens/detail.js's
+// own Change Stream button is the way back in either case, real
+// feedback asked for both together rather than only one.
+function buildPlaybackSection() {
+  const section = el('section', 'jellio-settings-section');
+  section.appendChild(el('h2', 'jellio-settings-section-title', 'Playback'));
+
+  const row = document.createElement('label');
+  row.className = 'jellio-settings-toggle-row';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'jellio-settings-toggle-input';
+  checkbox.checked = isRememberStreamEnabled();
+  checkbox.addEventListener('change', function () {
+    setRememberStreamEnabled(checkbox.checked);
+  });
+  row.appendChild(checkbox);
+  row.appendChild(el('span', 'jellio-settings-toggle-track'));
+  row.appendChild(el('span', 'jellio-settings-toggle-label', 'Remember my stream choice'));
+  section.appendChild(row);
+
+  section.appendChild(
+    el(
+      'p',
+      'jellio-settings-status',
+      'Skip the stream picker on a repeat play once you have chosen a stream for a title. Use Change Stream on that title’s own page if a remembered one stops working.',
+    ),
+  );
+
   return section;
 }
 
@@ -146,6 +187,7 @@ export async function renderSettings(root) {
   profile.appendChild(avatarButton);
   root.appendChild(profile);
 
+  root.appendChild(buildPlaybackSection());
   root.appendChild(buildPasswordSection());
   root.appendChild(await buildSleepTimerSection());
 

@@ -20,6 +20,51 @@ import { navigateTo } from '../runtime/router.js';
 
 const OVERLAY_ID = 'jellioStreamPicker';
 
+// Client only, same reasoning screens/player.js's own subtitle style
+// pref already uses (SUBTITLE_STYLE_KEY): a real per-title choice, not
+// a server side account setting Jellyfin itself has any concept of.
+// REMEMBERED_SOURCES_KEY is a plain {itemId: mediaSourceId} map rather
+// than one single slot, since remembering only the most recent title's
+// own choice would forget every other title's the moment a second one
+// was ever played.
+const REMEMBER_ENABLED_KEY = 'jellioRememberStream';
+const REMEMBERED_SOURCES_KEY = 'jellioRememberedStreamSources';
+
+export function isRememberStreamEnabled() {
+  try {
+    return window.localStorage.getItem(REMEMBER_ENABLED_KEY) === '1';
+  } catch (err) {
+    return false;
+  }
+}
+
+export function setRememberStreamEnabled(enabled) {
+  try {
+    window.localStorage.setItem(REMEMBER_ENABLED_KEY, enabled ? '1' : '0');
+  } catch (err) {
+    // Not persisted, this tab still behaves as asked until reload.
+  }
+}
+
+function readRememberedSources() {
+  try {
+    const raw = window.localStorage.getItem(REMEMBERED_SOURCES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function rememberSourceChoice(itemId, mediaSourceId) {
+  try {
+    const map = readRememberedSources();
+    map[itemId] = mediaSourceId;
+    window.localStorage.setItem(REMEMBERED_SOURCES_KEY, JSON.stringify(map));
+  } catch (err) {
+    // A choice not remembered just asks again next time, not fatal.
+  }
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -103,6 +148,7 @@ function buildSourceCard(item, source) {
   }
 
   card.addEventListener('click', function () {
+    if (isRememberStreamEnabled()) rememberSourceChoice(item.Id, source.Id);
     closeStreamPicker();
     navigateTo(playHash(item.Id, source.Id));
   });
@@ -113,9 +159,13 @@ function buildSourceCard(item, source) {
 // A picker with nothing real to pick between is not worth showing at
 // all, same reasoning screens/player.js's own mid-playback Sources
 // button already uses for a one-option list: straight to Play instead,
-// same as before this existed.
-export async function openStreamPicker(item) {
+// same as before this existed. options.forceChoice is screens/detail.js's
+// own Change Stream button: it only ever needs to skip the remembered
+// shortcut below, a title with one real source still has nothing to
+// change to either way, so that check stays first regardless.
+export async function openStreamPicker(item, options) {
   closeStreamPicker();
+  const opts = options || {};
 
   let sources = [];
   try {
@@ -127,6 +177,17 @@ export async function openStreamPicker(item) {
   if (sources.length <= 1) {
     navigateTo(playHash(item.Id, sources[0] && sources[0].Id));
     return;
+  }
+
+  if (!opts.forceChoice && isRememberStreamEnabled()) {
+    const rememberedId = readRememberedSources()[item.Id];
+    const stillOffered = rememberedId && sources.some(function (source) {
+      return source.Id === rememberedId;
+    });
+    if (stillOffered) {
+      navigateTo(playHash(item.Id, rememberedId));
+      return;
+    }
   }
 
   const overlay = el('div', 'jellio-stream-picker-overlay');
