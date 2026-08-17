@@ -19,8 +19,10 @@ import {
   quickSignIn,
   bypassLoginScreen,
   getPublicUsers,
+  requestPasswordReset,
+  redeemPasswordResetPin,
 } from '../runtime/auth.js';
-import { getUserImageUrl } from '../runtime/api.js';
+import { getUserImageUrl, updateUserPassword } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 
 function el(tag, className, text) {
@@ -41,12 +43,12 @@ function completeSignIn() {
   document.dispatchEvent(new CustomEvent('jellio:session-captured'));
 }
 
-// Quick Connect and "forgot password" are real native login page
-// features this screen does not reimplement (the public user grid
-// below is, real feedback asked for it directly), so this stays
-// reachable everywhere on the screen rather than only from the manual
-// form: a remembered or public profile's own owner may still need one
-// of those, not only someone with no profile visible at all.
+// Quick Connect is still a real native login page feature this screen
+// does not reimplement (the public user grid and forgot password
+// below both are, real feedback asked for each directly), so this
+// stays reachable everywhere on the screen rather than only from the
+// manual form: a remembered or public profile's own owner may still
+// need it, not only someone with no profile visible at all.
 function buildBypassLink() {
   const link = el('button', 'jellio-login-cancel', 'Use classic sign-in');
   link.type = 'button';
@@ -85,6 +87,15 @@ function buildManualForm(options) {
   form.appendChild(status);
   form.appendChild(submit);
 
+  if (opts.onForgotPassword) {
+    const forgot = el('button', 'jellio-login-forgot', 'Forgot password?');
+    forgot.type = 'button';
+    forgot.addEventListener('click', function () {
+      opts.onForgotPassword(username.value);
+    });
+    form.appendChild(forgot);
+  }
+
   if (opts.onCancel) {
     const cancel = el('button', 'jellio-login-cancel', 'Back');
     cancel.type = 'button';
@@ -116,6 +127,176 @@ function buildManualForm(options) {
   });
 
   return form;
+}
+
+// Step 1 of 2: a real username, POSTed to /Users/ForgotPassword
+// (runtime/auth.js's own requestPasswordReset, real endpoint, not
+// guessed at). The server's own real response is deliberately the
+// same regardless of whether that username exists at all (that
+// file's own header explains why, straight from Jellyfin's own real
+// source), so the message here has to stay exactly as generic, or it
+// would hand back out the one thing the server itself stopped
+// leaking. jfa-go (already configured server side by whoever runs
+// this server, not something this runtime talks to directly) is what
+// actually turns a real reset into a real email from here.
+function buildForgotUsernameForm(prefillUsername, onRequested, onCancel) {
+  const form = document.createElement('form');
+  form.className = 'jellio-login-form';
+
+  const username = document.createElement('input');
+  username.type = 'text';
+  username.placeholder = 'Username';
+  username.autocomplete = 'username';
+  username.className = 'jellio-login-input';
+  if (prefillUsername) username.value = prefillUsername;
+
+  const status = el('p', 'jellio-login-status', '');
+
+  const submit = el('button', 'jellio-login-submit', 'Send reset code');
+  submit.type = 'submit';
+
+  form.appendChild(username);
+  form.appendChild(status);
+  form.appendChild(submit);
+
+  const cancel = el('button', 'jellio-login-cancel', 'Back');
+  cancel.type = 'button';
+  cancel.addEventListener('click', onCancel);
+  form.appendChild(cancel);
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    if (!username.value) {
+      status.textContent = 'Enter your username.';
+      return;
+    }
+    submit.disabled = true;
+    status.textContent = 'Sending…';
+    requestPasswordReset(username.value)
+      .then(function () {
+        onRequested(username.value);
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not request a password reset', err);
+        status.textContent = 'Could not request a reset code. Try again later.';
+        submit.disabled = false;
+      });
+  });
+
+  window.requestAnimationFrame(function () {
+    username.focus();
+  });
+
+  return form;
+}
+
+// Step 2 of 2: the code the reader's own inbox just received, plus
+// the real new password to end on. A real successful redeem clears
+// the account's own password server side rather than setting the one
+// asked for here, real Jellyfin behaviour (PinRedeemResult, real
+// source, only a bare Success boolean, nothing about a chosen
+// password at all), so this signs back in with a blank one the
+// moment that succeeds and immediately calls updateUserPassword with
+// the real new one, the same two real calls the stock profile page's
+// own equivalent flow already makes for the same reason, before
+// finally completing sign in.
+function buildForgotPinForm(username, onCancel) {
+  const form = document.createElement('form');
+  form.className = 'jellio-login-form';
+
+  const pin = document.createElement('input');
+  pin.type = 'text';
+  pin.placeholder = 'Reset code';
+  pin.autocomplete = 'one-time-code';
+  pin.className = 'jellio-login-input';
+
+  const newPassword = document.createElement('input');
+  newPassword.type = 'password';
+  newPassword.placeholder = 'New password';
+  newPassword.autocomplete = 'new-password';
+  newPassword.className = 'jellio-login-input';
+
+  const confirmPassword = document.createElement('input');
+  confirmPassword.type = 'password';
+  confirmPassword.placeholder = 'Confirm new password';
+  confirmPassword.autocomplete = 'new-password';
+  confirmPassword.className = 'jellio-login-input';
+
+  const status = el(
+    'p',
+    'jellio-login-status',
+    'If that account exists, a reset code has been emailed to it. Enter it below with a new password.',
+  );
+
+  const submit = el('button', 'jellio-login-submit', 'Reset password');
+  submit.type = 'submit';
+
+  form.appendChild(pin);
+  form.appendChild(newPassword);
+  form.appendChild(confirmPassword);
+  form.appendChild(status);
+  form.appendChild(submit);
+
+  const cancel = el('button', 'jellio-login-cancel', 'Back');
+  cancel.type = 'button';
+  cancel.addEventListener('click', onCancel);
+  form.appendChild(cancel);
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    if (!pin.value || !newPassword.value) {
+      status.textContent = 'Enter the reset code and a new password.';
+      return;
+    }
+    if (newPassword.value !== confirmPassword.value) {
+      status.textContent = 'New passwords do not match.';
+      return;
+    }
+    submit.disabled = true;
+    status.textContent = 'Resetting…';
+    redeemPasswordResetPin(pin.value)
+      .then(function (result) {
+        if (!result || !result.Success) {
+          status.textContent = 'That reset code is invalid or has expired.';
+          submit.disabled = false;
+          return;
+        }
+        return authenticateByName(username, '')
+          .then(function () {
+            return updateUserPassword('', newPassword.value);
+          })
+          .then(function () {
+            completeSignIn();
+          });
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not reset password', err);
+        status.textContent = 'Could not reset the password. Try again.';
+        submit.disabled = false;
+      });
+  });
+
+  window.requestAnimationFrame(function () {
+    pin.focus();
+  });
+
+  return form;
+}
+
+function renderForgotPassword(container, prefillUsername, onCancel) {
+  container.textContent = '';
+  container.appendChild(el('h1', 'jellio-login-heading', 'Reset password'));
+  container.appendChild(
+    buildForgotUsernameForm(
+      prefillUsername,
+      function (username) {
+        container.textContent = '';
+        container.appendChild(el('h1', 'jellio-login-heading', 'Reset password'));
+        container.appendChild(buildForgotPinForm(username, onCancel));
+      },
+      onCancel,
+    ),
+  );
 }
 
 // Real feedback asked for the profile tiles to enter one after another
@@ -293,6 +474,11 @@ function renderProfilePicker(container, remembered, publicUsers) {
         username: prefillName,
         message: message,
         onCancel: Object.keys(remembered).length || publicOnly.length ? rerender : null,
+        onForgotPassword: function (typedUsername) {
+          renderForgotPassword(container, typedUsername, function () {
+            showManual(typedUsername, '');
+          });
+        },
       }),
     );
     container.appendChild(buildBypassLink());
