@@ -1173,10 +1173,6 @@
   overflow-y: auto;
 }
 
-.jellio-player-sleep-menu-hidden {
-  display: none;
-}
-
 .jellio-player-sleep-option {
   padding: 0.6em 1em;
   border: 0;
@@ -1215,6 +1211,20 @@
   border-radius: var(--jellio-card-radius);
   background: var(--jellio-bg-elevated);
   border: 1px solid var(--jellio-border-color);
+}
+
+/* Real cascade bug, not a JS one: screens/player.js's own styleMenu
+   carries both this class and .jellio-player-style-menu on the same
+   element at once, and that one's own real display: flex used to sit
+   after this rule in source order, equal specificity either way (one
+   plain class each), so it always won regardless of which class
+   toggle() actually added or removed, reported live as the style menu
+   simply never closing at all. Every other real menu sharing this
+   same hidden class (.jellio-player-sleep-menu itself) already sits
+   before it, this is the one real exception moved to match, not a
+   selector rewritten to fight the cascade instead of reading with it. */
+.jellio-player-sleep-menu-hidden {
+  display: none;
 }
 
 .jellio-player-style-group-label {
