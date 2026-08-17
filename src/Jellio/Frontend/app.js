@@ -10,7 +10,6 @@ import {
   getCurrentUser,
   getHeroCandidates,
   getImageUrl,
-  getUserImageUrl,
   itemTypesForKind,
 } from './runtime/api.js';
 import { renderLogin } from './screens/login.js';
@@ -295,16 +294,9 @@ function withTimeout(promise, ms) {
   });
 }
 
-function prefetchImage(url, priority) {
+function prefetchImage(url) {
   if (!url) return;
   const img = new Image();
-  // Real fetchPriority hint, not a guess: this whole preload step now
-  // fires dozens of image requests at once (hero backdrops, the fix
-  // below adds home row thumbnails on top of that), a single tiny
-  // avatar sitting in that same real burst has no reason to expect a
-  // browser's own connection scheduling to favour it over a much
-  // bigger poster or backdrop it happens to be racing.
-  if (priority) img.fetchPriority = priority;
   img.src = url;
 }
 
@@ -339,26 +331,6 @@ function prefetchLazyImages(roots, limit) {
   for (let i = 0; i < count; i += 1) {
     prefetchImage(images[i].src);
   }
-}
-
-// components/navShared.js's own paintAvatar() only ever set an <img>
-// src for the first time once the sidebar actually rendered, right
-// after this splash had already stepped aside and fired off every one
-// of the hero/home-rows requests it warms below: a real, uncached,
-// server side resized /Users/{id}/Images/Primary request landing on
-// this same self-hosted box in the middle of that same burst, reported
-// live as the avatar taking a long time to show up. The account task
-// this replaces already called getCurrentUser for the exact same
-// reason preloadHeroImages() below calls getHeroCandidates first, so
-// this only adds the one prefetchImage call once that same real user
-// is known, same trick, same reason.
-async function preloadAccount() {
-  const user = await getCurrentUser();
-  const imageTag = user && user.PrimaryImageTag;
-  if (user && imageTag) {
-    prefetchImage(getUserImageUrl(user.Id, imageTag, { maxWidth: 80 }), 'high');
-  }
-  return user;
 }
 
 // The hero carousel's own backdrops specifically: heroCarousel.js
@@ -470,7 +442,7 @@ async function preloadInitialData() {
   showSplash();
 
   const tasks = [
-    { label: 'Account', run: preloadAccount },
+    { label: 'Account', run: getCurrentUser },
     { label: 'Streaming services', run: getCollections },
   ];
 
