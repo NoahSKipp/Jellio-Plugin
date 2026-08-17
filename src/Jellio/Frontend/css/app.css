@@ -2764,15 +2764,14 @@
   outline: none;
 }
 
+/* No clamp, real feedback: a 2 line cap here was hiding real,
+   decision relevant information deeper in Gelato's own dense release
+   name strings (language, codec, encode group), not just a long
+   title running on. Left to wrap to its own full real height instead,
+   same as the card list around it is already built to scroll for. */
 .jellio-stream-picker-card-title {
   font-weight: 700;
   line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 .jellio-stream-picker-card-desc {
@@ -2780,12 +2779,6 @@
   font-size: 0.85em;
   color: var(--jellio-text-secondary);
   line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 .jellio-stream-picker-card-tags {
