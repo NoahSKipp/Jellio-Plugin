@@ -2519,6 +2519,29 @@
   color: var(--jellio-text-color);
 }
 
+/* screens/login.js's own real forgot password flow (POST
+   /Users/ForgotPassword, /Users/ForgotPassword/Pin, both real
+   Jellyfin endpoints), real feedback asked for it to replace bouncing
+   to native's own login page for the same. A real link rather than
+   jellio-login-cancel's own button weight: this one starts a real new
+   flow, not a step back out of the current one. */
+.jellio-login-forgot {
+  align-self: center;
+  margin-top: 0.6em;
+  padding: 0.2em;
+  border: 0;
+  background: transparent;
+  color: var(--jellio-secondary-color);
+  font-family: var(--jellio-font-family);
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jellio-login-forgot:hover {
+  text-decoration: underline;
+}
+
 /* components/splash.js's own overlay. z-index above #jellioRoot's own
    9999 (app.css's own token for that), so this covers the shell while
    it is still empty rather than sitting behind it. */

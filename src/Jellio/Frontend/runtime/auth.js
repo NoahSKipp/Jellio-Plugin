@@ -377,6 +377,67 @@ export async function authenticateByName(username, password) {
   return result;
 }
 
+// Real Jellyfin endpoint, checked against Jellyfin.Api/Controllers/
+// UserController.cs's own ForgotPassword action before writing this:
+// POST /Users/ForgotPassword with {EnteredUsername}. The real
+// response's own Action field (ForgotPasswordAction, real source
+// again) is deliberately the same PinCode value whether or not the
+// username exists at all, ContactAdmin/InNetworkRequired are both
+// marked Obsolete on the server's own side over exactly that "returning
+// different actions represents a security concern", so this runtime
+// has to give the same generic "check your email" message regardless
+// of the real result too, or it would leak back out the exact thing
+// the server itself stopped leaking. A real pin file only gets written
+// server side when the account is real; jfa-go (already configured
+// server side, real reference: github.com/hrfee/jfa-go's own
+// pwreset.go, validatePWR watches for exactly that file) is what
+// turns a real one into a real email, no separate jfa-go API call
+// from here at all.
+export async function requestPasswordReset(username) {
+  const response = await fetch(getServerAddress() + '/Users/ForgotPassword', {
+    method: 'POST',
+    headers: Object.assign(
+      { 'Content-Type': 'application/json', Accept: 'application/json' },
+      getAuthHeaders(),
+    ),
+    body: JSON.stringify({ EnteredUsername: username }),
+  });
+  if (!response.ok) {
+    const err = new Error('Could not request a password reset');
+    err.status = response.status;
+    throw err;
+  }
+  return response.json();
+}
+
+// Real Jellyfin endpoint, checked against the same controller's own
+// ForgotPasswordPin action: POST /Users/ForgotPassword/Pin with {Pin},
+// response carries a real Success boolean (PinRedeemResult, real
+// source, no guessed field name). A real redeem clears the account's
+// own password server side rather than setting the one this runtime
+// would want it to end on, real Jellyfin behaviour, not a choice made
+// here: screens/login.js's own forgot password flow signs back in
+// with a blank password immediately after a real Success, then calls
+// updateUserPassword to set the reader's own real new one, the same
+// two real calls the stock profile page's own "forgot password" flow
+// already makes for the same reason.
+export async function redeemPasswordResetPin(pin) {
+  const response = await fetch(getServerAddress() + '/Users/ForgotPassword/Pin', {
+    method: 'POST',
+    headers: Object.assign(
+      { 'Content-Type': 'application/json', Accept: 'application/json' },
+      getAuthHeaders(),
+    ),
+    body: JSON.stringify({ Pin: pin }),
+  });
+  if (!response.ok) {
+    const err = new Error('Could not redeem the reset code');
+    err.status = response.status;
+    throw err;
+  }
+  return response.json();
+}
+
 // Clears this runtime's own session and native jellyfin-web's own
 // credential store ('jellyfin_credentials', the real localStorage key
 // jellyfin-apiclient-javascript's own credentials.js writes to), then
