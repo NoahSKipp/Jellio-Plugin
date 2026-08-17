@@ -439,7 +439,31 @@ export function getMediaSources(itemId) {
 // already uses.
 export const TICKS_PER_SECOND = 10000000;
 
+// This used to build a Static: true stream URL unconditionally, no
+// matter what getPlaybackInfo's own real negotiation actually said
+// about the mediaSource it returned. Real Jellyfin's own
+// MediaSourceInfo (Jellyfin.Api's own Models/MediaInfoDtos, the same
+// DTO getPlaybackInfo above already returns SupportsDirectPlay/
+// SupportsDirectStream/TranscodingUrl on) is explicit about which of
+// those two is actually true for a given source: Static direct play
+// only works when the browser can decode the source's own real
+// container and codecs as they are, which a scraped Gelato release is
+// routinely not (HEVC in MKV, DTS/AC3 audio, every one of them a real
+// non-starter for direct <video> playback in a browser), reported live
+// as picking a stream landing on a dead player with nothing playing
+// and no error either, exactly what forcing an undecodable Static
+// stream on a <video> element looks like: the request succeeds, the
+// element just has nothing it can actually decode. EnableTranscoding:
+// true on that same negotiation already asks the server for a real
+// TranscodingUrl (an HLS master playlist, ready to use as-is) for
+// exactly this case, this runtime just never looked at it before.
 export function buildStreamUrl(itemId, mediaSource, startTimeTicks) {
+  const canDirectPlay =
+    mediaSource && (mediaSource.SupportsDirectPlay || mediaSource.SupportsDirectStream);
+  if (!canDirectPlay && mediaSource && mediaSource.TranscodingUrl) {
+    return getServerAddress() + mediaSource.TranscodingUrl;
+  }
+
   const token = getAccessToken();
   const container = (mediaSource && mediaSource.Container) || 'mp4';
   const params = new URLSearchParams({
