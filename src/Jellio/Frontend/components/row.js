@@ -47,7 +47,7 @@ function updateArrowVisibility(track, prevArrow, nextArrow) {
   nextArrow.classList.toggle('jellio-row-arrow-visible', track.scrollLeft < maxScroll - 4);
 }
 
-export function buildRow(title, items) {
+export function buildRow(title, items, cardOptions) {
   if (!items || !items.length) return null;
 
   const section = el('section', 'jellio-row');
@@ -56,7 +56,7 @@ export function buildRow(title, items) {
   const trackWrap = el('div', 'jellio-row-track-wrap');
   const track = el('div', 'jellio-row-track');
   items.forEach(function (item) {
-    track.appendChild(buildCard(item));
+    track.appendChild(buildCard(item, cardOptions));
   });
 
   const prevArrow = buildArrow('prev', 'Scroll left');

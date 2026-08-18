@@ -401,6 +401,56 @@
   font-weight: 700;
 }
 
+/* Nuvio's own real HomeSkeletonLoading (features/home/components/
+   HomeSkeletonLoading.kt, confirmed against its real source before
+   writing this): a 1200ms diagonal shimmer sweep, generic enough to
+   reuse anywhere a shape needs to read as "still loading" rather than
+   just sitting there gray. components/homeSkeleton.js's own row/card
+   placeholders below apply it, jellio-hero-loading further down does
+   the same over the hero's own real backdrop while it has nothing
+   real to show yet. */
+@keyframes jellio-shimmer-sweep {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.jellio-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0.04) 30%,
+    rgb(255 255 255 / 0.12) 45%,
+    rgb(255 255 255 / 0.04) 60%
+  );
+  background-size: 250% 100%;
+  animation: jellio-shimmer-sweep 1200ms linear infinite;
+}
+
+.jellio-home-skeleton-row-title {
+  margin: 0 0 0.6em;
+  margin-left: var(--jellio-safe-gutter);
+  width: 8em;
+  height: 1.1em;
+  border-radius: 4px;
+}
+
+.jellio-home-skeleton-row-track {
+  display: flex;
+  gap: var(--jellio-card-gap);
+  padding: 14px var(--jellio-safe-gutter) 0.5em;
+  overflow: hidden;
+}
+
+.jellio-home-skeleton-card {
+  flex: 0 0 auto;
+  width: clamp(120px, 11vw, 180px);
+  aspect-ratio: 2 / 3;
+  border-radius: var(--jellio-card-radius);
+}
+
 .jellio-row-track {
   display: flex;
   gap: var(--jellio-card-gap);
@@ -488,6 +538,20 @@
   flex: 0 0 auto;
   width: clamp(120px, 11vw, 180px);
   cursor: pointer;
+}
+
+/* components/cardOptionsMenu.js's own animateCardRemoval(): a Continue
+   Watching card leaving that row for good (Remove from Continue
+   Watching) fades, shrinks and blurs out in place rather than just
+   vanishing or sitting there under a repainted badge, the closest a
+   web target gets to Nuvio's own real spring-collapse removal without
+   a haptic channel to fire alongside it. */
+.jellio-card-removing {
+  transition: opacity 260ms ease, transform 260ms ease, filter 260ms ease;
+  opacity: 0;
+  transform: scale(0.82);
+  filter: blur(6px);
+  pointer-events: none;
 }
 
 .jellio-card-image-wrap {
@@ -2098,6 +2162,23 @@
   position: absolute;
   inset: 0;
   background-color: var(--jellio-bg-color);
+}
+
+/* components/heroCarousel.js's own real loading state, class present
+   from mount and removed the moment its own real getHeroCandidates()
+   call resolves and render() actually runs: the same shimmer
+   .jellio-shimmer already gives home's own row skeletons below, over
+   the hero's own backdrop specifically rather than the plain empty
+   background color that sat there before. */
+.jellio-hero-loading .jellio-hero-backdrop {
+  background-image: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0.03) 30%,
+    rgb(255 255 255 / 0.08) 45%,
+    rgb(255 255 255 / 0.03) 60%
+  );
+  background-size: 250% 100%;
+  animation: jellio-shimmer-sweep 1200ms linear infinite;
 }
 
 .jellio-hero-backdrop-layer {

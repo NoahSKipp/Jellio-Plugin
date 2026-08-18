@@ -49,8 +49,9 @@ function positionMenu(menu, anchorRect) {
   menu.style.top = top + 'px';
 }
 
-export function openCardOptionsMenu(item, anchorRect, onChanged) {
+export function openCardOptionsMenu(item, anchorRect, onChanged, options) {
   closeMenu();
+  const opts = options || {};
 
   const menu = document.createElement('div');
   menu.id = MENU_ID;
@@ -64,19 +65,43 @@ export function openCardOptionsMenu(item, anchorRect, onChanged) {
     }),
   );
 
+  // Jellyfin itself has no endpoint that clears a saved resume
+  // position on its own (confirmed against jellyfin-web's and the
+  // server's own real source before writing this): PlaystateController's
+  // own UpdatePlayedStatus is the only place PlaybackPositionTicks ever
+  // gets reset, and it is the exact same POST/DELETE PlayedItems call
+  // setPlayed() below already wraps for the ordinary Mark as
+  // watched/unwatched toggle everywhere else. A Continue Watching card
+  // asking to leave that row is really asking for this same real
+  // call, just under the label that actually describes what a reader
+  // wants there, not a second, invented endpoint.
   const userData = item.UserData || {};
   const isPlayed = !!userData.Played;
-  const playedOption = buildOption(isPlayed ? 'Mark as unwatched' : 'Mark as watched', function () {
-    setPlayed(item.Id, !isPlayed)
-      .then(function (updated) {
-        item.UserData = updated;
-        if (onChanged) onChanged(item);
-      })
-      .catch(function (err) {
-        console.warn('Jellio: could not update watched state', err);
-      });
-  });
-  menu.appendChild(playedOption);
+  if (opts.continueWatching) {
+    const removeOption = buildOption('Remove from Continue Watching', function () {
+      setPlayed(item.Id, true)
+        .then(function (updated) {
+          item.UserData = updated;
+          if (opts.onRemoved) opts.onRemoved();
+        })
+        .catch(function (err) {
+          console.warn('Jellio: could not remove from continue watching', err);
+        });
+    });
+    menu.appendChild(removeOption);
+  } else {
+    const playedOption = buildOption(isPlayed ? 'Mark as unwatched' : 'Mark as watched', function () {
+      setPlayed(item.Id, !isPlayed)
+        .then(function (updated) {
+          item.UserData = updated;
+          if (onChanged) onChanged(item);
+        })
+        .catch(function (err) {
+          console.warn('Jellio: could not update watched state', err);
+        });
+    });
+    menu.appendChild(playedOption);
+  }
 
   const isFavorite = !!userData.IsFavorite;
   const favoriteOption = buildOption(
@@ -107,14 +132,52 @@ export function openCardOptionsMenu(item, anchorRect, onChanged) {
   if (first) first.focus();
 }
 
+// Nuvio's own real removal animation on its Continue Watching action
+// sheet (a spring-collapse plus a haptic tick, confirmed against its
+// real source before writing this) has nothing to fire a haptic
+// through on the web, so a real visible dissolve stands in for it
+// here: the card fades, shrinks and blurs out in place, then leaves
+// the row's own flex layout to close the gap itself once it is
+// actually gone, rather than just repainting a badge over a card that
+// is still sitting there once the reader already asked for it to
+// leave.
+function animateCardRemoval(card) {
+  card.classList.add('jellio-card-removing');
+  function finish() {
+    card.removeEventListener('transitionend', finish);
+    if (card.parentNode) card.parentNode.removeChild(card);
+  }
+  card.addEventListener('transitionend', finish);
+  // A transitionend can be dropped (a parent re-layout mid transition,
+  // a reader switching tabs), same reasoning every other timer backed
+  // fallback in this codebase already uses rather than leaving a
+  // half faded card stuck in the row forever.
+  window.setTimeout(finish, 400);
+}
+
 // Right click opens the menu directly; a held pointer (touch, or a
 // mouse without a right button) mirrors that same held-remote-button
 // gesture the original screens key off. A drag or a real click before
 // HOLD_MS elapses cancels it, same as a normal press-and-release.
-export function attachCardOptionsTrigger(card, item, onChanged) {
+export function attachCardOptionsTrigger(card, item, onChanged, options) {
+  const opts = options || {};
+
+  function trigger() {
+    openCardOptionsMenu(
+      item,
+      card.getBoundingClientRect(),
+      onChanged,
+      Object.assign({}, opts, {
+        onRemoved: function () {
+          animateCardRemoval(card);
+        },
+      }),
+    );
+  }
+
   card.addEventListener('contextmenu', function (event) {
     event.preventDefault();
-    openCardOptionsMenu(item, card.getBoundingClientRect(), onChanged);
+    trigger();
   });
 
   let holdTimer = null;
@@ -131,7 +194,7 @@ export function attachCardOptionsTrigger(card, item, onChanged) {
     cancelHold();
     holdTimer = window.setTimeout(function () {
       holdTimer = null;
-      openCardOptionsMenu(item, card.getBoundingClientRect(), onChanged);
+      trigger();
     }, HOLD_MS);
   });
   card.addEventListener('pointerup', cancelHold);

@@ -54,7 +54,7 @@ function episodeSubtitle(item) {
   return code || item.Name || '';
 }
 
-export function buildCard(item) {
+export function buildCard(item, options) {
   const isEpisode = item.Type === 'Episode' && !!item.SeriesName;
 
   const card = document.createElement('div');
@@ -112,9 +112,14 @@ export function buildCard(item) {
     }
   });
 
-  attachCardOptionsTrigger(card, item, function (updatedItem) {
-    paintCardState(imageWrap, updatedItem);
-  });
+  attachCardOptionsTrigger(
+    card,
+    item,
+    function (updatedItem) {
+      paintCardState(imageWrap, updatedItem);
+    },
+    options,
+  );
 
   return card;
 }
