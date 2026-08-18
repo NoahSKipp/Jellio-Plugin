@@ -1119,6 +1119,37 @@
   color: var(--jellio-text-color);
 }
 
+/* One flat row, back through sleep, six real flex: 0 0 auto circular
+   buttons at 2.4em plus the title all claiming their own space
+   first, real feedback was that this left .jellio-player-seek-row,
+   the only flex: 1 1 auto item, a sliver too small to actually grab
+   on a real phone width, everything else "close together and
+   mushed" alongside it. Same real breakpoint
+   components/streamPicker.js's own CSS already collapses to a single
+   column at, that file's own real precedent for narrow-screen reflow
+   in this same codebase, not a new one invented here: the seek row
+   gets a real flex-basis: 100% of its own, order: -1 pulling it
+   ahead of everything else so wrapping starts a real new line right
+   after it, every button and the title following on however many
+   lines they need below it with real room again instead of eight
+   items fighting over one. The real second, taller block of controls
+   this leaves needs every floating element that already anchored
+   itself just above the one real row it used to be to move up too;
+   see this same real breakpoint again, far enough below every one of
+   those own base rules to actually win the real cascade against them
+   rather than lose to it the way this exact class of bug already
+   bit twice this same session. */
+@media (max-width: 47.99em) {
+  .jellio-player-controls {
+    flex-wrap: wrap;
+  }
+
+  .jellio-player-seek-row {
+    order: -1;
+    flex-basis: 100%;
+  }
+}
+
 .jellio-player-back,
 .jellio-player-playpause {
   display: flex;
@@ -1139,8 +1170,18 @@
   background: rgb(255 255 255 / 0.2);
 }
 
+/* A flex item's own real automatic minimum width, with no override,
+   is its content's min-content size, and white-space: nowrap text has
+   no wrap point to shrink at, so that floor is its own full real
+   rendered width regardless of flex: 0 1 auto asking to shrink,
+   defeating text-overflow: ellipsis before it ever gets the chance:
+   a real long title could push wider than max-width: 16em ever
+   allowed on its own. min-width: 0 is the real fix, letting this
+   actually shrink down to that cap instead of only ever being asked
+   to. */
 .jellio-player-title {
   flex: 0 1 auto;
+  min-width: 0;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1979,6 +2020,30 @@
 .jellio-player-skip-hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+/* .jellio-player-controls's own real mobile reflow (this same
+   breakpoint, far above) leaves that bar standing roughly 6em taller
+   than the one real row it used to be, measured live, not guessed
+   at. Every floating element below that already anchored itself just
+   above that one real row (the two shared menu classes, the up next
+   card, the skip button, the toast) needs that same real 6em added
+   to its own bottom offset here too, or this reflow would just bury
+   them under the real second row instead. Kept this far down on
+   purpose, after every one of these classes' own real base rules,
+   so this actually wins the real cascade against them instead of
+   losing to it. */
+@media (max-width: 47.99em) {
+  .jellio-player-sleep-menu,
+  .jellio-player-style-menu {
+    bottom: 10.5em;
+  }
+
+  .jellio-player-toast,
+  .jellio-player-upnext,
+  .jellio-player-skip {
+    bottom: 12.5em;
+  }
 }
 
 .jellio-hero {
