@@ -6,6 +6,8 @@
 import { getCollections, getCollectionItems, collectionKind } from '../runtime/api.js';
 import { groupByService, logoSlug, rowTitle } from '../components/services.js';
 import { buildCard } from '../components/card.js';
+import { renderLoading, renderRetry } from '../components/networkState.js';
+import { navigateTo } from '../runtime/router.js';
 
 const ROW_LIMIT = 24;
 
@@ -137,13 +139,20 @@ export async function renderService(root, params) {
   const service = params.get('name');
   if (!service) return;
 
+  renderLoading(root);
+
   let collections;
   try {
     collections = await getCollections();
   } catch (err) {
     console.warn('Jellio: could not load streaming hub collections', err);
+    renderRetry(root, 'Could not load ' + service + '. Check your connection and try again.', function () {
+      renderService(root, params);
+    }, { onBack: function () { navigateTo('#/home'); }, backLabel: 'Back to Home' });
     return;
   }
+
+  root.textContent = '';
 
   const matching = (groupByService(collections)[service] || []).map(function (collection) {
     const kind = collectionKind(collection);

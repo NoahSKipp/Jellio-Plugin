@@ -8,6 +8,7 @@
 import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setFavorite } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
+import { renderLoading, renderRetry } from '../components/networkState.js';
 
 // A failed item lookup used to just console.warn and return, leaving
 // root exactly as blank as root.textContent = '' left it: a series's
@@ -15,18 +16,12 @@ import { openStreamPicker } from '../components/streamPicker.js';
 // episode saw nothing happen at all, same silent failure shape found
 // and fixed on the search screen, the boot splash and the player
 // screen's own three negotiation failures. A real message plus a real
-// way back is the same fix again here.
-function renderDetailError(root, message) {
-  root.textContent = '';
-  const wrap = el('div', 'jellio-detail-error');
-  wrap.appendChild(el('p', 'jellio-service-empty', message));
-  const back = el('button', 'jellio-detail-error-back', 'Back to Home');
-  back.type = 'button';
-  back.addEventListener('click', function () {
-    navigateTo('#/home');
-  });
-  wrap.appendChild(back);
-  root.appendChild(wrap);
+// way back is the same fix again here, now a real Retry too
+// (components/networkState.js's own renderRetry()) rather than only
+// Back to Home: on a bad connection the same lookup often just needs
+// asking again, not a trip back to a whole different screen first.
+function renderDetailError(root, message, onRetry) {
+  renderRetry(root, message, onRetry, { onBack: function () { navigateTo('#/home'); }, backLabel: 'Back to Home' });
 }
 
 function el(tag, className, text) {
@@ -172,18 +167,29 @@ export async function renderDetail(root, params) {
 
   const itemId = params.get('id');
   if (!itemId) {
-    renderDetailError(root, 'Nothing to show.');
+    renderDetailError(root, 'Nothing to show.', null);
     return;
   }
+
+  // Shown the instant this screen starts fetching, not after: a card's
+  // own click already navigates here synchronously (components/card.js's
+  // own click handler), so the only thing standing between that tap and
+  // something visible was this screen's own await below. On a slow
+  // connection that gap used to just read as the tap doing nothing.
+  renderLoading(root);
 
   let item;
   try {
     item = await getItemDetails(itemId);
   } catch (err) {
     console.warn('Jellio: could not load item details', err);
-    renderDetailError(root, 'Could not load this title. Check your connection and try again.');
+    renderDetailError(root, 'Could not load this title. Check your connection and try again.', function () {
+      renderDetail(root, params);
+    });
     return;
   }
+
+  root.textContent = '';
 
   // A title reached straight from a search result carries a synthetic
   // placeholder id, not a real library one, confirmed against Gelato's
