@@ -908,8 +908,29 @@
   overflow: hidden;
 }
 
+/* Real, reproducible layout bug, confirmed live: the mobile media
+   query below's own .jellio-content padding-bottom: 6em (96px, real
+   room for components/mobileNav.js's own floating pill on any
+   ordinary screen) still applied here too, on a real width match
+   alone, with no pointer: coarse needed, since the player route hides
+   that same pill entirely rather than ever actually using the room.
+   With no global box-sizing: border-box reset, that real padding
+   still added straight onto .jellio-content's own height: 100%
+   instead of eating into it, so this box's own padding edge, the
+   real containing block screens/player.js's own position: absolute;
+   bottom: 0 controls and pause overlay both resolve against, sat 96px
+   below the actual viewport, not at its real bottom edge at all.
+   Reported live as no play/pause or any other control visible at
+   all and the screen not reacting to a real tap anywhere: they were
+   there, just pushed below the fold on a screen with nothing
+   suggesting it could ever need to scroll in the first place.
+   padding-bottom: 0 here, at a real two class selector already more
+   specific than that one plain class media query rule, cancels it
+   out for this one real route without touching the pill nav's own
+   real room everywhere else. */
 .jellio-root-fullscreen .jellio-content {
   overflow: hidden;
+  padding-bottom: 0;
 }
 
 .jellio-screen-player {
