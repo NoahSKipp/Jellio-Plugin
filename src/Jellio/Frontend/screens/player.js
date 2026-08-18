@@ -742,7 +742,22 @@ export async function renderPlayer(root, params) {
       },
       function () {
         resumePrompt.overlay.remove();
-        video.currentTime = 0;
+        // video.currentTime = 0 alone used to just resume anyway,
+        // reported live as clicking Start Over doing nothing: streamUrl
+        // above was already built with this same real saved position
+        // baked into it (buildStreamUrl's own StartTimeTicks), and for
+        // anything routed through this runtime's own real forced
+        // transcode fallback (runtime/api.js's own canBrowserDirectPlay,
+        // routine on a scraped Gelato release), the server only ever
+        // transcodes forward from that exact point on, nothing earlier
+        // ever exists in that stream at all. Seeking to 0 on a stream
+        // like that lands back on its own first available frame, the
+        // saved position all over again, not the reader's own real
+        // start of the title. Rebuilding the URL with a real 0 instead
+        // asks the server for a real stream that actually starts there.
+        hasReportedStart = false;
+        video.src = buildStreamUrl(itemId, mediaSource, 0);
+        video.load();
         attemptPlay();
       },
     );
