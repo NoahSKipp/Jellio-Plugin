@@ -148,10 +148,18 @@ function playHash(itemId, mediaSourceId) {
   return '#/play?id=' + itemId + (mediaSourceId ? '&mediaSourceId=' + mediaSourceId : '');
 }
 
-function buildSourceCard(item, source) {
+// Exported for screens/player.js's own in-player Sources panel to
+// reuse directly: the exact same dense, real card Gelato's own Name
+// field already earns (resolution/size/container tags, a second line
+// description when the scraper's own Name carries one), not a second,
+// plainer list built from the same data. onSelect stands in for the
+// close-this-overlay-and-navigate behaviour only this file's own
+// picker below needs; the player's own in-place source switch wants
+// something else entirely done with the same card.
+export function buildSourceCard(source, onSelect, isActive) {
   const card = document.createElement('button');
   card.type = 'button';
-  card.className = 'jellio-stream-picker-card';
+  card.className = 'jellio-stream-picker-card' + (isActive ? ' jellio-stream-picker-card-active' : '');
 
   card.appendChild(el('div', 'jellio-stream-picker-card-title', (source.Name || '').split('\n')[0] || 'Source'));
 
@@ -174,9 +182,7 @@ function buildSourceCard(item, source) {
   }
 
   card.addEventListener('click', function () {
-    if (isRememberStreamEnabled()) rememberSourceChoice(item.Id, source.Id);
-    closeStreamPicker();
-    navigateTo(playHash(item.Id, source.Id));
+    onSelect(source);
   });
 
   return card;
@@ -278,7 +284,13 @@ export async function openStreamPicker(item, options) {
   right.appendChild(el('div', 'jellio-stream-picker-count', sources.length + ' streams found'));
   const list = el('div', 'jellio-stream-picker-list');
   sources.forEach(function (source) {
-    list.appendChild(buildSourceCard(item, source));
+    list.appendChild(
+      buildSourceCard(source, function (picked) {
+        if (isRememberStreamEnabled()) rememberSourceChoice(item.Id, picked.Id);
+        closeStreamPicker();
+        navigateTo(playHash(item.Id, picked.Id));
+      }),
+    );
   });
   right.appendChild(list);
   panel.appendChild(right);
