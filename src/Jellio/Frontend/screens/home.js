@@ -17,6 +17,7 @@ import { buildCard } from '../components/card.js';
 import { buildRow } from '../components/row.js';
 import { groupByService, logoSlug, serviceOf } from '../components/services.js';
 import { buildHeroCarousel } from '../components/heroCarousel.js';
+import { buildHomeSkeleton } from '../components/homeSkeleton.js';
 import { navigateTo } from '../runtime/router.js';
 
 // Real Gelato catalog collections (Trending, Popular, Top Rated, a
@@ -294,7 +295,7 @@ async function buildHomeSections() {
   }
 
   if (resumeResult.status === 'fulfilled') {
-    const row = buildRow('Continue Watching', resumeResult.value);
+    const row = buildRow('Continue Watching', resumeResult.value, { continueWatching: true });
     if (row) pushAll([row]);
   }
 
@@ -404,11 +405,31 @@ export async function renderHome(root, params) {
   const rows = el('div', 'jellio-rows');
   root.appendChild(rows);
 
+  // Nuvio's own real shimmer skeleton (components/homeSkeleton.js's
+  // own buildHomeSkeleton(), matching that same real reference before
+  // writing this) stands in for these rows the instant this screen
+  // starts building them, removed the moment the first real one
+  // actually lands. Only ever visible at all on the same cache miss
+  // preloadHomeSectionsWithProgress()'s own real progress callback
+  // below already only fires on: the common already-preloaded path
+  // never sees it, since sections has usually already arrived by the
+  // time this reaches removeChild().
+  const skeleton = buildHomeSkeleton();
+  rows.appendChild(skeleton);
+  let skeletonRemoved = false;
+  function removeSkeleton() {
+    if (skeletonRemoved) return;
+    skeletonRemoved = true;
+    if (skeleton.parentNode) skeleton.parentNode.removeChild(skeleton);
+  }
+
   const appended = new Set();
   const sections = await preloadHomeSectionsWithProgress(function (section) {
+    removeSkeleton();
     appended.add(section);
     rows.appendChild(section);
   });
+  removeSkeleton();
   sections.forEach(function (section) {
     if (!appended.has(section)) rows.appendChild(section);
   });
