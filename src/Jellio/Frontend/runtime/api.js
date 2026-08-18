@@ -10,27 +10,44 @@ import { getServerAddress, getAuthHeaders, getCurrentUserId, getAccessToken, get
 // it open ended: a request this runtime cannot get an answer to inside
 // a real, generous window is a request worth surfacing as failed
 // rather than one left hanging forever with nothing telling the reader
-// it is even still trying. 30s here, not 60s: unlike Nuvio's own
-// per-addon racing (many parallel calls, one slow one costs nothing),
-// every one of this runtime's own screens blocks on a single real
-// request at a time, so a shorter real ceiling still matters even
-// though the failure mode it guards against is the same one.
-const REQUEST_TIMEOUT_MS = 30000;
+// it is even still trying.
+//
+// Real bug, found live after shipping one flat 30s timeout for every
+// call here: a browser caps concurrent connections per origin (6 on
+// plain HTTP/1.1, still a real limit under a lot of self hosted
+// reverse proxies), and library/home screens fire a real handful of
+// these in parallel (catalog rows, genre rows, coverflow, ...). On a
+// slow connection every one of those used to just sit there for the
+// full 30s before failing, holding that many connection slots hostage
+// the whole time, so image tags for the very same rows, and any other
+// screen's own next real navigation, had nowhere left to open a
+// connection at all: reported live as rows and titles loading but
+// never their real images, and the whole app going unresponsive to
+// further navigation right behind it, worse than the silent hang this
+// was meant to fix in the first place. DEFAULT_TIMEOUT_MS is short
+// enough now that one slow request frees its own slot back up quickly;
+// getPlaybackInfo below is the one real exception, a single real call,
+// never running alongside a pile of others the way every list screen's
+// own calls do, and Gelato resolving a real debrid/usenet source
+// behind it can legitimately take longer than a plain metadata list
+// ever should.
+const DEFAULT_TIMEOUT_MS = 10000;
+const NEGOTIATION_TIMEOUT_MS = 30000;
 
-function fetchWithTimeout(url, options) {
+function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
   const timer = window.setTimeout(function () {
     controller.abort();
-  }, REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
   return fetch(url, Object.assign({}, options, { signal: controller.signal })).finally(function () {
     window.clearTimeout(timer);
   });
 }
 
-async function requestJson(url, options, path) {
+async function requestJson(url, options, path, timeoutMs) {
   let response;
   try {
-    response = await fetchWithTimeout(url, options);
+    response = await fetchWithTimeout(url, options, timeoutMs);
   } catch (err) {
     if (err && err.name === 'AbortError') {
       const timeoutErr = new Error('Request timed out: ' + path);
@@ -47,11 +64,12 @@ async function requestJson(url, options, path) {
   return response;
 }
 
-async function getJson(path) {
+async function getJson(path, timeoutMs) {
   const response = await requestJson(
     getServerAddress() + path,
     { headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()) },
     path,
+    timeoutMs || DEFAULT_TIMEOUT_MS,
   );
   return response.json();
 }
@@ -59,7 +77,7 @@ async function getJson(path) {
 // Fire and forget by design: a session report failing should never break
 // playback itself, only leave resume position slightly stale, the same
 // tradeoff every other real Jellyfin client already makes for these calls.
-async function postJson(path, body) {
+async function postJson(path, body, timeoutMs) {
   const response = await requestJson(
     getServerAddress() + path,
     {
@@ -71,6 +89,7 @@ async function postJson(path, body) {
       body: JSON.stringify(body || {}),
     },
     path,
+    timeoutMs || DEFAULT_TIMEOUT_MS,
   );
   const text = await response.text();
   return text ? JSON.parse(text) : null;
@@ -451,7 +470,7 @@ export function getPlaybackInfo(itemId, startTimeTicks, mediaSourceId) {
   // it re-negotiates that exact one instead, the same call a source
   // switch in the player makes with the id the reader just picked.
   if (mediaSourceId) body.MediaSourceId = mediaSourceId;
-  return postJson('/Items/' + itemId + '/PlaybackInfo', body);
+  return postJson('/Items/' + itemId + '/PlaybackInfo', body, NEGOTIATION_TIMEOUT_MS);
 }
 
 // The item's own full list of real alternate sources (every stream
