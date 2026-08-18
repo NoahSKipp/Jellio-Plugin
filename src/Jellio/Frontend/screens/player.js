@@ -35,6 +35,7 @@ import {
 import { navigateTo } from '../runtime/router.js';
 import { invalidateHomeSections } from './home.js';
 import { sourceLabel } from '../components/streamPicker.js';
+import { renderLoading } from '../components/networkState.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
@@ -179,16 +180,32 @@ function buildResumePrompt(percent, onResume, onRestart) {
 // moment, the same silent-failure shape already found and fixed on
 // the search screen and the boot splash. A real message plus a real
 // way back out of the dead route is the same fix again here.
-function renderPlaybackError(root, itemId, message) {
+// onRetry, when given, is the negotiation calls above that actually
+// failed (item lookup, PlaybackInfo, media source), run again against
+// the same params: on a bad connection the exact same request often
+// just needs asking a second time, not a trip back to Change Stream
+// first. Left out for the two cases retrying cannot help either way
+// (no id at all, or a source that already played and then failed to
+// decode, same failure either retry attempt), same reasoning
+// components/networkState.js's own renderRetry() documents.
+function renderPlaybackError(root, itemId, message, onRetry) {
   root.textContent = '';
   const wrap = el('div', 'jellio-player-error');
   wrap.appendChild(el('p', 'jellio-service-empty', message));
+  const actions = el('div', 'jellio-screen-retry-actions');
+  if (onRetry) {
+    const retry = el('button', 'jellio-player-error-back', 'Retry');
+    retry.type = 'button';
+    retry.addEventListener('click', onRetry);
+    actions.appendChild(retry);
+  }
   const back = el('button', 'jellio-player-error-back', 'Back');
   back.type = 'button';
   back.addEventListener('click', function () {
     navigateTo(itemId ? '#/item?id=' + itemId : '#/home');
   });
-  wrap.appendChild(back);
+  actions.appendChild(back);
+  wrap.appendChild(actions);
   root.appendChild(wrap);
 }
 
@@ -213,12 +230,23 @@ export async function renderPlayer(root, params) {
     return undefined;
   }
 
+  // Play already navigates here the instant it is pressed
+  // (components/streamPicker.js's own real choice, or the detail
+  // screen's own Play button skipping the picker outright): everything
+  // below this point negotiates a real stream before a single frame can
+  // show, real work that takes real time on a slow connection, so this
+  // is the only thing telling the reader Play actually did something in
+  // that gap rather than nothing at all.
+  renderLoading(root);
+
   let item;
   try {
     item = await getItemDetails(itemId);
   } catch (err) {
     console.warn('Jellio: could not load item for playback', err);
-    renderPlaybackError(root, itemId, 'Could not load this title. Check your connection and try again.');
+    renderPlaybackError(root, itemId, 'Could not load this title. Check your connection and try again.', function () {
+      renderPlayer(root, params);
+    });
     return undefined;
   }
 
@@ -238,7 +266,9 @@ export async function renderPlayer(root, params) {
     playbackInfo = await getPlaybackInfo(itemId, startTicks, preferredMediaSourceId);
   } catch (err) {
     console.warn('Jellio: could not negotiate playback', err);
-    renderPlaybackError(root, itemId, 'Could not start playback. Check your connection and try again.');
+    renderPlaybackError(root, itemId, 'Could not start playback. Check your connection and try again.', function () {
+      renderPlayer(root, params);
+    });
     return undefined;
   }
 
@@ -251,9 +281,14 @@ export async function renderPlayer(root, params) {
       preferredMediaSourceId
         ? 'That stream is no longer available. Pick a different one.'
         : 'No playable stream was found for this title.',
+      function () {
+        renderPlayer(root, params);
+      },
     );
     return undefined;
   }
+
+  root.textContent = '';
 
   const streamUrl = buildStreamUrl(itemId, mediaSource, startTicks);
 

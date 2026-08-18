@@ -4,15 +4,55 @@
 // jellyfin-web's own request/cache state, only on a real HTTP response.
 import { getServerAddress, getAuthHeaders, getCurrentUserId, getAccessToken, getDeviceId } from './auth.js';
 
-async function getJson(path) {
-  const response = await fetch(getServerAddress() + path, {
-    headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()),
+// Nuvio's own real AddonPlatform HTTP clients (OkHttp on Android, Ktor's
+// own HttpTimeout plugin on iOS, both confirmed against real source
+// before writing this) cap every addon call at 60s rather than leaving
+// it open ended: a request this runtime cannot get an answer to inside
+// a real, generous window is a request worth surfacing as failed
+// rather than one left hanging forever with nothing telling the reader
+// it is even still trying. 30s here, not 60s: unlike Nuvio's own
+// per-addon racing (many parallel calls, one slow one costs nothing),
+// every one of this runtime's own screens blocks on a single real
+// request at a time, so a shorter real ceiling still matters even
+// though the failure mode it guards against is the same one.
+const REQUEST_TIMEOUT_MS = 30000;
+
+function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(function () {
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+  return fetch(url, Object.assign({}, options, { signal: controller.signal })).finally(function () {
+    window.clearTimeout(timer);
   });
+}
+
+async function requestJson(url, options, path) {
+  let response;
+  try {
+    response = await fetchWithTimeout(url, options);
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      const timeoutErr = new Error('Request timed out: ' + path);
+      timeoutErr.timedOut = true;
+      throw timeoutErr;
+    }
+    throw err;
+  }
   if (!response.ok) {
     const err = new Error('Request failed: ' + path);
     err.status = response.status;
     throw err;
   }
+  return response;
+}
+
+async function getJson(path) {
+  const response = await requestJson(
+    getServerAddress() + path,
+    { headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()) },
+    path,
+  );
   return response.json();
 }
 
@@ -20,19 +60,18 @@ async function getJson(path) {
 // playback itself, only leave resume position slightly stale, the same
 // tradeoff every other real Jellyfin client already makes for these calls.
 async function postJson(path, body) {
-  const response = await fetch(getServerAddress() + path, {
-    method: 'POST',
-    headers: Object.assign(
-      { 'Content-Type': 'application/json', Accept: 'application/json' },
-      getAuthHeaders(),
-    ),
-    body: JSON.stringify(body || {}),
-  });
-  if (!response.ok) {
-    const err = new Error('Request failed: ' + path);
-    err.status = response.status;
-    throw err;
-  }
+  const response = await requestJson(
+    getServerAddress() + path,
+    {
+      method: 'POST',
+      headers: Object.assign(
+        { 'Content-Type': 'application/json', Accept: 'application/json' },
+        getAuthHeaders(),
+      ),
+      body: JSON.stringify(body || {}),
+    },
+    path,
+  );
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 }
