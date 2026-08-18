@@ -867,6 +867,15 @@ export async function renderPlayer(root, params) {
   let hasReportedStart = false;
   let seeking = false;
   let lastReportedTicks = startTicks;
+  // Set once cleanup() has actually run: removeAttribute('src') plus
+  // load() below, on an element still holding the error listener, can
+  // itself queue a second real error event on some browsers, arriving
+  // after Back has already navigated this same root on to a different
+  // screen. Without this, that late event still called
+  // renderPlaybackError(root, ...) below and clobbered whatever had
+  // since rendered into root, reported live as Back doing nothing (it
+  // did navigate, this stale event just wrote right back over it).
+  let screenTornDown = false;
 
   function currentPositionTicks() {
     return streamOffsetTicks + Math.round((video.currentTime || 0) * TICKS_PER_SECOND);
@@ -891,6 +900,7 @@ export async function renderPlayer(root, params) {
   // failures already use, the rest of this screen still being worth
   // keeping in front of the reader at that point.
   video.addEventListener('error', function () {
+    if (screenTornDown) return;
     if (hasReportedStart) {
       showPlayerToast('Playback stopped unexpectedly. Try a different stream.');
       return;
@@ -983,6 +993,8 @@ export async function renderPlayer(root, params) {
   // load rather than duplicating what it already does, and needs to
   // reach it from earlier in this same function body.
   function cleanup() {
+    if (screenTornDown) return;
+    screenTornDown = true;
     window.clearInterval(progressInterval);
     if (upNextCountdownInterval) window.clearInterval(upNextCountdownInterval);
     if (hasReportedStart) {
