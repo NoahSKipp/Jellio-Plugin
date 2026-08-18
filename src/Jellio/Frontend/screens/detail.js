@@ -9,6 +9,7 @@ import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setFavorite } fro
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
+import { describeNetworkFailure } from '../runtime/network.js';
 
 // A failed item lookup used to just console.warn and return, leaving
 // root exactly as blank as root.textContent = '' left it: a series's
@@ -183,7 +184,7 @@ export async function renderDetail(root, params) {
     item = await getItemDetails(itemId);
   } catch (err) {
     console.warn('Jellio: could not load item details', err);
-    renderDetailError(root, 'Could not load this title. Check your connection and try again.', function () {
+    renderDetailError(root, describeNetworkFailure('this title', err), function () {
       renderDetail(root, params);
     });
     return;

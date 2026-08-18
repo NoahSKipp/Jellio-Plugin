@@ -5,6 +5,7 @@
 // one entry per character typed.
 import { searchItems } from '../runtime/api.js';
 import { buildCard } from '../components/card.js';
+import { describeNetworkFailure } from '../runtime/network.js';
 
 const DEBOUNCE_MS = 300;
 
@@ -58,7 +59,7 @@ export async function renderSearch(root) {
         if (thisRequest !== requestId) return;
         console.warn('Jellio: search failed', err);
         grid.textContent = '';
-        status.textContent = 'Search failed. Check your connection and try again.';
+        status.textContent = describeNetworkFailure('search results', err);
       });
   }
 

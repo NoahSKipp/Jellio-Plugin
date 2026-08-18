@@ -9,6 +9,7 @@ import { getPerson, getPersonFilmography, getImageUrl } from '../runtime/api.js'
 import { buildCard } from '../components/card.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
 import { navigateTo } from '../runtime/router.js';
+import { describeNetworkFailure } from '../runtime/network.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -31,7 +32,7 @@ export async function renderPerson(root, params) {
     person = await getPerson(personId);
   } catch (err) {
     console.warn('Jellio: could not load person', err);
-    renderRetry(root, 'Could not load this person. Check your connection and try again.', function () {
+    renderRetry(root, describeNetworkFailure('this person', err), function () {
       renderPerson(root, params);
     }, { onBack: function () { navigateTo('#/home'); }, backLabel: 'Back to Home' });
     return;
