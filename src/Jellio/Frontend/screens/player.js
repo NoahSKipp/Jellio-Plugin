@@ -36,6 +36,7 @@ import { navigateTo } from '../runtime/router.js';
 import { invalidateHomeSections } from './home.js';
 import { sourceLabel } from '../components/streamPicker.js';
 import { renderLoading } from '../components/networkState.js';
+import { describeNetworkFailure } from '../runtime/network.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
@@ -244,7 +245,7 @@ export async function renderPlayer(root, params) {
     item = await getItemDetails(itemId);
   } catch (err) {
     console.warn('Jellio: could not load item for playback', err);
-    renderPlaybackError(root, itemId, 'Could not load this title. Check your connection and try again.', function () {
+    renderPlaybackError(root, itemId, describeNetworkFailure('this title', err), function () {
       renderPlayer(root, params);
     });
     return undefined;
@@ -266,7 +267,7 @@ export async function renderPlayer(root, params) {
     playbackInfo = await getPlaybackInfo(itemId, startTicks, preferredMediaSourceId);
   } catch (err) {
     console.warn('Jellio: could not negotiate playback', err);
-    renderPlaybackError(root, itemId, 'Could not start playback. Check your connection and try again.', function () {
+    renderPlaybackError(root, itemId, describeNetworkFailure('the stream', err), function () {
       renderPlayer(root, params);
     });
     return undefined;
