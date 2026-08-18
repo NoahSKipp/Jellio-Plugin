@@ -61,9 +61,29 @@
   display: block;
 }
 
+/* 100vh alone is the one thing every position: absolute; bottom: 0
+   control anywhere in this codebase (screens/player.js's own
+   controls bar chief among them) ultimately measures itself against,
+   and on a real mobile browser it is not the same number as the real
+   visible viewport: a real address bar showing or hiding changes how
+   much of the screen is actually visible without changing 100vh at
+   all, which real mobile browsers instead define against the
+   largest the viewport could ever be, address bar hidden. Reported
+   live as the player's own controls sometimes rendering correctly
+   and sometimes not on the exact same real device, no different
+   screen, no different route, matching this exactly: whichever state
+   the real address bar happened to be in decided whether 100vh's own
+   real number for that load actually matched what a reader could
+   really see. 100dvh (dynamic viewport height, a real CSS unit built
+   for exactly this, not this codebase's own invention) tracks the
+   real visible viewport as that real address bar shows or hides
+   instead, kept as a second declaration rather than a replacement so
+   a real browser too old to know dvh at all still gets the 100vh
+   fallback above it rather than an unset height. */
 .jellio-shell {
   display: flex;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* Matches .jellio-sidebar's own width below rather than flex: 0 0 auto,
