@@ -242,8 +242,40 @@ export function invalidateHomeSections() {
   homeSectionsPromise = null;
 }
 
+// Nuvio's own real incremental-channel pattern (search's per-addon fan
+// out, StreamsRepository's own stream aggregation, both confirmed
+// against real source): a reader never waits on the slowest phase to
+// see the fastest one. Up Next/Continue Watching are one fast real
+// Jellyfin call each; the catalog and genre rows behind them depend on
+// Gelato resolving whatever addon backs each collection, real work
+// that can take real time on a slow connection. Subscribers attached
+// while buildHomeSections() below is still running get each phase's
+// own real sections the moment that phase resolves, not after the
+// whole chain does; the ordering itself stays exactly what it always
+// was (recommendation rows get first pick of `seen`, then catalog
+// rows, then genre rows, each phase still genuinely depends on the
+// last for that dedupe, not something safe to run in parallel).
+let sectionListeners = [];
+
+function notifySections(newSections) {
+  sectionListeners.forEach(function (listener) {
+    try {
+      newSections.forEach(listener);
+    } catch (err) {
+      console.warn('Jellio: home section listener failed', err);
+    }
+  });
+}
+
 async function buildHomeSections() {
   const sections = [];
+
+  function pushAll(newSections) {
+    newSections.forEach(function (section) {
+      sections.push(section);
+    });
+    if (newSections.length) notifySections(newSections);
+  }
 
   const [nextUpResult, resumeResult, collectionsResult] = await Promise.allSettled([
     getNextUp(20),
@@ -258,12 +290,12 @@ async function buildHomeSections() {
   // itself has to say.
   if (nextUpResult.status === 'fulfilled') {
     const row = buildRow('Up Next', nextUpResult.value);
-    if (row) sections.push(row);
+    if (row) pushAll([row]);
   }
 
   if (resumeResult.status === 'fulfilled') {
     const row = buildRow('Continue Watching', resumeResult.value);
-    if (row) sections.push(row);
+    if (row) pushAll([row]);
   }
 
   // Shared with buildCatalogRows/buildGenreRows below via dedupe():
@@ -273,10 +305,10 @@ async function buildHomeSections() {
 
   try {
     const recommendationRows = await buildRecommendationRows(seen);
-    recommendationRows.forEach(function (spec) {
-      const row = buildRow(spec.title, spec.items);
-      if (row) sections.push(row);
-    });
+    const rows = recommendationRows.map(function (spec) {
+      return buildRow(spec.title, spec.items);
+    }).filter(Boolean);
+    pushAll(rows);
   } catch (err) {
     console.warn('Jellio: could not load recommendation rows', err);
   }
@@ -284,22 +316,18 @@ async function buildHomeSections() {
   if (collectionsResult.status === 'fulfilled') {
     const collections = collectionsResult.value;
     const hub = buildHubStrip(collections);
-    if (hub) sections.push(hub);
+    if (hub) pushAll([hub]);
 
     try {
       const catalogRows = await buildCatalogRows(collections, seen);
-      catalogRows.forEach(function (row) {
-        sections.push(row);
-      });
+      pushAll(catalogRows);
     } catch (err) {
       console.warn('Jellio: could not load catalog rows', err);
     }
   }
 
   const genreRows = await buildGenreRows(seen);
-  genreRows.forEach(function (row) {
-    sections.push(row);
-  });
+  pushAll(genreRows);
 
   return sections;
 }
@@ -329,6 +357,27 @@ export function preloadHomeSections() {
   return homeSectionsPromise;
 }
 
+// renderHome's own real progressive-render path: subscribes onSection
+// to whichever phases of the shared build above still resolve after
+// this call (nothing, on the common path where app.js's own splash
+// preload already finished the whole thing before this screen ever
+// mounted; the real remaining phases, on the first-ever visit or right
+// after invalidateHomeSections() reset the cache following a playback
+// session). Sections a phase already delivered before this subscribed
+// never reach onSection, so renderHome still has to reconcile the
+// final full array itself for those, the same way notifySections()
+// above already only reaches listeners actually attached when it fires.
+export function preloadHomeSectionsWithProgress(onSection) {
+  sectionListeners.push(onSection);
+  const promise = preloadHomeSections();
+  promise.finally(function () {
+    sectionListeners = sectionListeners.filter(function (listener) {
+      return listener !== onSection;
+    });
+  });
+  return promise;
+}
+
 export async function renderHome(root, params) {
   root.textContent = '';
   root.className = 'jellio-content jellio-screen-home';
@@ -355,9 +404,13 @@ export async function renderHome(root, params) {
   const rows = el('div', 'jellio-rows');
   root.appendChild(rows);
 
-  const sections = await preloadHomeSections();
-  sections.forEach(function (section) {
+  const appended = new Set();
+  const sections = await preloadHomeSectionsWithProgress(function (section) {
+    appended.add(section);
     rows.appendChild(section);
+  });
+  sections.forEach(function (section) {
+    if (!appended.has(section)) rows.appendChild(section);
   });
 
   return hero.destroy;
