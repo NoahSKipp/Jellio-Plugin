@@ -423,15 +423,27 @@ export async function renderHome(root, params) {
     if (skeleton.parentNode) skeleton.parentNode.removeChild(skeleton);
   }
 
+  // Not awaited: app.js's own sync() queue only starts the next real
+  // navigation once this function's own returned promise resolves, so
+  // awaiting the full section chain here (even with every section
+  // already rendering progressively through the callback below) still
+  // meant a reader could not leave a slow-loading home screen for
+  // anywhere else until every last catalog/genre row had either
+  // resolved or timed out. rows and skeleton are this call's own local
+  // elements, not the shared root, so a late section arriving after
+  // the reader has already navigated elsewhere just appends into an
+  // orphaned, invisible subtree, same reasoning screens/library.js's
+  // own fire-and-forget genre rows document.
   const appended = new Set();
-  const sections = await preloadHomeSectionsWithProgress(function (section) {
+  preloadHomeSectionsWithProgress(function (section) {
     removeSkeleton();
     appended.add(section);
     rows.appendChild(section);
-  });
-  removeSkeleton();
-  sections.forEach(function (section) {
-    if (!appended.has(section)) rows.appendChild(section);
+  }).then(function (sections) {
+    removeSkeleton();
+    sections.forEach(function (section) {
+      if (!appended.has(section)) rows.appendChild(section);
+    });
   });
 
   return hero.destroy;
