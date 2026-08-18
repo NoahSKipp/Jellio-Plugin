@@ -27,19 +27,30 @@ import {
   getSleepTimerStatus,
   getImageUrl,
   getSubtitleStreams,
+  getAudioStreams,
   buildSubtitleUrl,
   getNextEpisode,
   getIntroSkipperSegments,
+  getSeasons,
+  getEpisodes,
   TICKS_PER_SECOND,
 } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { invalidateHomeSections } from './home.js';
-import { sourceLabel } from '../components/streamPicker.js';
+import { sourceLabel, buildSourceCard } from '../components/streamPicker.js';
 import { renderLoading } from '../components/networkState.js';
 import { describeNetworkFailure } from '../runtime/network.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
+const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+// How long the reader can sit idle mid playback before the whole
+// control shell fades out, ported from the same real convention every
+// mainstream streaming app already uses (Netflix, Nuvio's own
+// screenshot included): controls stay up the instant something
+// actually needs attention (paused, still negotiating) regardless of
+// this timer.
+const IDLE_HIDE_MS = 3000;
 const SUBTITLE_STYLE_KEY = 'jellioSubtitleStyle';
 const SUBTITLE_SIZES = [
   { value: 'small', label: 'Small', rem: 1 },
@@ -252,6 +263,7 @@ export async function renderPlayer(root, params) {
   }
 
   const startTicks = (item.UserData && item.UserData.PlaybackPositionTicks) || 0;
+  const isEpisodeItem = item.Type === 'Episode' && !!item.SeriesName;
 
   // components/streamPicker.js's own real choice, when there was more
   // than one to choose from: negotiates that exact source instead of
@@ -321,7 +333,27 @@ export async function renderPlayer(root, params) {
   let subtitleStyle = loadSubtitleStyle();
   applySubtitleStyle(video, subtitleStyle);
 
-  const controls = el('div', 'jellio-player-controls');
+  // === Auto hide shell: everything the reader can tap, faded out
+  // together after IDLE_HIDE_MS of no activity while actually playing,
+  // the same real convention every mainstream streaming app already
+  // uses, confirmed against the real Nuvio screenshot this whole pass
+  // works from. Always shown again the instant something needs
+  // attention (paused, a fresh tap/move) rather than only on a timer.
+  const shell = el('div', 'jellio-player-shell');
+
+  const topbar = el('div', 'jellio-player-topbar');
+  const topbarInfo = el('div', 'jellio-player-topbar-info');
+  topbarInfo.appendChild(el('div', 'jellio-player-topbar-title', isEpisodeItem ? item.SeriesName : item.Name || ''));
+  if (isEpisodeItem) {
+    const hasCode = typeof item.ParentIndexNumber === 'number' && typeof item.IndexNumber === 'number';
+    const code = hasCode ? 'S' + item.ParentIndexNumber + 'E' + item.IndexNumber : '';
+    topbarInfo.appendChild(
+      el('div', 'jellio-player-topbar-episode', code ? code + ' · ' + (item.Name || '') : item.Name || ''),
+    );
+  }
+  const topbarMeta = el('div', 'jellio-player-topbar-meta', sourceLabel(mediaSource));
+  topbarInfo.appendChild(topbarMeta);
+  topbar.appendChild(topbarInfo);
 
   const backButton = el('button', 'jellio-player-back');
   backButton.type = 'button';
@@ -332,23 +364,21 @@ export async function renderPlayer(root, params) {
   backButton.addEventListener('click', function () {
     navigateTo('#/item?id=' + itemId);
   });
+  const topbarActions = el('div', 'jellio-player-topbar-actions');
+  topbarActions.appendChild(backButton);
+  topbar.appendChild(topbarActions);
 
-  const title = el('div', 'jellio-player-title', item.Name || '');
+  // === Center transport: skip back 10s, play/pause, skip forward 10s ===
+  const centerControls = el('div', 'jellio-player-center-controls');
 
-  const seekRow = el('div', 'jellio-player-seek-row');
-  const currentTimeLabel = el('span', 'jellio-player-time', formatTime(startTicks / TICKS_PER_SECOND));
-  const seekBar = document.createElement('input');
-  seekBar.type = 'range';
-  seekBar.className = 'jellio-player-seek';
-  seekBar.min = '0';
-  seekBar.max = '100';
-  seekBar.value = '0';
-  const durationLabel = el('span', 'jellio-player-time', '0:00');
-  seekRow.appendChild(currentTimeLabel);
-  seekRow.appendChild(seekBar);
-  seekRow.appendChild(durationLabel);
+  const skipBackButton = el('button', 'jellio-player-transport');
+  skipBackButton.type = 'button';
+  skipBackButton.setAttribute('aria-label', 'Back 10 seconds');
+  const skipBackIcon = el('span', 'material-icons replay_10');
+  skipBackIcon.setAttribute('aria-hidden', 'true');
+  skipBackButton.appendChild(skipBackIcon);
 
-  const playPauseButton = el('button', 'jellio-player-playpause');
+  const playPauseButton = el('button', 'jellio-player-transport jellio-player-playpause-center');
   playPauseButton.type = 'button';
   playPauseButton.setAttribute('aria-label', 'Pause');
   const playPauseIcon = el('span', 'material-icons pause');
@@ -359,70 +389,113 @@ export async function renderPlayer(root, params) {
     else video.pause();
   });
 
+  const skipForwardButton = el('button', 'jellio-player-transport');
+  skipForwardButton.type = 'button';
+  skipForwardButton.setAttribute('aria-label', 'Forward 10 seconds');
+  const skipForwardIcon = el('span', 'material-icons forward_10');
+  skipForwardIcon.setAttribute('aria-hidden', 'true');
+  skipForwardButton.appendChild(skipForwardIcon);
+
+  centerControls.appendChild(skipBackButton);
+  centerControls.appendChild(playPauseButton);
+  centerControls.appendChild(skipForwardButton);
+
+  // === Full width seek bar ===
+  const seekRow = el('div', 'jellio-player-seek-row');
+  const currentTimeLabel = el('span', 'jellio-player-time', formatTime(startTicks / TICKS_PER_SECOND));
+  const seekBar = document.createElement('input');
+  seekBar.type = 'range';
+  seekBar.className = 'jellio-player-seek';
+  seekBar.min = '0';
+  seekBar.max = '100';
+  seekBar.value = '0';
   seekBar.setAttribute('aria-label', 'Seek');
+  const durationLabel = el('span', 'jellio-player-time', '0:00');
+  seekRow.appendChild(currentTimeLabel);
+  seekRow.appendChild(seekBar);
+  seekRow.appendChild(durationLabel);
 
-  const sleepButton = el('button', 'jellio-player-sleep');
-  sleepButton.type = 'button';
-  sleepButton.setAttribute('aria-label', 'Sleep timer');
-  sleepButton.setAttribute('aria-haspopup', 'true');
-  sleepButton.setAttribute('aria-expanded', 'false');
-  const sleepIcon = el('span', 'material-icons bedtime');
-  sleepIcon.setAttribute('aria-hidden', 'true');
-  sleepButton.appendChild(sleepIcon);
+  // === Floating pill: Speed, Subtitles, Audio, Sources, Episodes, Sleep ===
+  const pill = el('div', 'jellio-player-pill');
 
-  const sleepMenu = el('div', 'jellio-player-sleep-menu jellio-player-sleep-menu-hidden');
-  const cancelOption = el('button', 'jellio-player-sleep-option', 'Cancel timer');
-  cancelOption.type = 'button';
-  cancelOption.addEventListener('click', function () {
-    cancelSleepTimer().then(function () {
-      sleepButton.classList.remove('jellio-player-sleep-active');
-      sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
-      sleepButton.setAttribute('aria-expanded', 'false');
+  function buildPillButton(iconName, label) {
+    const button = el('button', 'jellio-player-pill-btn');
+    button.type = 'button';
+    button.setAttribute('aria-haspopup', 'true');
+    button.setAttribute('aria-expanded', 'false');
+    const icon = el('span', 'material-icons ' + iconName);
+    icon.setAttribute('aria-hidden', 'true');
+    button.appendChild(icon);
+    button.appendChild(el('span', 'jellio-player-pill-btn-label', label));
+    return button;
+  }
+
+  const speedButton = buildPillButton('speed', '1x');
+  const subtitleButton = buildPillButton('subtitles', 'Subtitles');
+  const audioButton = buildPillButton('graphic_eq', 'Audio');
+  const sourceButton = buildPillButton('swap_horiz', 'Sources');
+  sourceButton.disabled = true;
+  const episodesButton = buildPillButton('video_library', 'Episodes');
+  episodesButton.disabled = true;
+  const sleepButton = buildPillButton('bedtime', 'Sleep');
+
+  pill.appendChild(speedButton);
+  pill.appendChild(subtitleButton);
+  pill.appendChild(audioButton);
+  pill.appendChild(sourceButton);
+  pill.appendChild(episodesButton);
+  pill.appendChild(sleepButton);
+
+  // Small popovers (speed/subtitles/audio/sleep) all anchor above the
+  // pill and close each other out on open; sourcePanel/episodesPanel
+  // below are a different real shape entirely (a full height side
+  // panel, matching the real Nuvio screenshot's own Quellen/Episoden
+  // layout), tracked separately so opening one does not also have to
+  // know about the other kind.
+  const popovers = [];
+  function closePopovers(except) {
+    popovers.forEach(function (entry) {
+      if (entry.menu === except) return;
+      entry.menu.classList.add('jellio-player-popover-hidden');
+      entry.button.setAttribute('aria-expanded', 'false');
     });
-  });
-  sleepMenu.appendChild(cancelOption);
-  SLEEP_TIMER_OPTIONS.forEach(function (minutes) {
-    const option = el('button', 'jellio-player-sleep-option', minutes + ' min');
+  }
+  function registerPopover(button, menu) {
+    popovers.push({ button: button, menu: menu });
+    button.addEventListener('click', function () {
+      closePopovers(menu);
+      const nowHidden = menu.classList.toggle('jellio-player-popover-hidden');
+      button.setAttribute('aria-expanded', String(!nowHidden));
+      wakeControls();
+    });
+  }
+
+  // === Speed popover ===
+  const speedMenu = el('div', 'jellio-player-popover jellio-player-popover-hidden');
+  PLAYBACK_SPEEDS.forEach(function (speed) {
+    const option = el(
+      'button',
+      'jellio-player-popover-option' + (speed === 1 ? ' jellio-player-popover-option-active' : ''),
+      speed + 'x',
+    );
     option.type = 'button';
     option.addEventListener('click', function () {
-      startSleepTimer(minutes).then(function () {
-        sleepButton.classList.add('jellio-player-sleep-active');
-        sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
-        sleepButton.setAttribute('aria-expanded', 'false');
+      video.playbackRate = speed;
+      speedButton.querySelector('.jellio-player-pill-btn-label').textContent = speed + 'x';
+      Array.prototype.forEach.call(speedMenu.children, function (child) {
+        child.classList.remove('jellio-player-popover-option-active');
       });
+      option.classList.add('jellio-player-popover-option-active');
+      closePopovers(null);
     });
-    sleepMenu.appendChild(option);
+    speedMenu.appendChild(option);
   });
+  registerPopover(speedButton, speedMenu);
 
-  sleepButton.addEventListener('click', function () {
-    subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
-    subtitleButton.setAttribute('aria-expanded', 'false');
-    styleMenu.classList.add('jellio-player-sleep-menu-hidden');
-    styleButton.setAttribute('aria-expanded', 'false');
-    sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
-    sourceButton.setAttribute('aria-expanded', 'false');
-    const nowHidden = sleepMenu.classList.toggle('jellio-player-sleep-menu-hidden');
-    sleepButton.setAttribute('aria-expanded', String(!nowHidden));
-  });
-
-  getSleepTimerStatus()
-    .then(function (status) {
-      if (status && status.Active) sleepButton.classList.add('jellio-player-sleep-active');
-    })
-    .catch(function () {
-      // No status yet is not an error worth surfacing here.
-    });
-
-  const subtitleButton = el('button', 'jellio-player-subtitles');
-  subtitleButton.type = 'button';
-  subtitleButton.setAttribute('aria-label', 'Subtitles');
-  subtitleButton.setAttribute('aria-haspopup', 'true');
-  subtitleButton.setAttribute('aria-expanded', 'false');
-  const subtitleIcon = el('span', 'material-icons subtitles');
-  subtitleIcon.setAttribute('aria-hidden', 'true');
-  subtitleButton.appendChild(subtitleIcon);
-
-  const subtitleMenu = el('div', 'jellio-player-sleep-menu jellio-player-sleep-menu-hidden');
+  // === Subtitles popover: track list plus the existing style controls ===
+  const subtitleMenu = el('div', 'jellio-player-popover jellio-player-popover-hidden');
+  const subtitleList = el('div', 'jellio-player-popover-list');
+  subtitleMenu.appendChild(subtitleList);
   let activeTrack = null;
 
   function selectSubtitle(stream, optionButton) {
@@ -430,16 +503,12 @@ export async function renderPlayer(root, params) {
       activeTrack.remove();
       activeTrack = null;
     }
-    Array.prototype.forEach.call(subtitleMenu.children, function (child) {
-      child.classList.remove('jellio-player-sleep-option-active');
+    Array.prototype.forEach.call(subtitleList.children, function (child) {
+      child.classList.remove('jellio-player-popover-option-active');
     });
-    if (optionButton) optionButton.classList.add('jellio-player-sleep-option-active');
-    subtitleButton.classList.toggle('jellio-player-sleep-active', !!stream);
-    if (!stream) {
-      subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
-      subtitleButton.setAttribute('aria-expanded', 'false');
-      return;
-    }
+    if (optionButton) optionButton.classList.add('jellio-player-popover-option-active');
+    subtitleButton.classList.toggle('jellio-player-pill-btn-active', !!stream);
+    if (!stream) return;
     const track = document.createElement('track');
     track.kind = 'subtitles';
     track.label = stream.DisplayTitle || stream.Language || 'Subtitle';
@@ -451,8 +520,6 @@ export async function renderPlayer(root, params) {
     track.addEventListener('load', function () {
       if (track.track) track.track.mode = 'showing';
     });
-    subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
-    subtitleButton.setAttribute('aria-expanded', 'false');
   }
 
   // Rebuildable rather than built once: a source switch below can hand
@@ -461,55 +528,37 @@ export async function renderPlayer(root, params) {
   // tracks), so the menu has to reflect whichever mediaSource is
   // actually loaded right now, not the one playback started on.
   function rebuildSubtitleMenu() {
-    subtitleMenu.textContent = '';
+    subtitleList.textContent = '';
     const subtitleStreams = getSubtitleStreams(mediaSource);
     if (!subtitleStreams.length) {
       subtitleButton.disabled = true;
       return;
     }
     subtitleButton.disabled = false;
-    const offOption = el('button', 'jellio-player-sleep-option jellio-player-sleep-option-active', 'Off');
+    const offOption = el('button', 'jellio-player-popover-option jellio-player-popover-option-active', 'Off');
     offOption.type = 'button';
     offOption.addEventListener('click', function () {
       selectSubtitle(null, offOption);
     });
-    subtitleMenu.appendChild(offOption);
+    subtitleList.appendChild(offOption);
     subtitleStreams.forEach(function (stream) {
-      const option = el('button', 'jellio-player-sleep-option', stream.DisplayTitle || stream.Language || 'Subtitle');
+      const option = el(
+        'button',
+        'jellio-player-popover-option',
+        stream.DisplayTitle || stream.Language || 'Subtitle',
+      );
       option.type = 'button';
       option.addEventListener('click', function () {
         selectSubtitle(stream, option);
       });
-      subtitleMenu.appendChild(option);
+      subtitleList.appendChild(option);
     });
   }
-
-  subtitleButton.addEventListener('click', function () {
-    sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
-    sleepButton.setAttribute('aria-expanded', 'false');
-    styleMenu.classList.add('jellio-player-sleep-menu-hidden');
-    styleButton.setAttribute('aria-expanded', 'false');
-    sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
-    sourceButton.setAttribute('aria-expanded', 'false');
-    const nowHidden = subtitleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
-    subtitleButton.setAttribute('aria-expanded', String(!nowHidden));
-  });
-
   rebuildSubtitleMenu();
+  registerPopover(subtitleButton, subtitleMenu);
 
-  // A style preference rather than a per stream setting: it stays the
-  // reader's own choice across whichever subtitle track, or item, they
-  // pick next, same reasoning behind persisting it at all.
-  const styleButton = el('button', 'jellio-player-subtitles');
-  styleButton.type = 'button';
-  styleButton.setAttribute('aria-label', 'Subtitle style');
-  styleButton.setAttribute('aria-haspopup', 'true');
-  styleButton.setAttribute('aria-expanded', 'false');
-  const styleIcon = el('span', 'material-icons text_fields');
-  styleIcon.setAttribute('aria-hidden', 'true');
-  styleButton.appendChild(styleIcon);
-
-  const styleMenu = el('div', 'jellio-player-style-menu jellio-player-sleep-menu-hidden');
+  const styleSection = el('div', 'jellio-player-popover-style');
+  subtitleMenu.appendChild(styleSection);
 
   function buildStyleGroup(label, options, currentValue, onPick) {
     const group = el('div', 'jellio-player-style-group');
@@ -518,16 +567,16 @@ export async function renderPlayer(root, params) {
     options.forEach(function (option) {
       const optionButton = el(
         'button',
-        'jellio-player-sleep-option' + (option.value === currentValue ? ' jellio-player-sleep-option-active' : ''),
+        'jellio-player-popover-option' + (option.value === currentValue ? ' jellio-player-popover-option-active' : ''),
         option.label,
       );
       optionButton.type = 'button';
       optionButton.addEventListener('click', function () {
         onPick(option.value);
         Array.prototype.forEach.call(optionRow.children, function (child) {
-          child.classList.remove('jellio-player-sleep-option-active');
+          child.classList.remove('jellio-player-popover-option-active');
         });
-        optionButton.classList.add('jellio-player-sleep-option-active');
+        optionButton.classList.add('jellio-player-popover-option-active');
       });
       optionRow.appendChild(optionButton);
     });
@@ -535,14 +584,14 @@ export async function renderPlayer(root, params) {
     return group;
   }
 
-  styleMenu.appendChild(
+  styleSection.appendChild(
     buildStyleGroup('Size', SUBTITLE_SIZES, subtitleStyle.size, function (value) {
       subtitleStyle = Object.assign({}, subtitleStyle, { size: value });
       applySubtitleStyle(video, subtitleStyle);
       saveSubtitleStyle(subtitleStyle);
     }),
   );
-  styleMenu.appendChild(
+  styleSection.appendChild(
     buildStyleGroup('Background', SUBTITLE_BACKGROUNDS, subtitleStyle.background, function (value) {
       subtitleStyle = Object.assign({}, subtitleStyle, { background: value });
       applySubtitleStyle(video, subtitleStyle);
@@ -550,37 +599,240 @@ export async function renderPlayer(root, params) {
     }),
   );
 
-  styleButton.addEventListener('click', function () {
-    sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
-    sleepButton.setAttribute('aria-expanded', 'false');
-    subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
-    subtitleButton.setAttribute('aria-expanded', 'false');
-    sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
-    sourceButton.setAttribute('aria-expanded', 'false');
-    const nowHidden = styleMenu.classList.toggle('jellio-player-sleep-menu-hidden');
-    styleButton.setAttribute('aria-expanded', String(!nowHidden));
+  // === Audio track popover ===
+  const audioMenu = el('div', 'jellio-player-popover jellio-player-popover-hidden');
+  let currentAudioStreamIndex = null;
+
+  function audioStreamLabel(stream) {
+    const language = stream.Language ? stream.Language.toUpperCase() : stream.DisplayTitle || 'Unknown';
+    const parts = [stream.Codec ? stream.Codec.toUpperCase() : '', stream.ChannelLayout || ''].filter(Boolean);
+    return parts.length ? language + ' · ' + parts.join(' ') : language;
+  }
+
+  function rebuildAudioMenu() {
+    audioMenu.textContent = '';
+    const streams = getAudioStreams(mediaSource);
+    if (streams.length <= 1) {
+      audioButton.disabled = true;
+      return;
+    }
+    audioButton.disabled = false;
+    streams.forEach(function (stream) {
+      const isActive =
+        currentAudioStreamIndex == null
+          ? stream.Index === mediaSource.DefaultAudioStreamIndex
+          : stream.Index === currentAudioStreamIndex;
+      const option = el(
+        'button',
+        'jellio-player-popover-option' + (isActive ? ' jellio-player-popover-option-active' : ''),
+        audioStreamLabel(stream),
+      );
+      option.type = 'button';
+      option.addEventListener('click', function () {
+        if (isActive) {
+          closePopovers(null);
+          return;
+        }
+        switchAudioTrack(stream);
+      });
+      audioMenu.appendChild(option);
+    });
+  }
+  registerPopover(audioButton, audioMenu);
+
+  // Static=true (a direct playable file) serves every embedded track
+  // as is, no way to tell the server which one the browser should
+  // decode: real Jellyfin behaviour, confirmed against jellyfin-web's
+  // own playbackmanager.js before writing this, is that picking a non
+  // default audio track forces a real transcode so the server can
+  // actually mux just that one in, the same real reload seekToAbsoluteSeconds
+  // and switchSource below already use for their own real reasons.
+  function switchAudioTrack(stream) {
+    const resumeTicks = currentPositionTicks();
+    const wasPlaying = !video.paused;
+    currentAudioStreamIndex = stream.Index;
+    streamIsTranscoded = stream.Index !== mediaSource.DefaultAudioStreamIndex || !canBrowserDirectPlay(mediaSource);
+    streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
+    video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, { audioStreamIndex: currentAudioStreamIndex });
+    video.load();
+    if (wasPlaying) attemptPlay();
+    rebuildAudioMenu();
+    closePopovers(null);
+  }
+  rebuildAudioMenu();
+
+  // === Sleep timer popover ===
+  const sleepMenu = el('div', 'jellio-player-popover jellio-player-popover-hidden');
+  const cancelOption = el('button', 'jellio-player-popover-option', 'Cancel timer');
+  cancelOption.type = 'button';
+  cancelOption.addEventListener('click', function () {
+    cancelSleepTimer().then(function () {
+      sleepButton.classList.remove('jellio-player-pill-btn-active');
+      closePopovers(null);
+    });
   });
+  sleepMenu.appendChild(cancelOption);
+  SLEEP_TIMER_OPTIONS.forEach(function (minutes) {
+    const option = el('button', 'jellio-player-popover-option', minutes + ' min');
+    option.type = 'button';
+    option.addEventListener('click', function () {
+      startSleepTimer(minutes).then(function () {
+        sleepButton.classList.add('jellio-player-pill-btn-active');
+        closePopovers(null);
+      });
+    });
+    sleepMenu.appendChild(option);
+  });
+  registerPopover(sleepButton, sleepMenu);
 
-  // Every real alternate Gelato resolved for this item (Fields=
-  // MediaSources on the item DTO, backed by GetStaticMediaSources, see
-  // runtime/api.js's own getMediaSources header), not just the one
-  // PlaybackInfo negotiated to start. Fetched in the background rather
-  // than blocking playback on it: a picker with one real option in it
-  // is not worth showing at all, so the button stays disabled until
-  // there is something to switch to.
-  const sourceButton = el('button', 'jellio-player-subtitles');
-  sourceButton.type = 'button';
-  sourceButton.disabled = true;
-  sourceButton.setAttribute('aria-label', 'Sources');
-  sourceButton.setAttribute('aria-haspopup', 'true');
-  sourceButton.setAttribute('aria-expanded', 'false');
-  const sourceIcon = el('span', 'material-icons hd');
-  sourceIcon.setAttribute('aria-hidden', 'true');
-  sourceButton.appendChild(sourceIcon);
+  getSleepTimerStatus()
+    .then(function (status) {
+      if (status && status.Active) sleepButton.classList.add('jellio-player-pill-btn-active');
+    })
+    .catch(function () {
+      // No status yet is not an error worth surfacing here.
+    });
 
-  const sourceMenu = el('div', 'jellio-player-sleep-menu jellio-player-sleep-menu-hidden');
+  // === Sources side panel, real cards components/streamPicker.js's
+  // own buildSourceCard() already builds for the pre-playback picker,
+  // reused here rather than a second, plainer list. ===
+  const sourcePanel = el('div', 'jellio-player-sidepanel jellio-player-sidepanel-hidden');
+  const sourcePanelHeader = el('div', 'jellio-player-sidepanel-header');
+  sourcePanelHeader.appendChild(el('div', 'jellio-player-sidepanel-title', 'Sources'));
+  const sourceCloseButton = el('button', 'jellio-player-sidepanel-close', 'Close');
+  sourceCloseButton.type = 'button';
+  sourcePanelHeader.appendChild(sourceCloseButton);
+  sourcePanel.appendChild(sourcePanelHeader);
+  const sourceList = el('div', 'jellio-player-sidepanel-list');
+  sourcePanel.appendChild(sourceList);
+
   let sourceOptions = [mediaSource];
   let switchingSource = false;
+
+  function closeSidePanels() {
+    sourcePanel.classList.add('jellio-player-sidepanel-hidden');
+    episodesPanel.classList.add('jellio-player-sidepanel-hidden');
+  }
+
+  function rebuildSourceMenu() {
+    sourceList.textContent = '';
+    sourceOptions.forEach(function (source) {
+      sourceList.appendChild(
+        buildSourceCard(
+          source,
+          function (picked) {
+            closeSidePanels();
+            if (picked.Id !== mediaSource.Id) switchSource(picked);
+          },
+          source.Id === mediaSource.Id,
+        ),
+      );
+    });
+  }
+
+  sourceButton.addEventListener('click', function () {
+    closePopovers(null);
+    episodesPanel.classList.add('jellio-player-sidepanel-hidden');
+    sourcePanel.classList.toggle('jellio-player-sidepanel-hidden');
+    wakeControls();
+  });
+  sourceCloseButton.addEventListener('click', closeSidePanels);
+
+  // === Episodes side panel: season tabs plus that season's own
+  // episode list, only real for a series (Movies have nothing to
+  // browse to here, sourceButton/episodesButton both stay disabled
+  // until there is something real behind them). ===
+  const episodesPanel = el('div', 'jellio-player-sidepanel jellio-player-sidepanel-hidden');
+  const episodesPanelHeader = el('div', 'jellio-player-sidepanel-header');
+  episodesPanelHeader.appendChild(el('div', 'jellio-player-sidepanel-title', 'Episodes'));
+  const episodesCloseButton = el('button', 'jellio-player-sidepanel-close', 'Close');
+  episodesCloseButton.type = 'button';
+  episodesPanelHeader.appendChild(episodesCloseButton);
+  episodesPanel.appendChild(episodesPanelHeader);
+  const seasonTabs = el('div', 'jellio-player-sidepanel-tabs');
+  episodesPanel.appendChild(seasonTabs);
+  const episodeList = el('div', 'jellio-player-sidepanel-list');
+  episodesPanel.appendChild(episodeList);
+  episodesCloseButton.addEventListener('click', closeSidePanels);
+
+  function buildEpisodeRow(episode) {
+    const row = el('button', 'jellio-player-episode-row' + (episode.Id === itemId ? ' jellio-player-episode-row-active' : ''));
+    row.type = 'button';
+    const thumbTag = (episode.ImageTags && episode.ImageTags.Primary) || episode.ParentThumbImageTag;
+    const thumb = el('div', 'jellio-player-episode-thumb');
+    if (thumbTag) {
+      thumb.style.backgroundImage = 'url(' + getImageUrl(episode.Id, 'Primary', { tag: thumbTag, maxWidth: 400 }) + ')';
+    }
+    if (episode.CommunityRating) {
+      thumb.appendChild(el('span', 'jellio-player-episode-rating', episode.CommunityRating.toFixed(1)));
+    }
+    const hasCode = typeof episode.ParentIndexNumber === 'number' && typeof episode.IndexNumber === 'number';
+    if (hasCode) {
+      thumb.appendChild(el('span', 'jellio-player-episode-code', 'S' + episode.ParentIndexNumber + 'E' + episode.IndexNumber));
+    }
+    row.appendChild(thumb);
+    const body = el('div', 'jellio-player-episode-body');
+    body.appendChild(el('div', 'jellio-player-episode-title', episode.Name || ''));
+    if (episode.Overview) {
+      body.appendChild(el('p', 'jellio-player-episode-overview', episode.Overview));
+    }
+    row.appendChild(body);
+    row.addEventListener('click', function () {
+      if (episode.Id === itemId) {
+        closeSidePanels();
+        return;
+      }
+      navigateTo('#/play?id=' + episode.Id);
+    });
+    return row;
+  }
+
+  function loadSeasonEpisodes(seriesId, season, tabButton) {
+    Array.prototype.forEach.call(seasonTabs.children, function (child) {
+      child.classList.remove('jellio-player-sidepanel-tab-active');
+    });
+    if (tabButton) tabButton.classList.add('jellio-player-sidepanel-tab-active');
+    episodeList.textContent = '';
+    getEpisodes(seriesId, season.Id)
+      .then(function (episodes) {
+        episodes.forEach(function (episode) {
+          episodeList.appendChild(buildEpisodeRow(episode));
+        });
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not load episodes for player episode panel', err);
+      });
+  }
+
+  if (isEpisodeItem && item.SeriesId) {
+    getSeasons(item.SeriesId)
+      .then(function (seasons) {
+        if (!seasons.length) return;
+        episodesButton.disabled = false;
+        seasons.forEach(function (season) {
+          const tab = el('button', 'jellio-player-sidepanel-tab', season.Name || '');
+          tab.type = 'button';
+          tab.addEventListener('click', function () {
+            loadSeasonEpisodes(item.SeriesId, season, tab);
+          });
+          seasonTabs.appendChild(tab);
+          if (season.Id === item.SeasonId) loadSeasonEpisodes(item.SeriesId, season, tab);
+        });
+        if (!episodeList.children.length && seasons[0]) {
+          loadSeasonEpisodes(item.SeriesId, seasons[0], seasonTabs.firstChild);
+        }
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not load seasons for player episode panel', err);
+      });
+  }
+
+  episodesButton.addEventListener('click', function () {
+    closePopovers(null);
+    sourcePanel.classList.add('jellio-player-sidepanel-hidden');
+    episodesPanel.classList.toggle('jellio-player-sidepanel-hidden');
+    wakeControls();
+  });
 
   // switchSource() below used to fail exactly as silently as the three
   // routes into this whole screen already fixed above: the old source
@@ -634,7 +886,7 @@ export async function renderPlayer(root, params) {
       const targetTicks = Math.max(0, Math.round(targetSeconds * TICKS_PER_SECOND));
       const wasPlaying = !video.paused;
       streamOffsetTicks = targetTicks;
-      video.src = buildStreamUrl(itemId, mediaSource, targetTicks);
+      video.src = buildStreamUrl(itemId, mediaSource, targetTicks, { audioStreamIndex: currentAudioStreamIndex });
       video.load();
       if (wasPlaying) attemptPlay();
     } else {
@@ -642,23 +894,12 @@ export async function renderPlayer(root, params) {
     }
   }
 
-  function rebuildSourceMenu() {
-    sourceMenu.textContent = '';
-    sourceOptions.forEach(function (source) {
-      const option = el(
-        'button',
-        'jellio-player-sleep-option' + (source.Id === mediaSource.Id ? ' jellio-player-sleep-option-active' : ''),
-        sourceLabel(source),
-      );
-      option.type = 'button';
-      option.addEventListener('click', function () {
-        sourceMenu.classList.add('jellio-player-sleep-menu-hidden');
-        sourceButton.setAttribute('aria-expanded', 'false');
-        if (source.Id !== mediaSource.Id) switchSource(source);
-      });
-      sourceMenu.appendChild(option);
-    });
-  }
+  skipBackButton.addEventListener('click', function () {
+    seekToAbsoluteSeconds(streamOffsetTicks / TICKS_PER_SECOND + (video.currentTime || 0) - 10);
+  });
+  skipForwardButton.addEventListener('click', function () {
+    seekToAbsoluteSeconds(streamOffsetTicks / TICKS_PER_SECOND + (video.currentTime || 0) + 10);
+  });
 
   // Re-negotiates PlaybackInfo against the picked source at the exact
   // position playback is at right now, the same real POST every source
@@ -684,12 +925,15 @@ export async function renderPlayer(root, params) {
         activeTrack = null;
       }
       hasReportedStart = false;
+      currentAudioStreamIndex = null;
       streamIsTranscoded = !canBrowserDirectPlay(mediaSource);
       streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
       video.src = buildStreamUrl(itemId, mediaSource, resumeTicks);
       video.load();
       if (wasPlaying) attemptPlay();
+      topbarMeta.textContent = sourceLabel(mediaSource);
       rebuildSubtitleMenu();
+      rebuildAudioMenu();
       rebuildSourceMenu();
     } catch (err) {
       console.warn('Jellio: could not switch source', err);
@@ -698,17 +942,6 @@ export async function renderPlayer(root, params) {
       switchingSource = false;
     }
   }
-
-  sourceButton.addEventListener('click', function () {
-    sleepMenu.classList.add('jellio-player-sleep-menu-hidden');
-    sleepButton.setAttribute('aria-expanded', 'false');
-    subtitleMenu.classList.add('jellio-player-sleep-menu-hidden');
-    subtitleButton.setAttribute('aria-expanded', 'false');
-    styleMenu.classList.add('jellio-player-sleep-menu-hidden');
-    styleButton.setAttribute('aria-expanded', 'false');
-    const nowHidden = sourceMenu.classList.toggle('jellio-player-sleep-menu-hidden');
-    sourceButton.setAttribute('aria-expanded', String(!nowHidden));
-  });
 
   getMediaSources(itemId)
     .then(function (sources) {
@@ -722,20 +955,54 @@ export async function renderPlayer(root, params) {
       console.warn('Jellio: could not load alternate sources', err);
     });
 
-  controls.appendChild(backButton);
-  controls.appendChild(title);
-  controls.appendChild(seekRow);
-  controls.appendChild(playPauseButton);
-  controls.appendChild(subtitleButton);
-  controls.appendChild(subtitleMenu);
-  controls.appendChild(styleButton);
-  controls.appendChild(styleMenu);
-  controls.appendChild(sourceButton);
-  controls.appendChild(sourceMenu);
-  controls.appendChild(sleepButton);
-  controls.appendChild(sleepMenu);
+  shell.appendChild(topbar);
+  shell.appendChild(centerControls);
+  shell.appendChild(seekRow);
+  shell.appendChild(pill);
+  shell.appendChild(speedMenu);
+  shell.appendChild(subtitleMenu);
+  shell.appendChild(audioMenu);
+  shell.appendChild(sleepMenu);
+  shell.appendChild(sourcePanel);
+  shell.appendChild(episodesPanel);
+
+  // === Idle auto hide: mousemove/touch/key wakes the shell back up
+  // and resets the timer; a paused video, an open popover/side panel,
+  // or negotiation still in flight all keep it up regardless. ===
+  let idleTimer = null;
+  function hideControls() {
+    if (video.paused) return;
+    const anyPopoverOpen = popovers.some(function (entry) {
+      return !entry.menu.classList.contains('jellio-player-popover-hidden');
+    });
+    if (anyPopoverOpen) return;
+    if (!sourcePanel.classList.contains('jellio-player-sidepanel-hidden')) return;
+    if (!episodesPanel.classList.contains('jellio-player-sidepanel-hidden')) return;
+    shell.classList.add('jellio-player-shell-idle');
+  }
+  function wakeControls() {
+    shell.classList.remove('jellio-player-shell-idle');
+    if (idleTimer) window.clearTimeout(idleTimer);
+    idleTimer = window.setTimeout(hideControls, IDLE_HIDE_MS);
+  }
+  ['mousemove', 'touchstart', 'keydown', 'click'].forEach(function (eventName) {
+    root.addEventListener(eventName, wakeControls);
+  });
+  video.addEventListener('click', function () {
+    if (video.paused) attemptPlay();
+    else video.pause();
+  });
+  wakeControls();
 
 
+
+  // Ported from the same real Nuvio pause screen screenshot this whole
+  // player pass works from: an eyebrow naming what is playing, the
+  // series (or movie) own name and rating, the exact episode this
+  // pause landed on and its own overview, not the item passed in alone
+  // (an Episode's own Overview is the episode's, its own Name never
+  // was the series name, real fields already distinguished the same
+  // way screens/detail.js's own episode header just started doing).
   const pauseOverlay = el('div', 'jellio-player-pause-overlay');
   const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
   if (backdropTag) {
@@ -743,11 +1010,20 @@ export async function renderPlayer(root, params) {
       'url(' + getImageUrl(itemId, 'Backdrop', { tag: backdropTag, maxWidth: 1600 }) + ')';
   }
   const pauseContent = el('div', 'jellio-player-pause-content');
-  pauseContent.appendChild(el('div', 'jellio-player-pause-title', item.Name || ''));
+  pauseContent.appendChild(el('div', 'jellio-player-pause-eyebrow', 'You’re watching'));
+  pauseContent.appendChild(el('div', 'jellio-player-pause-title', isEpisodeItem ? item.SeriesName : item.Name || ''));
   const pauseMeta = el('div', 'jellio-player-pause-meta');
+  if (item.CommunityRating) pauseMeta.appendChild(el('span', null, item.CommunityRating.toFixed(1) + ' ★'));
   if (item.ProductionYear) pauseMeta.appendChild(el('span', null, String(item.ProductionYear)));
   if (item.OfficialRating) pauseMeta.appendChild(el('span', null, item.OfficialRating));
   pauseContent.appendChild(pauseMeta);
+  if (isEpisodeItem) {
+    const hasCode = typeof item.ParentIndexNumber === 'number' && typeof item.IndexNumber === 'number';
+    if (hasCode) {
+      pauseContent.appendChild(el('div', 'jellio-player-pause-episode-code', 'S' + item.ParentIndexNumber + 'E' + item.IndexNumber));
+    }
+    pauseContent.appendChild(el('div', 'jellio-player-pause-episode-title', item.Name || ''));
+  }
   if (item.Overview) {
     pauseContent.appendChild(el('p', 'jellio-player-pause-overview', item.Overview));
   }
@@ -799,7 +1075,7 @@ export async function renderPlayer(root, params) {
   root.appendChild(video);
   root.appendChild(pauseOverlay);
   root.appendChild(skipButton);
-  root.appendChild(controls);
+  root.appendChild(shell);
 
   if (hasResumePosition) {
     const percent =

@@ -569,10 +569,31 @@ function estimateVideoBitrate(mediaSource) {
   return FALLBACK_VIDEO_BITRATE;
 }
 
-export function buildStreamUrl(itemId, mediaSource, startTimeTicks) {
+// Every real embedded audio track this source carries, the same
+// MediaStreams array components/streamPicker.js's own quality badges
+// and getSubtitleStreams above already read, just filtered to the
+// other real Type value on it.
+export function getAudioStreams(mediaSource) {
+  return (mediaSource.MediaStreams || []).filter(function (stream) {
+    return stream.Type === 'Audio';
+  });
+}
+
+// audioStreamIndex, when given, asks for a specific embedded audio
+// track by its own real MediaStreams index instead of whichever one
+// Jellyfin defaults to. Static=true serves the whole file's bytes as
+// is, every embedded track included, with no way to tell the server
+// which one to hand the browser: real Jellyfin behaviour, confirmed
+// against jellyfin-web's own playbackmanager.js before writing this,
+// is that picking a non default audio track forces a real transcode
+// even on an otherwise direct playable file, so a real
+// AudioStreamIndex can actually take effect server side.
+export function buildStreamUrl(itemId, mediaSource, startTimeTicks, options) {
+  const opts = options || {};
   const token = getAccessToken();
   const mediaSourceId = (mediaSource && mediaSource.Id) || itemId;
-  const directPlay = canBrowserDirectPlay(mediaSource);
+  const forceTranscode = opts.audioStreamIndex != null && opts.audioStreamIndex !== mediaSource.DefaultAudioStreamIndex;
+  const directPlay = !forceTranscode && canBrowserDirectPlay(mediaSource);
   const container = directPlay ? (mediaSource && mediaSource.Container) || 'mp4' : 'mp4';
 
   const params = new URLSearchParams({
@@ -588,6 +609,9 @@ export function buildStreamUrl(itemId, mediaSource, startTimeTicks) {
     params.set('AudioCodec', 'aac');
     params.set('VideoBitRate', String(estimateVideoBitrate(mediaSource)));
     params.set('AudioBitRate', '192000');
+  }
+  if (opts.audioStreamIndex != null) {
+    params.set('AudioStreamIndex', String(opts.audioStreamIndex));
   }
   return getServerAddress() + '/Videos/' + itemId + '/stream.' + container + '?' + params.toString();
 }
