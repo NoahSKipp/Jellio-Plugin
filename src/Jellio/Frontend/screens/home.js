@@ -290,7 +290,7 @@ async function buildHomeSections() {
   // playback), then what it suggests, ahead of anything the catalog
   // itself has to say.
   if (nextUpResult.status === 'fulfilled') {
-    const row = buildRow('Up Next', nextUpResult.value);
+    const row = buildRow('Up Next', nextUpResult.value, { upNext: true });
     if (row) pushAll([row]);
   }
 
