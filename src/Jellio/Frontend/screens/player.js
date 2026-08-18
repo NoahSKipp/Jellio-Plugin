@@ -18,6 +18,7 @@ import {
   getPlaybackInfo,
   getMediaSources,
   buildStreamUrl,
+  canBrowserDirectPlay,
   reportPlaybackStart,
   reportPlaybackProgress,
   reportPlaybackStopped,
@@ -255,6 +256,18 @@ export async function renderPlayer(root, params) {
   }
 
   const streamUrl = buildStreamUrl(itemId, mediaSource, startTicks);
+
+  // A forced transcode (runtime/api.js's own canBrowserDirectPlay veto)
+  // only ever encodes forward from the StartTimeTicks baked into
+  // streamUrl above, nothing earlier exists in that output at all, so
+  // video.currentTime === 0 there is really startTicks, not the title's
+  // own real start. Direct play serves the whole file as is, so its own
+  // currentTime already is the real position, offset 0. Real duration
+  // comes from item.RunTimeTicks for the same reason: a live transcode
+  // has no complete moov atom yet for video.duration to read.
+  let streamIsTranscoded = !canBrowserDirectPlay(mediaSource);
+  let streamOffsetTicks = streamIsTranscoded ? startTicks : 0;
+  const durationSeconds = (item.RunTimeTicks || 0) / TICKS_PER_SECOND;
 
   // A real saved position asks first rather than always silently
   // seeking there: autoplay stays off until the reader actually picks
@@ -572,6 +585,27 @@ export async function renderPlayer(root, params) {
     }
   }
 
+  // A forced transcode has no full file sitting on the server to seek
+  // within, only whatever ffmpeg has produced so far starting from its
+  // own StartTimeTicks, so reaching a new absolute position there means
+  // asking the server for a fresh stream starting there instead of
+  // moving video.currentTime, the same real reload switchSource() and
+  // Start Over above already use for the same reason. Direct play
+  // serves the whole file already, so a plain currentTime assignment
+  // still works and stays instant.
+  function seekToAbsoluteSeconds(targetSeconds) {
+    if (streamIsTranscoded) {
+      const targetTicks = Math.max(0, Math.round(targetSeconds * TICKS_PER_SECOND));
+      const wasPlaying = !video.paused;
+      streamOffsetTicks = targetTicks;
+      video.src = buildStreamUrl(itemId, mediaSource, targetTicks);
+      video.load();
+      if (wasPlaying) attemptPlay();
+    } else {
+      video.currentTime = Math.max(0, targetSeconds);
+    }
+  }
+
   function rebuildSourceMenu() {
     sourceMenu.textContent = '';
     sourceOptions.forEach(function (source) {
@@ -614,6 +648,8 @@ export async function renderPlayer(root, params) {
         activeTrack = null;
       }
       hasReportedStart = false;
+      streamIsTranscoded = !canBrowserDirectPlay(mediaSource);
+      streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
       video.src = buildStreamUrl(itemId, mediaSource, resumeTicks);
       video.load();
       if (wasPlaying) attemptPlay();
@@ -717,7 +753,7 @@ export async function renderPlayer(root, params) {
   }
 
   skipButton.addEventListener('click', function () {
-    video.currentTime = skipTargetSeconds;
+    seekToAbsoluteSeconds(skipTargetSeconds);
   });
 
   getIntroSkipperSegments(itemId).then(function (result) {
@@ -756,6 +792,7 @@ export async function renderPlayer(root, params) {
         // start of the title. Rebuilding the URL with a real 0 instead
         // asks the server for a real stream that actually starts there.
         hasReportedStart = false;
+        streamOffsetTicks = 0;
         video.src = buildStreamUrl(itemId, mediaSource, 0);
         video.load();
         attemptPlay();
@@ -832,7 +869,7 @@ export async function renderPlayer(root, params) {
   let lastReportedTicks = startTicks;
 
   function currentPositionTicks() {
-    return Math.round((video.currentTime || 0) * TICKS_PER_SECOND);
+    return streamOffsetTicks + Math.round((video.currentTime || 0) * TICKS_PER_SECOND);
   }
 
   // A <video> element that fails to actually decode its own real src,
@@ -867,29 +904,35 @@ export async function renderPlayer(root, params) {
   });
 
   video.addEventListener('loadedmetadata', function () {
-    if (startTicks > 0) {
+    // streamUrl already starts encoding at startTicks server side for a
+    // forced transcode (see streamOffsetTicks above), so seeking again
+    // here would double the offset; only a direct play stream, the
+    // whole file already sitting there, needs this real client side
+    // seek to reach the saved position at all.
+    if (startTicks > 0 && !streamIsTranscoded) {
       video.currentTime = startTicks / TICKS_PER_SECOND;
     }
-    durationLabel.textContent = formatTime(video.duration);
+    durationLabel.textContent = formatTime(durationSeconds);
   });
 
   video.addEventListener('timeupdate', function () {
     if (seeking) return;
-    if (video.duration) {
-      seekBar.value = String((video.currentTime / video.duration) * 100);
+    const positionSeconds = streamOffsetTicks / TICKS_PER_SECOND + (video.currentTime || 0);
+    if (durationSeconds) {
+      seekBar.value = String((positionSeconds / durationSeconds) * 100);
     }
-    currentTimeLabel.textContent = formatTime(video.currentTime);
+    currentTimeLabel.textContent = formatTime(positionSeconds);
 
     if (!hasReportedStart) {
       hasReportedStart = true;
       reportPlaybackStart(itemId, mediaSource.Id, currentPositionTicks());
     }
 
-    if (nextEpisode && !upNextDismissed && shouldShowUpNextNow(video.currentTime, video.duration)) {
+    if (nextEpisode && !upNextDismissed && shouldShowUpNextNow(positionSeconds, durationSeconds)) {
       showUpNext();
     }
 
-    const activeSegment = activeSkipSegment(video.currentTime);
+    const activeSegment = activeSkipSegment(positionSeconds);
     if (activeSegment) {
       skipTargetSeconds = activeSegment.target;
       skipButton.textContent = activeSegment.label;
@@ -901,14 +944,14 @@ export async function renderPlayer(root, params) {
 
   seekBar.addEventListener('input', function () {
     seeking = true;
-    if (video.duration) {
-      const target = (Number(seekBar.value) / 100) * video.duration;
+    if (durationSeconds) {
+      const target = (Number(seekBar.value) / 100) * durationSeconds;
       currentTimeLabel.textContent = formatTime(target);
     }
   });
   seekBar.addEventListener('change', function () {
-    if (video.duration) {
-      video.currentTime = (Number(seekBar.value) / 100) * video.duration;
+    if (durationSeconds) {
+      seekToAbsoluteSeconds((Number(seekBar.value) / 100) * durationSeconds);
     }
     seeking = false;
   });

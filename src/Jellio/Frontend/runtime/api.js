@@ -465,7 +465,7 @@ const DIRECT_PLAY_CONTAINERS = new Set(['mp4', 'webm', 'm4v']);
 const DIRECT_PLAY_VIDEO_CODECS = new Set(['h264', 'vp8', 'vp9', 'av1']);
 const DIRECT_PLAY_AUDIO_CODECS = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac']);
 
-function canBrowserDirectPlay(mediaSource) {
+export function canBrowserDirectPlay(mediaSource) {
   if (!mediaSource) return false;
   if (mediaSource.SupportsDirectPlay === false && mediaSource.SupportsDirectStream === false) {
     return false;
@@ -485,6 +485,27 @@ function canBrowserDirectPlay(mediaSource) {
   return true;
 }
 
+// Leaving VideoBitRate unset on the forced transcode fallback above
+// let the server fall back to its own real default, reported live as
+// every transcoded stream coming back noticeably, incorrectly low
+// quality regardless of the source's own real resolution. The
+// source's own real per-stream MediaStream.BitRate (or, absent that,
+// MediaSourceInfo's own real overall Bitrate) is the one real number
+// already describing what this exact title actually needs, a real
+// floor under it only for a source with no real bitrate reported at
+// all, not a guess replacing a real one that is there.
+const FALLBACK_VIDEO_BITRATE = 20000000;
+
+function estimateVideoBitrate(mediaSource) {
+  const streams = (mediaSource && mediaSource.MediaStreams) || [];
+  const video = streams.filter(function (stream) {
+    return stream.Type === 'Video';
+  })[0];
+  if (video && video.BitRate) return video.BitRate;
+  if (mediaSource && mediaSource.Bitrate) return mediaSource.Bitrate;
+  return FALLBACK_VIDEO_BITRATE;
+}
+
 export function buildStreamUrl(itemId, mediaSource, startTimeTicks) {
   const token = getAccessToken();
   const mediaSourceId = (mediaSource && mediaSource.Id) || itemId;
@@ -502,6 +523,8 @@ export function buildStreamUrl(itemId, mediaSource, startTimeTicks) {
   } else {
     params.set('VideoCodec', 'h264');
     params.set('AudioCodec', 'aac');
+    params.set('VideoBitRate', String(estimateVideoBitrate(mediaSource)));
+    params.set('AudioBitRate', '192000');
   }
   return getServerAddress() + '/Videos/' + itemId + '/stream.' + container + '?' + params.toString();
 }
