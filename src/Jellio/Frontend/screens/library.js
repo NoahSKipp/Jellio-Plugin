@@ -157,33 +157,47 @@ export async function renderLibrary(root, params) {
   sortSelect.addEventListener('change', loadMainRow);
   genreSelect.addEventListener('change', loadMainRow);
 
-  const [itemResult] = await Promise.allSettled([getItem(parentId), loadMainRow()]);
-  heading.textContent = itemResult.status === 'fulfilled' && itemResult.value ? itemResult.value.Name : '';
+  // Fire and forget, same reasoning mountCoverflow() above already
+  // uses: app.js's own sync() queue only starts the next real
+  // navigation once this function's own returned promise resolves, so
+  // awaiting any of this here meant every sidebar click queued behind
+  // however long this screen's own slowest real request took, reported
+  // live as switching screens not working at all on a slow connection.
+  // Nothing below writes anywhere this function has not already built
+  // and returned control past, so there is nothing left here that
+  // needs the reader to wait on it before moving on to a different
+  // real screen.
+  Promise.allSettled([getItem(parentId), loadMainRow()]).then(function (results) {
+    const itemResult = results[0];
+    heading.textContent = itemResult.status === 'fulfilled' && itemResult.value ? itemResult.value.Name : '';
+  });
 
-  try {
-    const genres = await discoverGenres(parentId, itemType, GENRE_ROWS);
-    genres.forEach(function (genre) {
-      const optionEl = document.createElement('option');
-      optionEl.value = genre;
-      optionEl.textContent = genre;
-      genreSelect.appendChild(optionEl);
-    });
-    genreSelect.disabled = !genres.length;
+  discoverGenres(parentId, itemType, GENRE_ROWS)
+    .then(function (genres) {
+      genres.forEach(function (genre) {
+        const optionEl = document.createElement('option');
+        optionEl.value = genre;
+        optionEl.textContent = genre;
+        genreSelect.appendChild(optionEl);
+      });
+      genreSelect.disabled = !genres.length;
 
-    const genreItemLists = await Promise.allSettled(
-      genres.map(function (genre) {
-        return getGenreItems(parentId, itemType, genre, ROW_LIMIT);
-      }),
-    );
-    genreItemLists.forEach(function (result, index) {
-      if (result.status === 'fulfilled') {
-        const row = buildRow(genres[index], result.value);
-        if (row) rows.appendChild(row);
-      }
+      return Promise.allSettled(
+        genres.map(function (genre) {
+          return getGenreItems(parentId, itemType, genre, ROW_LIMIT);
+        }),
+      ).then(function (genreItemLists) {
+        genreItemLists.forEach(function (result, index) {
+          if (result.status === 'fulfilled') {
+            const row = buildRow(genres[index], result.value);
+            if (row) rows.appendChild(row);
+          }
+        });
+      });
+    })
+    .catch(function (err) {
+      console.warn('Jellio: could not load genre rows', err);
     });
-  } catch (err) {
-    console.warn('Jellio: could not load genre rows', err);
-  }
 
   return destroy;
 }
