@@ -408,24 +408,43 @@
    just sitting there gray. components/homeSkeleton.js's own row/card
    placeholders below apply it, jellio-hero-loading further down does
    the same over the hero's own real backdrop while it has nothing
-   real to show yet. */
+   real to show yet.
+
+   Animates transform on a pseudo-element overlay, not background-
+   position on the element itself: real feedback live was that
+   everything on screen got slower the moment this shipped, traced to
+   background-position forcing a real repaint on every animation frame,
+   on every one of these elements at once (up to two dozen, hero
+   included), competing with the very JS work this was supposed to
+   make feel faster. transform runs on the compositor instead, real
+   cost close to free no matter how many of these are animating at
+   once. */
 @keyframes jellio-shimmer-sweep {
   0% {
-    background-position: -150% 0;
+    transform: translateX(-100%);
   }
   100% {
-    background-position: 150% 0;
+    transform: translateX(100%);
   }
 }
 
 .jellio-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.04);
+}
+
+.jellio-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
   background-image: linear-gradient(
     100deg,
-    rgb(255 255 255 / 0.04) 30%,
-    rgb(255 255 255 / 0.12) 45%,
-    rgb(255 255 255 / 0.04) 60%
+    transparent 30%,
+    rgb(255 255 255 / 0.14) 45%,
+    transparent 60%
   );
-  background-size: 250% 100%;
   animation: jellio-shimmer-sweep 1200ms linear infinite;
 }
 
@@ -2171,13 +2190,20 @@
    the hero's own backdrop specifically rather than the plain empty
    background color that sat there before. */
 .jellio-hero-loading .jellio-hero-backdrop {
+  overflow: hidden;
+}
+
+.jellio-hero-loading .jellio-hero-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
   background-image: linear-gradient(
     100deg,
-    rgb(255 255 255 / 0.03) 30%,
+    transparent 30%,
     rgb(255 255 255 / 0.08) 45%,
-    rgb(255 255 255 / 0.03) 60%
+    transparent 60%
   );
-  background-size: 250% 100%;
   animation: jellio-shimmer-sweep 1200ms linear infinite;
 }
 
