@@ -134,7 +134,9 @@ export function getSystemInfo() {
 export function getItem(itemId) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
-  return getJson('/Users/' + userId + '/Items/' + itemId);
+  return cached('item:' + itemId, function () {
+    return getJson('/Users/' + userId + '/Items/' + itemId);
+  });
 }
 
 // A library grid's own getItem call gets whatever fields Jellyfin returns
@@ -334,7 +336,10 @@ export function getLibraryItems(parentId, collectionType, options) {
     StartIndex: String(opts.startIndex || 0),
   });
   if (opts.genre) params.set('Genres', opts.genre);
-  return getJson('/Users/' + userId + '/Items?' + params.toString());
+  const path = '/Users/' + userId + '/Items?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  });
 }
 
 // Real endpoints, GET /Shows/{id}/Seasons and GET /Shows/{id}/Episodes,
@@ -781,7 +786,10 @@ export function getCollectionItems(collectionId, kind, limit) {
     Fields: 'ProductionYear,CommunityRating,Genres',
     SortBy: 'SortName',
   });
-  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+  const path = '/Users/' + userId + '/Items?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  }).then(function (result) {
     return (result && result.Items) || [];
   });
 }
@@ -921,7 +929,10 @@ export function discoverGenres(parentId, itemType, limit) {
     SortBy: 'Random',
   });
   if (parentId) params.set('ParentId', parentId);
-  return getJson('/Users/' + userId + '/Items?' + params.toString())
+  const path = '/Users/' + userId + '/Items?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  })
     .then(function (result) {
       const items = (result && result.Items) || [];
       const counts = {};
@@ -957,7 +968,10 @@ export function getGenreItems(parentId, itemType, genre, limit) {
     SortOrder: 'Descending',
   });
   if (parentId) params.set('ParentId', parentId);
-  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+  const path = '/Users/' + userId + '/Items?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  }).then(function (result) {
     return (result && result.Items) || [];
   });
 }

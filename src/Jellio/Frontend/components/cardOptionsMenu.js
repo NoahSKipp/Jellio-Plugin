@@ -91,10 +91,23 @@ export function openCardOptionsMenu(item, anchorRect, onChanged, options) {
     menu.appendChild(removeOption);
   } else {
     const playedOption = buildOption(isPlayed ? 'Mark as unwatched' : 'Mark as watched', function () {
-      setPlayed(item.Id, !isPlayed)
+      const willBePlayed = !isPlayed;
+      setPlayed(item.Id, willBePlayed)
         .then(function (updated) {
           item.UserData = updated;
-          if (onChanged) onChanged(item);
+          // An Up Next card is real Jellyfin NextUp state (the next
+          // real unwatched episode of a show), not a badge to repaint
+          // in place: marking that exact episode watched means it is
+          // real, immediately no longer next up (whichever episode
+          // actually is now only shows up on this row's own next real
+          // refetch), so leaving the card sitting there under a
+          // checkmark instead of actually leaving the row read live as
+          // marking watched not doing anything.
+          if (opts.upNext && willBePlayed && opts.onRemoved) {
+            opts.onRemoved();
+          } else if (onChanged) {
+            onChanged(item);
+          }
         })
         .catch(function (err) {
           console.warn('Jellio: could not update watched state', err);

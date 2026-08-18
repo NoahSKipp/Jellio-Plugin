@@ -795,6 +795,31 @@
   font-weight: 800;
 }
 
+/* screens/detail.js's own real back-to-series link, an Episode item
+   only: sits above the title as a plain eyebrow rather than another
+   action button, styled to read as where the reader already is,
+   clickable to actually leave it. */
+.jellio-detail-series-link {
+  display: inline-block;
+  margin: 0 0 0.4em;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--jellio-text-secondary);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.85em, 1.1vw, 1em);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.jellio-detail-series-link:hover,
+.jellio-detail-series-link:focus-visible {
+  color: var(--jellio-text-color);
+  text-decoration: underline;
+}
+
 .jellio-detail-meta {
   display: flex;
   gap: 0.8em;

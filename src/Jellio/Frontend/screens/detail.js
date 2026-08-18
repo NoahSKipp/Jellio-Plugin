@@ -215,7 +215,31 @@ export async function renderDetail(root, params) {
   }
 
   const heroContent = el('div', 'jellio-detail-hero-content');
-  heroContent.appendChild(el('h1', 'jellio-detail-title', item.Name || ''));
+
+  // An episode reached from Up Next/Continue Watching (components/
+  // card.js's own click handler hands off to this exact route for any
+  // item, episodes included) used to land here with no way back to
+  // its own series at all, real feedback live: SeriesId/SeriesName are
+  // real default BaseItemDto fields on an Episode, already present on
+  // every real response here with no extra Fields request needed
+  // (components/card.js's own episodeSubtitle() already reads the same
+  // two fields off the same kind of response), so this is a real link
+  // back, not a second lookup.
+  if (item.Type === 'Episode' && item.SeriesId && item.SeriesName) {
+    const seriesLink = el('button', 'jellio-detail-series-link', item.SeriesName);
+    seriesLink.type = 'button';
+    seriesLink.addEventListener('click', function () {
+      navigateTo('#/item?id=' + item.SeriesId);
+    });
+    heroContent.appendChild(seriesLink);
+  }
+
+  const hasEpisodeCode = typeof item.ParentIndexNumber === 'number' && typeof item.IndexNumber === 'number';
+  const titleText =
+    item.Type === 'Episode' && hasEpisodeCode
+      ? 'S' + item.ParentIndexNumber + ' E' + item.IndexNumber + ' · ' + (item.Name || '')
+      : item.Name || '';
+  heroContent.appendChild(el('h1', 'jellio-detail-title', titleText));
 
   const meta = el('div', 'jellio-detail-meta');
   if (item.ProductionYear) meta.appendChild(el('span', null, String(item.ProductionYear)));
