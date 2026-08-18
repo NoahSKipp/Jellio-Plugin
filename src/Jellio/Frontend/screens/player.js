@@ -988,7 +988,21 @@ export async function renderPlayer(root, params) {
   ['mousemove', 'touchstart', 'keydown', 'click'].forEach(function (eventName) {
     root.addEventListener(eventName, wakeControls);
   });
+  // shell's own background stays pointer-events: none while idle so a
+  // tap anywhere empty falls straight through to this listener rather
+  // than landing on nothing, but that means a tap aimed at a control
+  // that idle just hid unhides it, but also lands on video underneath
+  // that same button's own now real screen position, on the exact
+  // same click. Real feedback: this read as tapping the controls doing
+  // nothing at all, since the tap that should have woken them up also
+  // silently toggled playback underneath instead of just revealing
+  // them, same as it would if the button itself had been in the way
+  // the whole time. Every mainstream player's own real chrome treats a
+  // first tap on hidden controls as reveal only, a second real tap
+  // needed to actually act on whatever was under it, matched here by
+  // skipping the toggle entirely on the one tap that woke the shell.
   video.addEventListener('click', function () {
+    if (shell.classList.contains('jellio-player-shell-idle')) return;
     if (video.paused) attemptPlay();
     else video.pause();
   });
