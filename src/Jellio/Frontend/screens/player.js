@@ -718,6 +718,13 @@ export async function renderPlayer(root, params) {
       );
       option.type = 'button';
       option.addEventListener('click', function () {
+        // Real feedback: switching never seemed to reach the server at
+        // all, confirmed against real Jellyfin logs, on a device with
+        // no devtools available to see why. A visible toast the moment
+        // a tap on a track is actually received, before anything else
+        // runs, turns "does the request even leave the browser" into
+        // something a reader can answer just by watching the screen.
+        showPlayerToast('Switching to ' + audioStreamLabel(stream) + '…');
         if (isActive) {
           closePopovers(null);
           return;
