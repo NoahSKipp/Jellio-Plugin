@@ -720,9 +720,19 @@ export async function renderPlayer(root, params) {
   function switchAudioTrack(stream) {
     const resumeTicks = currentPositionTicks();
     const wasPlaying = !video.paused;
+    // Real feedback: picking a different track did nothing audible at
+    // all. switchSource below already reports the old session stopped
+    // before asking the server for a new stream on the same item, the
+    // one real thing this was skipping: without it, the server still
+    // thinks the original track's own transcode job is the active one
+    // for this item/device, and a second request landing while that
+    // job is still live is exactly the kind of same-session request
+    // real Jellyfin transcoding reuses rather than restarts fresh.
+    reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
     currentAudioStreamIndex = stream.Index;
     streamIsTranscoded = stream.Index !== mediaSource.DefaultAudioStreamIndex || !canBrowserDirectPlay(mediaSource);
     streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
+    hasReportedStart = false;
     video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, { audioStreamIndex: currentAudioStreamIndex });
     video.load();
     if (wasPlaying) attemptPlay();
