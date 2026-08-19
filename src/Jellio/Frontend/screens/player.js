@@ -286,6 +286,14 @@ export async function renderPlayer(root, params) {
   }
 
   let mediaSource = playbackInfo && playbackInfo.MediaSources && playbackInfo.MediaSources[0];
+  // Real field on Jellyfin's own PlaybackInfoResponse, kept for the
+  // whole time this title stays open the same way every real
+  // jellyfin-web session already does, real feedback traced a live
+  // server log to prove out: without it on the stream URL, an audio
+  // track switch's own new request had no way to tell Jellyfin's own
+  // TranscodingJobHelper it was not just the same request arriving
+  // twice, and no new real ffmpeg process ever started for it.
+  let playSessionId = playbackInfo && playbackInfo.PlaySessionId;
   if (!mediaSource) {
     console.warn('Jellio: no playable media source for', itemId);
     renderPlaybackError(
@@ -310,7 +318,10 @@ export async function renderPlayer(root, params) {
   // guaranteed against a live Gelato proxy, so a resumed title on an
   // otherwise direct playable source needs the same forced transcode
   // every other real seek in this file now uses.
-  const streamUrl = buildStreamUrl(itemId, mediaSource, startTicks, { forceTranscode: startTicks > 0 });
+  const streamUrl = buildStreamUrl(itemId, mediaSource, startTicks, {
+    forceTranscode: startTicks > 0,
+    playSessionId: playSessionId,
+  });
 
   // A forced transcode (runtime/api.js's own canBrowserDirectPlay veto,
   // or a real saved position above) only ever encodes forward from the
@@ -750,6 +761,7 @@ export async function renderPlayer(root, params) {
     video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, {
       audioStreamIndex: currentAudioStreamIndex,
       forceTranscode: resumeTicks > 0,
+      playSessionId: playSessionId,
     });
     video.load();
     if (wasPlaying) attemptPlay();
@@ -1003,6 +1015,7 @@ export async function renderPlayer(root, params) {
     video.src = buildStreamUrl(itemId, mediaSource, targetTicks, {
       audioStreamIndex: currentAudioStreamIndex,
       forceTranscode: true,
+      playSessionId: playSessionId,
     });
     video.load();
     if (wasPlaying) attemptPlay();
@@ -1034,6 +1047,11 @@ export async function renderPlayer(root, params) {
         return;
       }
       mediaSource = negotiated;
+      // A source switch renegotiates PlaybackInfo, a real new session
+      // with its own real PlaySessionId, not the one the title opened
+      // on: kept for the rest of this switched-to source's own real
+      // stream URLs the same way the initial one already is.
+      playSessionId = info.PlaySessionId;
       if (activeTrack) {
         activeTrack.remove();
         activeTrack = null;
@@ -1046,7 +1064,10 @@ export async function renderPlayer(root, params) {
       // HTTP Range, never guaranteed against a live Gelato proxy.
       streamIsTranscoded = resumeTicks > 0 || !canBrowserDirectPlay(mediaSource);
       streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
-      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, { forceTranscode: resumeTicks > 0 });
+      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, {
+        forceTranscode: resumeTicks > 0,
+        playSessionId: playSessionId,
+      });
       video.load();
       if (wasPlaying) attemptPlay();
       topbarMeta.textContent = sourceLabel(mediaSource);
@@ -1237,7 +1258,7 @@ export async function renderPlayer(root, params) {
         // asks the server for a real stream that actually starts there.
         hasReportedStart = false;
         streamOffsetTicks = 0;
-        video.src = buildStreamUrl(itemId, mediaSource, 0);
+        video.src = buildStreamUrl(itemId, mediaSource, 0, { playSessionId: playSessionId });
         video.load();
         attemptPlay();
       },

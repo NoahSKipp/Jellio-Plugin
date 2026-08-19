@@ -602,6 +602,19 @@ export function getAudioStreams(mediaSource) {
 // proven reliable here already (this is exactly what an audio track
 // switch, or landing this screen already forced into a transcode by
 // canBrowserDirectPlay's own veto, already relies on).
+//
+// options.playSessionId is the one PlaybackInfo negotiation actually
+// hands back (real field on Jellyfin's own PlaybackInfoResponse) and
+// real feedback traced an actual server log to prove out: without it
+// on the stream URL, Jellyfin's own TranscodingJobHelper has no real
+// way to tell a mid-playback audio track switch apart from the exact
+// same request arriving twice, and real Jellyfin logs showed exactly
+// that live, an audio switch's own new request never spinning up a
+// new real ffmpeg process at all, only the old one winding down on its
+// own, the switch itself silently never taking effect. Every real
+// jellyfin-web session already keeps this same one real id for the
+// whole time a title stays open, this runtime's own real session now
+// does too.
 export function buildStreamUrl(itemId, mediaSource, startTimeTicks, options) {
   const opts = options || {};
   const token = getAccessToken();
@@ -618,6 +631,9 @@ export function buildStreamUrl(itemId, mediaSource, startTimeTicks, options) {
     api_key: token || '',
     StartTimeTicks: String(startTimeTicks || 0),
   });
+  if (opts.playSessionId) {
+    params.set('PlaySessionId', opts.playSessionId);
+  }
   if (directPlay) {
     params.set('Static', 'true');
   } else {
