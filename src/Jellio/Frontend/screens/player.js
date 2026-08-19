@@ -303,17 +303,25 @@ export async function renderPlayer(root, params) {
 
   root.textContent = '';
 
-  const streamUrl = buildStreamUrl(itemId, mediaSource, startTicks);
+  // Real feedback found the same real gap this pass fixed for
+  // mid-playback seeking already applies to a saved resume position
+  // too: a Static direct play request's own StartTimeTicks only
+  // actually seeks on a source that honours HTTP Range, never
+  // guaranteed against a live Gelato proxy, so a resumed title on an
+  // otherwise direct playable source needs the same forced transcode
+  // every other real seek in this file now uses.
+  const streamUrl = buildStreamUrl(itemId, mediaSource, startTicks, { forceTranscode: startTicks > 0 });
 
-  // A forced transcode (runtime/api.js's own canBrowserDirectPlay veto)
-  // only ever encodes forward from the StartTimeTicks baked into
-  // streamUrl above, nothing earlier exists in that output at all, so
-  // video.currentTime === 0 there is really startTicks, not the title's
-  // own real start. Direct play serves the whole file as is, so its own
-  // currentTime already is the real position, offset 0. Real duration
-  // comes from item.RunTimeTicks for the same reason: a live transcode
-  // has no complete moov atom yet for video.duration to read.
-  let streamIsTranscoded = !canBrowserDirectPlay(mediaSource);
+  // A forced transcode (runtime/api.js's own canBrowserDirectPlay veto,
+  // or a real saved position above) only ever encodes forward from the
+  // StartTimeTicks baked into streamUrl above, nothing earlier exists
+  // in that output at all, so video.currentTime === 0 there is really
+  // startTicks, not the title's own real start. Direct play serves the
+  // whole file as is, so its own currentTime already is the real
+  // position, offset 0. Real duration comes from item.RunTimeTicks for
+  // the same reason: a live transcode has no complete moov atom yet
+  // for video.duration to read.
+  let streamIsTranscoded = startTicks > 0 || !canBrowserDirectPlay(mediaSource);
   let streamOffsetTicks = streamIsTranscoded ? startTicks : 0;
   const durationSeconds = (item.RunTimeTicks || 0) / TICKS_PER_SECOND;
 
@@ -730,10 +738,19 @@ export async function renderPlayer(root, params) {
     // real Jellyfin transcoding reuses rather than restarts fresh.
     reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
     currentAudioStreamIndex = stream.Index;
-    streamIsTranscoded = stream.Index !== mediaSource.DefaultAudioStreamIndex || !canBrowserDirectPlay(mediaSource);
+    // Same real reason seekToAbsoluteSeconds and switchSource both force
+    // a transcode for any resumeTicks > 0: switching back to the
+    // default track mid playback still needs a real seek to resumeTicks,
+    // which a Static direct play request's own StartTimeTicks cannot
+    // reliably do here either.
+    streamIsTranscoded =
+      resumeTicks > 0 || stream.Index !== mediaSource.DefaultAudioStreamIndex || !canBrowserDirectPlay(mediaSource);
     streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
     hasReportedStart = false;
-    video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, { audioStreamIndex: currentAudioStreamIndex });
+    video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, {
+      audioStreamIndex: currentAudioStreamIndex,
+      forceTranscode: resumeTicks > 0,
+    });
     video.load();
     if (wasPlaying) attemptPlay();
     rebuildAudioMenu();
@@ -961,17 +978,34 @@ export async function renderPlayer(root, params) {
   // Start Over above already use for the same reason. Direct play
   // serves the whole file already, so a plain currentTime assignment
   // still works and stays instant.
+  // Real feedback: seeking moved the displayed time and kept playing
+  // from wherever it already was, silently landing back at 0:00 a
+  // moment later. A plain video.currentTime assignment only actually
+  // seeks when the browser can complete a real HTTP Range request
+  // against whatever is behind streamUrl, true for a local Jellyfin
+  // file but never guaranteed for this runtime's own real sources: no
+  // local media is ever assumed here (this whole plugin's own header
+  // says as much), every one of them is a live Gelato proxy in front
+  // of a debrid/usenet host, and not every one of those actually
+  // serves partial content on request. Direct play used to assume
+  // Range always worked and only rebuilt the stream from a fresh
+  // StartTimeTicks for a forced transcode, the one real case with no
+  // full file to seek within at all; every seek now takes that same
+  // real reload regardless of streamIsTranscoded, since a request the
+  // server actually starts encoding or serving from the right real
+  // position is the only kind of seek this runtime can actually trust.
   function seekToAbsoluteSeconds(targetSeconds) {
-    if (streamIsTranscoded) {
-      const targetTicks = Math.max(0, Math.round(targetSeconds * TICKS_PER_SECOND));
-      const wasPlaying = !video.paused;
-      streamOffsetTicks = targetTicks;
-      video.src = buildStreamUrl(itemId, mediaSource, targetTicks, { audioStreamIndex: currentAudioStreamIndex });
-      video.load();
-      if (wasPlaying) attemptPlay();
-    } else {
-      video.currentTime = Math.max(0, targetSeconds);
-    }
+    const targetTicks = Math.max(0, Math.round(targetSeconds * TICKS_PER_SECOND));
+    const wasPlaying = !video.paused;
+    streamIsTranscoded = true;
+    streamOffsetTicks = targetTicks;
+    hasReportedStart = false;
+    video.src = buildStreamUrl(itemId, mediaSource, targetTicks, {
+      audioStreamIndex: currentAudioStreamIndex,
+      forceTranscode: true,
+    });
+    video.load();
+    if (wasPlaying) attemptPlay();
   }
 
   skipBackButton.addEventListener('click', function () {
@@ -1006,9 +1040,13 @@ export async function renderPlayer(root, params) {
       }
       hasReportedStart = false;
       currentAudioStreamIndex = null;
-      streamIsTranscoded = !canBrowserDirectPlay(mediaSource);
+      // Same real reason seekToAbsoluteSeconds forces a transcode for
+      // any resumeTicks > 0: a Static direct play request's own
+      // StartTimeTicks only actually seeks on a source that honours
+      // HTTP Range, never guaranteed against a live Gelato proxy.
+      streamIsTranscoded = resumeTicks > 0 || !canBrowserDirectPlay(mediaSource);
       streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
-      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks);
+      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, { forceTranscode: resumeTicks > 0 });
       video.load();
       if (wasPlaying) attemptPlay();
       topbarMeta.textContent = sourceLabel(mediaSource);
