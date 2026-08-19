@@ -33,6 +33,13 @@ import { getServerAddress, getAuthHeaders, getCurrentUserId, getAccessToken, get
 // ever should.
 const DEFAULT_TIMEOUT_MS = 10000;
 const NEGOTIATION_TIMEOUT_MS = 30000;
+// Same real exception as getPlaybackInfo above and for the same real
+// reason: search.js only ever has one of these in flight at a time
+// (its own requestId guard, never fired alongside a pile of list
+// screen calls), and Gelato resolving a live search across Stremio
+// addons behind it can legitimately take longer than DEFAULT_TIMEOUT_MS
+// gives it, reported live as search always timing out.
+const SEARCH_TIMEOUT_MS = 30000;
 
 function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
@@ -382,7 +389,7 @@ export function searchItems(term, limit) {
     Fields: 'PrimaryImageAspectRatio',
     Limit: String(limit || 50),
   });
-  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+  return getJson('/Users/' + userId + '/Items?' + params.toString(), SEARCH_TIMEOUT_MS).then(function (result) {
     return (result && result.Items) || [];
   });
 }
