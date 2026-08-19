@@ -458,7 +458,7 @@ export async function setFavorite(itemId, isFavorite) {
 // can just set as its src, no playbackManager involved at all. That
 // module export only orchestrates native's own OSD/queue UI on top of
 // exactly this same real HTTP flow.
-export function getPlaybackInfo(itemId, startTimeTicks, mediaSourceId, audioStreamIndex) {
+export function getPlaybackInfo(itemId, startTimeTicks, mediaSourceId, audioStreamIndex, subtitleStreamIndex) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   const body = {
@@ -489,6 +489,12 @@ export function getPlaybackInfo(itemId, startTimeTicks, mediaSourceId, audioStre
   // switch too (confirmed against its source before writing this), not
   // a query param bolted onto whichever stream URL was already live.
   if (audioStreamIndex != null) body.AudioStreamIndex = audioStreamIndex;
+  // Same real field, same real reason: a burned in subtitle switch is
+  // the exact same kind of same MediaSourceId, different stream index
+  // request an audio track switch already needed this real
+  // renegotiation for, real feedback already traced all the way down
+  // to a real server log why a bare GET alone was never enough.
+  if (subtitleStreamIndex != null) body.SubtitleStreamIndex = subtitleStreamIndex;
   return postJson('/Items/' + itemId + '/PlaybackInfo', body, NEGOTIATION_TIMEOUT_MS);
 }
 
@@ -633,8 +639,18 @@ export function buildStreamUrl(itemId, mediaSource, startTimeTicks, options) {
   const opts = options || {};
   const token = getAccessToken();
   const mediaSourceId = (mediaSource && mediaSource.Id) || itemId;
+  // burnInSubtitleStreamIndex forces the same real transcode an
+  // AudioStreamIndex switch already does, for the same real reason: an
+  // image based subtitle (PGS, VobSub) has no WebVTT form to hand a
+  // <track> element, nothing this runtime's own <video> can render on
+  // its own, so the only way this runtime can show one at all is
+  // asking Jellyfin's own real transcoder to draw it directly into the
+  // video, real SubtitleStreamIndex/SubtitleMethod=Encode params
+  // confirmed against MediaEncoding/EncodingHelper.cs's own real
+  // subtitle burn in path before writing this, not guessed at.
   const forceTranscode =
     !!opts.forceTranscode ||
+    opts.burnInSubtitleStreamIndex != null ||
     (opts.audioStreamIndex != null && opts.audioStreamIndex !== mediaSource.DefaultAudioStreamIndex);
   const directPlay = !forceTranscode && canBrowserDirectPlay(mediaSource);
   const container = directPlay ? (mediaSource && mediaSource.Container) || 'mp4' : 'mp4';
@@ -658,6 +674,10 @@ export function buildStreamUrl(itemId, mediaSource, startTimeTicks, options) {
   }
   if (opts.audioStreamIndex != null) {
     params.set('AudioStreamIndex', String(opts.audioStreamIndex));
+  }
+  if (opts.burnInSubtitleStreamIndex != null) {
+    params.set('SubtitleStreamIndex', String(opts.burnInSubtitleStreamIndex));
+    params.set('SubtitleMethod', 'Encode');
   }
   return getServerAddress() + '/Videos/' + itemId + '/stream.' + container + '?' + params.toString();
 }
@@ -877,13 +897,16 @@ export function updateUserPassword(currentPassword, newPassword) {
   });
 }
 
-// A subtitle stream not in text form (PGS, VobSub, any image based
-// format) has no WebVTT representation to hand a <track> element, real
-// distinction confirmed against MediaStream.cs's own IsTextSubtitleStream
-// before writing this: only checked, never guessed at from Codec alone.
+// Every real subtitle stream, text and image based (PGS, VobSub) both:
+// screens/player.js's own subtitle menu decides what to do with each
+// one from its own real IsTextSubtitleStream field (confirmed against
+// MediaStream.cs before writing this, only checked, never guessed at
+// from Codec alone), a text stream getting the plain WebVTT <track>
+// below, an image one needing a real burned in transcode instead,
+// nothing this runtime's own <video> element can render on its own.
 export function getSubtitleStreams(mediaSource) {
   return (mediaSource.MediaStreams || []).filter(function (stream) {
-    return stream.Type === 'Subtitle' && stream.IsTextSubtitleStream;
+    return stream.Type === 'Subtitle';
   });
 }
 
