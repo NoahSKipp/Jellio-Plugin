@@ -755,25 +755,39 @@ export async function renderPlayer(root, params) {
     // job is still live is exactly the kind of same-session request
     // real Jellyfin transcoding reuses rather than restarts fresh.
     reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
-    currentAudioStreamIndex = stream.Index;
-    // Same real reason seekToAbsoluteSeconds and switchSource both force
-    // a transcode for any resumeTicks > 0: switching back to the
-    // default track mid playback still needs a real seek to resumeTicks,
-    // which a Static direct play request's own StartTimeTicks cannot
-    // reliably do here either.
-    streamIsTranscoded =
-      resumeTicks > 0 || stream.Index !== mediaSource.DefaultAudioStreamIndex || !canBrowserDirectPlay(mediaSource);
-    streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
-    hasReportedStart = false;
-    video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, {
-      audioStreamIndex: currentAudioStreamIndex,
-      forceTranscode: resumeTicks > 0,
-      playSessionId: playSessionId,
-    });
-    video.load();
-    if (wasPlaying) attemptPlay();
-    rebuildAudioMenu();
-    closePopovers(null);
+    // Real feedback: the toast above confirmed the tap itself reaches
+    // this function, but nothing after it was ever confirmed to run at
+    // all, on a device with no devtools to see an exception thrown here
+    // silently stopping everything below it cold, same as any other
+    // uncaught throw inside a plain event listener. Wrapped the same
+    // way switchSource's own real reload already is, so a real failure
+    // here surfaces the same way instead of only ever showing the
+    // opening "Switching to…" toast and nothing else.
+    try {
+      currentAudioStreamIndex = stream.Index;
+      // Same real reason seekToAbsoluteSeconds and switchSource both
+      // force a transcode for any resumeTicks > 0: switching back to
+      // the default track mid playback still needs a real seek to
+      // resumeTicks, which a Static direct play request's own
+      // StartTimeTicks cannot reliably do here either.
+      streamIsTranscoded =
+        resumeTicks > 0 || stream.Index !== mediaSource.DefaultAudioStreamIndex || !canBrowserDirectPlay(mediaSource);
+      streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
+      hasReportedStart = false;
+      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, {
+        audioStreamIndex: currentAudioStreamIndex,
+        forceTranscode: resumeTicks > 0,
+        playSessionId: playSessionId,
+      });
+      video.load();
+      if (wasPlaying) attemptPlay();
+      rebuildAudioMenu();
+      closePopovers(null);
+      showPlayerToast('Requested ' + audioStreamLabel(stream) + ', reloading…');
+    } catch (err) {
+      console.warn('Jellio: switchAudioTrack failed', err);
+      showPlayerToast('Audio switch failed: ' + (err && err.message ? err.message : err));
+    }
   }
   rebuildAudioMenu();
 
