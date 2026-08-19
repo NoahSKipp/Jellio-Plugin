@@ -1497,6 +1497,10 @@
 }
 
 .jellio-player-popover-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
   padding: 0.6em 1em;
   border: 0;
   background: transparent;
@@ -1512,6 +1516,61 @@
 
 .jellio-player-popover-option-active {
   color: var(--jellio-secondary-color);
+}
+
+.jellio-player-popover-option-active::after {
+  content: '\2713';
+  flex: 0 0 auto;
+}
+
+/* Subtitles/audio real feedback: the plain right anchored popover
+   above read as a tiny corner dropdown next to Nuvio's own real
+   Untertitel/Tonspuren screenshots, a real centred panel wide enough
+   to read a release's own full track description on one line rather
+   than one this small forced onto two. Centred over the pill rather
+   than right anchored for the same reason: a wide panel pinned to the
+   right edge would run past the left edge of a narrow viewport
+   instead of sitting under where the reader's own thumb already is. */
+.jellio-player-popover-large {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 26em;
+  max-width: min(34em, calc(100vw - 2 * clamp(16px, 3vw, 40px)));
+}
+
+.jellio-player-popover-large .jellio-player-popover-option {
+  padding: 0.75em 1.2em;
+  font-size: 0.95em;
+}
+
+.jellio-player-popover-columns {
+  display: flex;
+  min-height: 0;
+}
+
+.jellio-player-popover-languages {
+  flex: 0 0 9em;
+  border-right: 1px solid var(--jellio-border-color);
+  overflow-y: auto;
+  max-height: min(50vh, 20em);
+}
+
+.jellio-player-popover-tracks {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  max-height: min(50vh, 20em);
+  min-width: 0;
+}
+
+@media (max-width: 47.99em) {
+  .jellio-player-popover-large {
+    min-width: min(22em, calc(100vw - 2 * clamp(16px, 3vw, 40px)));
+  }
+
+  .jellio-player-popover-languages {
+    flex-basis: 7em;
+  }
 }
 
 .jellio-player-popover-style {
