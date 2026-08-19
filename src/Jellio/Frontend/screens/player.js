@@ -492,11 +492,20 @@ export async function renderPlayer(root, params) {
   });
   registerPopover(speedButton, speedMenu);
 
-  // === Subtitles popover: track list plus the existing style controls ===
-  const subtitleMenu = el('div', 'jellio-player-popover jellio-player-popover-hidden');
-  const subtitleList = el('div', 'jellio-player-popover-list');
-  subtitleMenu.appendChild(subtitleList);
+  // === Subtitles popover: a language column plus that language's own
+  // track list, matching the real Nuvio Untertitel screenshot rather
+  // than a single flat list, since a release can carry more than one
+  // real track for the same language (SDH, forced, a second scraped
+  // source) that a flat list would otherwise bury. ===
+  const subtitleMenu = el('div', 'jellio-player-popover jellio-player-popover-large jellio-player-popover-hidden');
+  const subtitleColumns = el('div', 'jellio-player-popover-columns');
+  const subtitleLanguageList = el('div', 'jellio-player-popover-list jellio-player-popover-languages');
+  const subtitleList = el('div', 'jellio-player-popover-list jellio-player-popover-tracks');
+  subtitleColumns.appendChild(subtitleLanguageList);
+  subtitleColumns.appendChild(subtitleList);
+  subtitleMenu.appendChild(subtitleColumns);
   let activeTrack = null;
+  let selectedSubtitleLanguage = null;
 
   function selectSubtitle(stream, optionButton) {
     if (activeTrack) {
@@ -522,37 +531,98 @@ export async function renderPlayer(root, params) {
     });
   }
 
+  // Real subtitle language names for the left column, ISO 639-2/B codes
+  // being what MediaStreams.Language actually carries (confirmed
+  // against Jellyfin's own MediaStream DTO before writing this), not a
+  // code a reader would recognize on sight.
+  const SUBTITLE_LANGUAGE_NAMES = {
+    eng: 'English', ger: 'German', deu: 'German', fre: 'French', fra: 'French',
+    spa: 'Spanish', ita: 'Italian', jpn: 'Japanese', kor: 'Korean', chi: 'Chinese',
+    zho: 'Chinese', rus: 'Russian', por: 'Portuguese', dut: 'Dutch', nld: 'Dutch',
+    ara: 'Arabic', pol: 'Polish', swe: 'Swedish', tur: 'Turkish',
+  };
+  function subtitleLanguageName(code) {
+    if (!code) return 'Unknown';
+    return SUBTITLE_LANGUAGE_NAMES[code.toLowerCase()] || code.toUpperCase();
+  }
+
   // Rebuildable rather than built once: a source switch below can hand
   // back a mediaSource with an entirely different subtitle track list
   // (a different scraped file has its own real embedded/external
   // tracks), so the menu has to reflect whichever mediaSource is
   // actually loaded right now, not the one playback started on.
-  function rebuildSubtitleMenu() {
+  function renderSubtitleTrackList(subtitleStreams) {
     subtitleList.textContent = '';
+    const offOption = el(
+      'button',
+      'jellio-player-popover-option' + (selectedSubtitleLanguage ? '' : ' jellio-player-popover-option-active'),
+      'Off',
+    );
+    offOption.type = 'button';
+    offOption.addEventListener('click', function () {
+      selectSubtitle(null, offOption);
+    });
+    subtitleList.appendChild(offOption);
+    subtitleStreams
+      .filter(function (stream) {
+        return !selectedSubtitleLanguage || (stream.Language || '').toLowerCase() === selectedSubtitleLanguage;
+      })
+      .forEach(function (stream) {
+        const option = el(
+          'button',
+          'jellio-player-popover-option',
+          stream.DisplayTitle || stream.Language || 'Subtitle',
+        );
+        option.type = 'button';
+        option.addEventListener('click', function () {
+          selectSubtitle(stream, option);
+        });
+        subtitleList.appendChild(option);
+      });
+  }
+
+  function rebuildSubtitleMenu() {
+    subtitleLanguageList.textContent = '';
     const subtitleStreams = getSubtitleStreams(mediaSource);
     if (!subtitleStreams.length) {
       subtitleButton.disabled = true;
       return;
     }
     subtitleButton.disabled = false;
-    const offOption = el('button', 'jellio-player-popover-option jellio-player-popover-option-active', 'Off');
-    offOption.type = 'button';
-    offOption.addEventListener('click', function () {
-      selectSubtitle(null, offOption);
+    selectedSubtitleLanguage = null;
+
+    const noneOption = el('button', 'jellio-player-popover-option jellio-player-popover-option-active', 'None');
+    noneOption.type = 'button';
+    noneOption.addEventListener('click', function () {
+      selectedSubtitleLanguage = null;
+      Array.prototype.forEach.call(subtitleLanguageList.children, function (child) {
+        child.classList.remove('jellio-player-popover-option-active');
+      });
+      noneOption.classList.add('jellio-player-popover-option-active');
+      renderSubtitleTrackList(subtitleStreams);
     });
-    subtitleList.appendChild(offOption);
+    subtitleLanguageList.appendChild(noneOption);
+
+    const languages = [];
     subtitleStreams.forEach(function (stream) {
-      const option = el(
-        'button',
-        'jellio-player-popover-option',
-        stream.DisplayTitle || stream.Language || 'Subtitle',
-      );
+      const code = (stream.Language || '').toLowerCase();
+      if (code && languages.indexOf(code) === -1) languages.push(code);
+    });
+    languages.forEach(function (code) {
+      const option = el('button', 'jellio-player-popover-option', subtitleLanguageName(code));
       option.type = 'button';
       option.addEventListener('click', function () {
-        selectSubtitle(stream, option);
+        selectedSubtitleLanguage = code;
+        Array.prototype.forEach.call(subtitleLanguageList.children, function (child) {
+          child.classList.remove('jellio-player-popover-option-active');
+        });
+        option.classList.add('jellio-player-popover-option-active');
+        renderSubtitleTrackList(subtitleStreams);
       });
-      subtitleList.appendChild(option);
+      subtitleLanguageList.appendChild(option);
     });
+
+    renderSubtitleTrackList(subtitleStreams);
   }
   rebuildSubtitleMenu();
   registerPopover(subtitleButton, subtitleMenu);
@@ -600,7 +670,7 @@ export async function renderPlayer(root, params) {
   );
 
   // === Audio track popover ===
-  const audioMenu = el('div', 'jellio-player-popover jellio-player-popover-hidden');
+  const audioMenu = el('div', 'jellio-player-popover jellio-player-popover-large jellio-player-popover-hidden');
   let currentAudioStreamIndex = null;
 
   function audioStreamLabel(stream) {
