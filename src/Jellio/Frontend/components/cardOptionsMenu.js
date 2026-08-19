@@ -4,7 +4,7 @@
 // FavoriteItems endpoints doing the actual state change either way,
 // reimplemented for a mouse/keyboard/touch web target as a right click
 // or a held pointer rather than a held focus key).
-import { setPlayed, setFavorite } from '../runtime/api.js';
+import { setPlayed, setWatchlist } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 
 const MENU_ID = 'jellioCardOptionsMenu';
@@ -116,21 +116,21 @@ export function openCardOptionsMenu(item, anchorRect, onChanged, options) {
     menu.appendChild(playedOption);
   }
 
-  const isFavorite = !!userData.IsFavorite;
-  const favoriteOption = buildOption(
-    isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
+  const isWatchlisted = !!userData.IsFavorite;
+  const watchlistOption = buildOption(
+    isWatchlisted ? 'Remove from Watchlist' : 'Add to Watchlist',
     function () {
-      setFavorite(item.Id, !isFavorite)
+      setWatchlist(item.Id, !isWatchlisted)
         .then(function (updated) {
           item.UserData = updated;
           if (onChanged) onChanged(item);
         })
         .catch(function (err) {
-          console.warn('Jellio: could not update favorite state', err);
+          console.warn('Jellio: could not update watchlist state', err);
         });
     },
   );
-  menu.appendChild(favoriteOption);
+  menu.appendChild(watchlistOption);
 
   document.body.appendChild(menu);
   document.addEventListener('keydown', handleKeydown);
