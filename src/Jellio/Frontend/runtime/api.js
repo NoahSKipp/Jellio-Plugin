@@ -458,7 +458,7 @@ export async function setFavorite(itemId, isFavorite) {
 // can just set as its src, no playbackManager involved at all. That
 // module export only orchestrates native's own OSD/queue UI on top of
 // exactly this same real HTTP flow.
-export function getPlaybackInfo(itemId, startTimeTicks, mediaSourceId) {
+export function getPlaybackInfo(itemId, startTimeTicks, mediaSourceId, audioStreamIndex) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   const body = {
@@ -475,6 +475,20 @@ export function getPlaybackInfo(itemId, startTimeTicks, mediaSourceId) {
   // it re-negotiates that exact one instead, the same call a source
   // switch in the player makes with the id the reader just picked.
   if (mediaSourceId) body.MediaSourceId = mediaSourceId;
+  // Also a real field on the same DTO. Real feedback, chased through a
+  // real server log all the way down: a bare GET against the existing
+  // /Videos/stream endpoint with a different AudioStreamIndex query
+  // param, reusing the same PlaySessionId the title already opened on,
+  // never once produced a genuinely new transcode job server side, no
+  // matter how correctly that URL was built or how long a real gap sat
+  // between it and the old session's own stop report. A source switch
+  // right below never had that problem, and the one real thing it does
+  // differently is exactly this: a fresh PlaybackInfo negotiation,
+  // handing back a fresh PlaySessionId of its own, the same real
+  // mechanism jellyfin-web's own playbackmanager.js uses for a track
+  // switch too (confirmed against its source before writing this), not
+  // a query param bolted onto whichever stream URL was already live.
+  if (audioStreamIndex != null) body.AudioStreamIndex = audioStreamIndex;
   return postJson('/Items/' + itemId + '/PlaybackInfo', body, NEGOTIATION_TIMEOUT_MS);
 }
 

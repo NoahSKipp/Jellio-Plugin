@@ -746,23 +746,37 @@ export async function renderPlayer(root, params) {
   async function switchAudioTrack(stream) {
     const resumeTicks = currentPositionTicks();
     const wasPlaying = !video.paused;
-    // Real feedback confirmed the URL this builds is correct,
-    // AudioStreamIndex and all, and that a visible reload does happen,
-    // yet the server still sometimes kept serving the old track
-    // regardless. switchSource below already reports the old session
-    // stopped before asking for a new stream, the same real call this
-    // makes, but switchSource's own real negotiation is a genuine
-    // network round trip in between the two, real time for the server
-    // to actually act on that stop before the new request arrives.
-    // This had nothing in between at all: the new request could reach
-    // Jellyfin before the stop had finished being processed, landing
-    // on the still live old transcode job instead of a fresh one,
-    // exactly the kind of same session reuse the stop call exists to
-    // prevent in the first place, just racing it instead of waiting
-    // on it. Awaiting it here closes that race the same real way
-    // switchSource's own natural delay always already did.
+    // Real feedback, chased through a real server log all the way
+    // down: a bare GET against the already live stream URL, only its
+    // own AudioStreamIndex query param changed, reusing the exact same
+    // PlaySessionId the title already opened on, never once produced a
+    // genuinely new transcode job server side, no matter how correctly
+    // that URL was built (confirmed directly, a blocking alert showing
+    // the real URL) or how long a real gap sat between it and the old
+    // session's own stop report (also tried). switchSource below never
+    // had that problem, and the one real thing it does differently is
+    // exactly this: a fresh PlaybackInfo negotiation, handing back a
+    // fresh PlaySessionId of its own, the same real mechanism
+    // jellyfin-web's own playbackmanager.js already uses for a track
+    // switch too (confirmed against its source before writing this),
+    // not a query param bolted onto whichever stream URL was already
+    // live. Renegotiating the same real way now, MediaSourceId held to
+    // the source already playing, AudioStreamIndex the one real new
+    // thing being asked for.
     try {
-      await reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
+      reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
+      const info = await getPlaybackInfo(itemId, resumeTicks, mediaSource.Id, stream.Index);
+      const negotiated = info && info.MediaSources && info.MediaSources[0];
+      if (!negotiated) {
+        showPlayerToast('That audio track is no longer available.');
+        return;
+      }
+      mediaSource = negotiated;
+      playSessionId = info.PlaySessionId;
+      if (activeTrack) {
+        activeTrack.remove();
+        activeTrack = null;
+      }
       currentAudioStreamIndex = stream.Index;
       // Same real reason seekToAbsoluteSeconds and switchSource both
       // force a transcode for any resumeTicks > 0: switching back to
@@ -780,6 +794,7 @@ export async function renderPlayer(root, params) {
       });
       video.load();
       if (wasPlaying) attemptPlay();
+      rebuildSubtitleMenu();
       rebuildAudioMenu();
       closePopovers(null);
       showPlayerToast('Requested ' + audioStreamLabel(stream) + ', reloading…');
