@@ -743,27 +743,26 @@ export async function renderPlayer(root, params) {
   // default audio track forces a real transcode so the server can
   // actually mux just that one in, the same real reload seekToAbsoluteSeconds
   // and switchSource below already use for their own real reasons.
-  function switchAudioTrack(stream) {
+  async function switchAudioTrack(stream) {
     const resumeTicks = currentPositionTicks();
     const wasPlaying = !video.paused;
-    // Real feedback: picking a different track did nothing audible at
-    // all. switchSource below already reports the old session stopped
-    // before asking the server for a new stream on the same item, the
-    // one real thing this was skipping: without it, the server still
-    // thinks the original track's own transcode job is the active one
-    // for this item/device, and a second request landing while that
-    // job is still live is exactly the kind of same-session request
-    // real Jellyfin transcoding reuses rather than restarts fresh.
-    reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
-    // Real feedback: the toast above confirmed the tap itself reaches
-    // this function, but nothing after it was ever confirmed to run at
-    // all, on a device with no devtools to see an exception thrown here
-    // silently stopping everything below it cold, same as any other
-    // uncaught throw inside a plain event listener. Wrapped the same
-    // way switchSource's own real reload already is, so a real failure
-    // here surfaces the same way instead of only ever showing the
-    // opening "Switching to…" toast and nothing else.
+    // Real feedback confirmed the URL this builds is correct,
+    // AudioStreamIndex and all, and that a visible reload does happen,
+    // yet the server still sometimes kept serving the old track
+    // regardless. switchSource below already reports the old session
+    // stopped before asking for a new stream, the same real call this
+    // makes, but switchSource's own real negotiation is a genuine
+    // network round trip in between the two, real time for the server
+    // to actually act on that stop before the new request arrives.
+    // This had nothing in between at all: the new request could reach
+    // Jellyfin before the stop had finished being processed, landing
+    // on the still live old transcode job instead of a fresh one,
+    // exactly the kind of same session reuse the stop call exists to
+    // prevent in the first place, just racing it instead of waiting
+    // on it. Awaiting it here closes that race the same real way
+    // switchSource's own natural delay always already did.
     try {
+      await reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
       currentAudioStreamIndex = stream.Index;
       // Same real reason seekToAbsoluteSeconds and switchSource both
       // force a transcode for any resumeTicks > 0: switching back to
@@ -774,23 +773,11 @@ export async function renderPlayer(root, params) {
         resumeTicks > 0 || stream.Index !== mediaSource.DefaultAudioStreamIndex || !canBrowserDirectPlay(mediaSource);
       streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
       hasReportedStart = false;
-      const nextStreamUrl = buildStreamUrl(itemId, mediaSource, resumeTicks, {
+      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, {
         audioStreamIndex: currentAudioStreamIndex,
         forceTranscode: resumeTicks > 0,
         playSessionId: playSessionId,
       });
-      // Real feedback, twice over: the reload toast this pass already
-      // added was confirmed to appear once, then stopped appearing on
-      // every later attempt with no error either, on a device with no
-      // devtools to see whether that is a fading toast genuinely never
-      // firing again or one this reader's own eye just keeps missing.
-      // window.alert() blocks on its own until dismissed, the one real
-      // way left to hand back an unmissable, un-overwritable answer
-      // without devtools: the real URL this attempt actually built,
-      // AudioStreamIndex and all, or proof this line was never reached
-      // at all if the alert itself never appears.
-      window.alert('Jellio audio switch:\n' + nextStreamUrl);
-      video.src = nextStreamUrl;
       video.load();
       if (wasPlaying) attemptPlay();
       rebuildAudioMenu();
@@ -798,7 +785,6 @@ export async function renderPlayer(root, params) {
       showPlayerToast('Requested ' + audioStreamLabel(stream) + ', reloading…');
     } catch (err) {
       console.warn('Jellio: switchAudioTrack failed', err);
-      window.alert('Jellio audio switch failed:\n' + (err && err.stack ? err.stack : err));
       showPlayerToast('Audio switch failed: ' + (err && err.message ? err.message : err));
     }
   }
