@@ -588,11 +588,27 @@ export function getAudioStreams(mediaSource) {
 // is that picking a non default audio track forces a real transcode
 // even on an otherwise direct playable file, so a real
 // AudioStreamIndex can actually take effect server side.
+//
+// options.forceTranscode exists for the same real reason a seek needs
+// it: StartTimeTicks on a Static=true request is real Jellyfin syntax
+// for a local file's own server side seek, but every source this
+// runtime ever plays is a live Gelato proxy in front of a debrid or
+// usenet host, never a local file (this whole plugin's own header says
+// as much), and not every one of those honours an HTTP Range request
+// against it. Real feedback found this live: seeking moved the
+// reader's own displayed time and then quietly landed back at 0:00.
+// A forced transcode's own StartTimeTicks is real ffmpeg -ss instead,
+// seeking the source itself before a single byte is ever encoded,
+// proven reliable here already (this is exactly what an audio track
+// switch, or landing this screen already forced into a transcode by
+// canBrowserDirectPlay's own veto, already relies on).
 export function buildStreamUrl(itemId, mediaSource, startTimeTicks, options) {
   const opts = options || {};
   const token = getAccessToken();
   const mediaSourceId = (mediaSource && mediaSource.Id) || itemId;
-  const forceTranscode = opts.audioStreamIndex != null && opts.audioStreamIndex !== mediaSource.DefaultAudioStreamIndex;
+  const forceTranscode =
+    !!opts.forceTranscode ||
+    (opts.audioStreamIndex != null && opts.audioStreamIndex !== mediaSource.DefaultAudioStreamIndex);
   const directPlay = !forceTranscode && canBrowserDirectPlay(mediaSource);
   const container = directPlay ? (mediaSource && mediaSource.Container) || 'mp4' : 'mp4';
 
