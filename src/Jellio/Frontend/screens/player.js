@@ -525,12 +525,22 @@ export async function renderPlayer(root, params) {
   subtitleMenu.appendChild(subtitleColumns);
   let activeTrack = null;
   let selectedSubtitleLanguage = null;
+  // Real state, not just the option button's own class toggle: both
+  // rebuildSubtitleMenu (a source switch handing back a whole new
+  // track list) and this same reader's own language filter tear the
+  // whole option list down and rebuild it from scratch, which would
+  // otherwise lose which one was actually active. Index alone, not the
+  // stream object itself, since a rebuild after a real source switch
+  // hands back a whole new set of stream objects for what might still
+  // be logically the same track.
+  let activeSubtitleStreamIndex = null;
 
   function selectSubtitle(stream, optionButton) {
     if (activeTrack) {
       activeTrack.remove();
       activeTrack = null;
     }
+    activeSubtitleStreamIndex = stream ? stream.Index : null;
     Array.prototype.forEach.call(subtitleList.children, function (child) {
       child.classList.remove('jellio-player-popover-option-active');
     });
@@ -548,6 +558,58 @@ export async function renderPlayer(root, params) {
     track.addEventListener('load', function () {
       if (track.track) track.track.mode = 'showing';
     });
+  }
+
+  // An image based subtitle (PGS, VobSub) has no WebVTT form to hand
+  // the <track> element selectSubtitle above uses, nothing this
+  // runtime's own <video> can render on its own: the only real way to
+  // show one at all is asking Jellyfin's own transcoder to draw it
+  // directly into the video, the same real renegotiate-then-reload
+  // switchAudioTrack below already does for the same real reason a
+  // bare GET alone was proven not enough for a same MediaSourceId,
+  // different stream index request like this one.
+  async function selectBurnedInSubtitle(stream, optionButton) {
+    if (activeTrack) {
+      activeTrack.remove();
+      activeTrack = null;
+    }
+    Array.prototype.forEach.call(subtitleList.children, function (child) {
+      child.classList.remove('jellio-player-popover-option-active');
+    });
+    if (optionButton) optionButton.classList.add('jellio-player-popover-option-active');
+    const resumeTicks = currentPositionTicks();
+    const wasPlaying = !video.paused;
+    try {
+      reportPlaybackStopped(itemId, mediaSource.Id, resumeTicks);
+      const info = await getPlaybackInfo(itemId, resumeTicks, mediaSource.Id, currentAudioStreamIndex, stream.Index);
+      const negotiated = info && info.MediaSources && info.MediaSources[0];
+      if (!negotiated) {
+        showPlayerToast('That subtitle track is no longer available.');
+        return;
+      }
+      mediaSource = negotiated;
+      playSessionId = info.PlaySessionId;
+      activeSubtitleStreamIndex = stream.Index;
+      streamIsTranscoded = true;
+      streamOffsetTicks = resumeTicks;
+      hasReportedStart = false;
+      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, {
+        audioStreamIndex: currentAudioStreamIndex,
+        burnInSubtitleStreamIndex: stream.Index,
+        forceTranscode: true,
+        playSessionId: playSessionId,
+      });
+      video.load();
+      if (wasPlaying) attemptPlay();
+      subtitleButton.classList.add('jellio-player-pill-btn-active');
+      rebuildAudioMenu();
+      rebuildSubtitleMenu();
+      closePopovers(null);
+      showPlayerToast('Requested ' + (stream.DisplayTitle || stream.Language || 'subtitle') + ' (burned in), reloading…');
+    } catch (err) {
+      console.warn('Jellio: selectBurnedInSubtitle failed', err);
+      showPlayerToast('Subtitle switch failed: ' + (err && err.message ? err.message : err));
+    }
   }
 
   // Real subtitle language names for the left column, ISO 639-2/B codes
@@ -574,7 +636,7 @@ export async function renderPlayer(root, params) {
     subtitleList.textContent = '';
     const offOption = el(
       'button',
-      'jellio-player-popover-option' + (selectedSubtitleLanguage ? '' : ' jellio-player-popover-option-active'),
+      'jellio-player-popover-option' + (activeSubtitleStreamIndex == null ? ' jellio-player-popover-option-active' : ''),
       'Off',
     );
     offOption.type = 'button';
@@ -587,14 +649,25 @@ export async function renderPlayer(root, params) {
         return !selectedSubtitleLanguage || (stream.Language || '').toLowerCase() === selectedSubtitleLanguage;
       })
       .forEach(function (stream) {
+        // Image based tracks (PGS, VobSub) get a plain label suffix
+        // rather than a whole second list: real feedback asked for
+        // these to just work, not for a UI that makes the reader
+        // think about the real format difference up front.
+        const label =
+          (stream.DisplayTitle || stream.Language || 'Subtitle') + (stream.IsTextSubtitleStream ? '' : ' (image)');
         const option = el(
           'button',
-          'jellio-player-popover-option',
-          stream.DisplayTitle || stream.Language || 'Subtitle',
+          'jellio-player-popover-option' +
+            (stream.Index === activeSubtitleStreamIndex ? ' jellio-player-popover-option-active' : ''),
+          label,
         );
         option.type = 'button';
         option.addEventListener('click', function () {
-          selectSubtitle(stream, option);
+          if (stream.IsTextSubtitleStream) {
+            selectSubtitle(stream, option);
+          } else {
+            selectBurnedInSubtitle(stream, option);
+          }
         });
         subtitleList.appendChild(option);
       });
@@ -1093,6 +1166,10 @@ export async function renderPlayer(root, params) {
       }
       hasReportedStart = false;
       currentAudioStreamIndex = null;
+      // A different source's own real subtitle track list has no
+      // guaranteed relationship to the index that used to be active on
+      // the one this just replaced.
+      activeSubtitleStreamIndex = null;
       // Same real reason seekToAbsoluteSeconds forces a transcode for
       // any resumeTicks > 0: a Static direct play request's own
       // StartTimeTicks only actually seeks on a source that honours
