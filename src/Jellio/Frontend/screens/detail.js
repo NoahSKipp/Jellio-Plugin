@@ -5,7 +5,7 @@
 // plus a bare <video> element, see screens/player.js's own header for
 // why that needed no access to jellyfin-web's own playbackManager at
 // all, when there is not).
-import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setFavorite } from '../runtime/api.js';
+import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setWatchlist } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
@@ -281,30 +281,30 @@ export async function renderDetail(root, params) {
     actions.appendChild(changeStreamButton);
   }
 
-  const isFavorite = !!(item.UserData && item.UserData.IsFavorite);
-  const favoriteButton = el(
+  const isWatchlisted = !!(item.UserData && item.UserData.IsFavorite);
+  const watchlistButton = el(
     'button',
-    'jellio-detail-favorite' + (isFavorite ? ' jellio-detail-favorite-active' : ''),
-    isFavorite ? 'In Favorites' : 'Add to Favorites',
+    'jellio-detail-watchlist' + (isWatchlisted ? ' jellio-detail-watchlist-active' : ''),
+    isWatchlisted ? 'In Watchlist' : 'Add to Watchlist',
   );
-  favoriteButton.type = 'button';
-  favoriteButton.addEventListener('click', function () {
-    const nextState = !favoriteButton.classList.contains('jellio-detail-favorite-active');
-    favoriteButton.disabled = true;
-    setFavorite(canonicalId, nextState)
+  watchlistButton.type = 'button';
+  watchlistButton.addEventListener('click', function () {
+    const nextState = !watchlistButton.classList.contains('jellio-detail-watchlist-active');
+    watchlistButton.disabled = true;
+    setWatchlist(canonicalId, nextState)
       .then(function (userData) {
         const active = !!(userData && userData.IsFavorite);
-        favoriteButton.classList.toggle('jellio-detail-favorite-active', active);
-        favoriteButton.textContent = active ? 'In Favorites' : 'Add to Favorites';
+        watchlistButton.classList.toggle('jellio-detail-watchlist-active', active);
+        watchlistButton.textContent = active ? 'In Watchlist' : 'Add to Watchlist';
       })
       .catch(function (err) {
-        console.warn('Jellio: could not update favorite state', err);
+        console.warn('Jellio: could not update watchlist state', err);
       })
       .finally(function () {
-        favoriteButton.disabled = false;
+        watchlistButton.disabled = false;
       });
   });
-  actions.appendChild(favoriteButton);
+  actions.appendChild(watchlistButton);
 
   heroContent.appendChild(actions);
 

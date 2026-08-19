@@ -387,11 +387,12 @@ export function searchItems(term, limit) {
   });
 }
 
-// Every favorited item, real endpoint (GET /Users/{id}/Items with
-// Filters=IsFavorite), the same #/home?tab=1 route the sidebar's own
-// Favorites link and the original Jellio codebase's own NAV_LINKS both
-// already point at.
-export function getFavoriteItems(limit) {
+// Every watchlisted item, real endpoint (GET /Users/{id}/Items with
+// Filters=IsFavorite, Jellyfin's own real favorites concept underneath
+// this app's own Watchlist wording), the same #/home?tab=1 route the
+// sidebar's own Watchlist link and the original Jellio codebase's own
+// NAV_LINKS both already point at.
+export function getWatchlistItems(limit) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   const params = new URLSearchParams({
@@ -409,7 +410,7 @@ export function getFavoriteItems(limit) {
 // Real endpoint pair, POST/DELETE /Users/{id}/PlayedItems/{itemId}
 // (PlaystateController.cs), the same call the stock UI's own "mark
 // watched" toggle makes. Returns the item's own updated
-// UserItemDataDto, same shape setFavorite below already returns.
+// UserItemDataDto, same shape setWatchlist below already returns.
 export async function setPlayed(itemId, isPlayed) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
@@ -428,17 +429,19 @@ export async function setPlayed(itemId, isPlayed) {
   return response.json();
 }
 
-// Real endpoint pair, POST/DELETE /Users/{id}/FavoriteItems/{itemId},
-// returns the item's own updated UserItemDataDto (IsFavorite reflects
-// what actually happened server side rather than this runtime assuming
-// the request succeeded).
-export async function setFavorite(itemId, isFavorite) {
+// Real endpoint pair, POST/DELETE /Users/{id}/FavoriteItems/{itemId}
+// (this app's own Watchlist is Jellyfin's own real favorites concept
+// under a different label, not a separate state), returns the item's
+// own updated UserItemDataDto (IsFavorite reflects what actually
+// happened server side rather than this runtime assuming the request
+// succeeded).
+export async function setWatchlist(itemId, isWatchlisted) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   const response = await fetch(
     getServerAddress() + '/Users/' + userId + '/FavoriteItems/' + itemId,
     {
-      method: isFavorite ? 'POST' : 'DELETE',
+      method: isWatchlisted ? 'POST' : 'DELETE',
       headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()),
     },
   );

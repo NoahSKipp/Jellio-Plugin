@@ -855,7 +855,7 @@
   background: var(--jellio-secondary-variant);
 }
 
-.jellio-detail-favorite,
+.jellio-detail-watchlist,
 .jellio-detail-change-stream {
   padding: 0.7em 1.6em;
   border: 1px solid var(--jellio-border-color);
@@ -868,17 +868,17 @@
   cursor: pointer;
 }
 
-.jellio-detail-favorite:hover,
+.jellio-detail-watchlist:hover,
 .jellio-detail-change-stream:hover {
   background: rgb(255 255 255 / 0.08);
 }
 
-.jellio-detail-favorite:disabled {
+.jellio-detail-watchlist:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
-.jellio-detail-favorite-active {
+.jellio-detail-watchlist-active {
   border-color: var(--jellio-secondary-color);
   color: var(--jellio-secondary-color);
 }

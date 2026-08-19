@@ -195,7 +195,7 @@ export async function renderSidebar(container) {
   links.forEach(function (link, index) {
     container.appendChild(buildLink(link));
     // Only the three links every session always has (Home, Search,
-    // Favorites) sit above the divider; the reader's own libraries
+    // Watchlist) sit above the divider; the reader's own libraries
     // start right after it, same grouping the rail always had.
     if (index === 2) {
       const divider = document.createElement('div');

@@ -83,7 +83,7 @@ window.addEventListener('popstate', notify);
 // user's own back/forward press or a direct location.hash write do, so
 // every native-routed click this runtime hands off to Emby.Page.show()
 // changed the address bar and never reached this router at all. Real
-// bug, found live: Movies, Shows, Search, Favorites and every card's
+// bug, found live: Movies, Shows, Search, Watchlist and every card's
 // own click handler visibly changed the URL and rendered nothing.
 // Patching both, the same technique any analytics script already uses
 // to see SPA navigation it did not initiate itself, is the only way to

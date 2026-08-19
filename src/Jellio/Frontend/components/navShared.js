@@ -80,7 +80,7 @@ export function isActive(hash) {
   return hashHasKind === currentHasKind;
 }
 
-// The primary link set both surfaces share: Home/Search/Favorites, the
+// The primary link set both surfaces share: Home/Search/Watchlist, the
 // reader's own real libraries (Movies/Shows/Anime called out first,
 // same real constraint components/sidebar.js's own header already
 // documents for Anime specifically), then everything else they have.
@@ -94,7 +94,7 @@ export async function getPrimaryNavLinks() {
   const links = [
     { icon: 'home', label: 'Home', hash: '#/home' },
     { icon: 'search', label: 'Search', hash: '#/search' },
-    { icon: 'favorite', label: 'Favorites', hash: '#/home?tab=1' },
+    { icon: 'bookmark_add', label: 'Watchlist', hash: '#/home?tab=1' },
   ];
 
   let views = [];
@@ -159,7 +159,7 @@ export async function getPrimaryNavLinks() {
 }
 
 // Real icon if one is drawn (SVG_ICONS above), a Material Icons font
-// ligature otherwise (home/favorite/settings/account_circle, none of
+// ligature otherwise (home/bookmark_add/settings/account_circle, none of
 // which have their own vector drawable here): the one place either
 // surface needs to resolve an icon name to a real element, so both
 // stay visually identical for the same name.

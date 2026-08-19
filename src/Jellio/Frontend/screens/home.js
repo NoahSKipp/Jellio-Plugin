@@ -5,7 +5,7 @@ import {
   getCurrentUser,
   getResumeItems,
   getNextUp,
-  getFavoriteItems,
+  getWatchlistItems,
   getCollections,
   collectionKind,
   getCollectionItems,
@@ -198,24 +198,24 @@ function buildHubStrip(collections) {
   return section;
 }
 
-// #/home?tab=1, the same hash the sidebar's own Favorites link and the
+// #/home?tab=1, the same hash the sidebar's own Watchlist link and the
 // original Jellio codebase's own NAV_LINKS both already point at, rather
-// than a separate #/favorites route.
-async function renderFavorites(root) {
+// than a separate #/watchlist route.
+async function renderWatchlist(root) {
   const header = el('header', 'jellio-home-header');
-  header.appendChild(el('h1', 'jellio-home-greeting', 'Favorites'));
+  header.appendChild(el('h1', 'jellio-home-greeting', 'Watchlist'));
   root.appendChild(header);
 
   const grid = el('div', 'jellio-library-grid');
   root.appendChild(grid);
 
   try {
-    const items = await getFavoriteItems();
+    const items = await getWatchlistItems();
     items.forEach(function (item) {
       grid.appendChild(buildCard(item));
     });
   } catch (err) {
-    console.warn('Jellio: could not load favorites', err);
+    console.warn('Jellio: could not load watchlist', err);
   }
 }
 
@@ -384,7 +384,7 @@ export async function renderHome(root, params) {
   root.className = 'jellio-content jellio-screen-home';
 
   if (params && params.get('tab') === '1') {
-    await renderFavorites(root);
+    await renderWatchlist(root);
     return undefined;
   }
 
