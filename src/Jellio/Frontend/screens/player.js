@@ -774,11 +774,23 @@ export async function renderPlayer(root, params) {
         resumeTicks > 0 || stream.Index !== mediaSource.DefaultAudioStreamIndex || !canBrowserDirectPlay(mediaSource);
       streamOffsetTicks = streamIsTranscoded ? resumeTicks : 0;
       hasReportedStart = false;
-      video.src = buildStreamUrl(itemId, mediaSource, resumeTicks, {
+      const nextStreamUrl = buildStreamUrl(itemId, mediaSource, resumeTicks, {
         audioStreamIndex: currentAudioStreamIndex,
         forceTranscode: resumeTicks > 0,
         playSessionId: playSessionId,
       });
+      // Real feedback, twice over: the reload toast this pass already
+      // added was confirmed to appear once, then stopped appearing on
+      // every later attempt with no error either, on a device with no
+      // devtools to see whether that is a fading toast genuinely never
+      // firing again or one this reader's own eye just keeps missing.
+      // window.alert() blocks on its own until dismissed, the one real
+      // way left to hand back an unmissable, un-overwritable answer
+      // without devtools: the real URL this attempt actually built,
+      // AudioStreamIndex and all, or proof this line was never reached
+      // at all if the alert itself never appears.
+      window.alert('Jellio audio switch:\n' + nextStreamUrl);
+      video.src = nextStreamUrl;
       video.load();
       if (wasPlaying) attemptPlay();
       rebuildAudioMenu();
@@ -786,6 +798,7 @@ export async function renderPlayer(root, params) {
       showPlayerToast('Requested ' + audioStreamLabel(stream) + ', reloading…');
     } catch (err) {
       console.warn('Jellio: switchAudioTrack failed', err);
+      window.alert('Jellio audio switch failed:\n' + (err && err.stack ? err.stack : err));
       showPlayerToast('Audio switch failed: ' + (err && err.message ? err.message : err));
     }
   }
