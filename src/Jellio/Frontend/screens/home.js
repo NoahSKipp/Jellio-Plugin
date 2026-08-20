@@ -79,7 +79,13 @@ function titleFor(name, kind) {
   return name;
 }
 
-async function buildCatalogRows(collections, seen) {
+// Split into a fetch phase (no dependency on seen/exclude at all) and
+// a build phase (the dedupe() call that reads and writes it) so
+// buildHomeSections() below can run every row source's own real
+// network fetch together, catalog, genre and recommendation alike,
+// and only sequence the synchronous dedupe step afterward, in the
+// priority order real feedback actually cares about.
+async function fetchCatalogRows(collections) {
   let usable = collections.filter(function (collection) {
     // A service catalog already has a tile in the hub strip and a page
     // behind it (buildHubStrip below, screens/service.js), so a
@@ -110,17 +116,25 @@ async function buildCatalogRows(collections, seen) {
     }),
   );
 
+  return results
+    .map(function (result, index) {
+      if (result.status !== 'fulfilled') return null;
+      const collection = usable[index];
+      return { title: titleFor(collection.Name, collectionKind(collection)), items: result.value };
+    })
+    .filter(Boolean);
+}
+
+function buildCatalogRows(catalogData, seen) {
   const sections = [];
-  results.forEach(function (result, index) {
-    if (result.status !== 'fulfilled') return;
-    const collection = usable[index];
-    const row = buildRow(titleFor(collection.Name, collectionKind(collection)), dedupe(result.value, seen));
+  catalogData.forEach(function (entry) {
+    const row = buildRow(entry.title, dedupe(entry.items, seen));
     if (row) sections.push(row);
   });
   return sections;
 }
 
-async function buildGenreRows(seen) {
+async function fetchGenreRows() {
   try {
     const genres = await discoverGenres(null, 'Movie,Series', GENRE_ROWS);
     const results = await Promise.allSettled(
@@ -128,17 +142,25 @@ async function buildGenreRows(seen) {
         return getGenreItems(null, 'Movie,Series', genre, GENRE_ROW_LIMIT);
       }),
     );
-    const sections = [];
-    results.forEach(function (result, index) {
-      if (result.status !== 'fulfilled') return;
-      const row = buildRow(genres[index], dedupe(result.value, seen));
-      if (row) sections.push(row);
-    });
-    return sections;
+    return results
+      .map(function (result, index) {
+        if (result.status !== 'fulfilled') return null;
+        return { title: genres[index], items: result.value };
+      })
+      .filter(Boolean);
   } catch (err) {
     console.warn('Jellio: could not load home genre rows', err);
     return [];
   }
+}
+
+function buildGenreRows(genreData, seen) {
+  const sections = [];
+  genreData.forEach(function (entry) {
+    const row = buildRow(entry.title, dedupe(entry.items, seen));
+    if (row) sections.push(row);
+  });
+  return sections;
 }
 
 function el(tag, className, text) {
@@ -299,36 +321,46 @@ async function buildHomeSections() {
     if (row) pushAll([row]);
   }
 
-  // Shared with buildCatalogRows/buildGenreRows below via dedupe():
-  // a title a recommendation row already picked should not also turn
-  // up in a catalog or genre row further down the same page.
-  const seen = {};
-
-  try {
-    const recommendationRows = await buildRecommendationRows(seen);
-    const rows = recommendationRows.map(function (spec) {
-      return buildRow(spec.title, spec.items);
-    }).filter(Boolean);
-    pushAll(rows);
-  } catch (err) {
-    console.warn('Jellio: could not load recommendation rows', err);
-  }
-
-  if (collectionsResult.status === 'fulfilled') {
-    const collections = collectionsResult.value;
+  const collections = collectionsResult.status === 'fulfilled' ? collectionsResult.value : null;
+  if (collections) {
     const hub = buildHubStrip(collections);
     if (hub) pushAll([hub]);
-
-    try {
-      const catalogRows = await buildCatalogRows(collections, seen);
-      pushAll(catalogRows);
-    } catch (err) {
-      console.warn('Jellio: could not load catalog rows', err);
-    }
   }
 
-  const genreRows = await buildGenreRows(seen);
-  pushAll(genreRows);
+  // Shared with buildCatalogRows/buildGenreRows below via dedupe(): a
+  // title a recommendation row already picked should not also turn up
+  // in a catalog or genre row further down the same page, and a title
+  // a catalog row picked should not also turn up in a genre row. Only
+  // that final dedupe actually needs this priority order though; none
+  // of these three phases' own real network fetches depend on the
+  // other two at all, so all three fire together here instead of
+  // genre rows waiting on catalog rows waiting on recommendation rows
+  // to even start asking the network for anything.
+  const seen = {};
+
+  const [recommendationRows, catalogData, genreData] = await Promise.all([
+    buildRecommendationRows(seen).catch(function (err) {
+      console.warn('Jellio: could not load recommendation rows', err);
+      return [];
+    }),
+    collections
+      ? fetchCatalogRows(collections).catch(function (err) {
+          console.warn('Jellio: could not load catalog rows', err);
+          return [];
+        })
+      : Promise.resolve([]),
+    fetchGenreRows(),
+  ]);
+
+  pushAll(
+    recommendationRows
+      .map(function (spec) {
+        return buildRow(spec.title, spec.items);
+      })
+      .filter(Boolean),
+  );
+  pushAll(buildCatalogRows(catalogData, seen));
+  pushAll(buildGenreRows(genreData, seen));
 
   return sections;
 }
