@@ -294,9 +294,15 @@ function withTimeout(promise, ms) {
   });
 }
 
-function prefetchImage(url) {
+function prefetchImage(url, priority) {
   if (!url) return;
   const img = new Image();
+  // fetchPriority is a real, if not universal, browser hint (ignored
+  // outright rather than erroring where it is not implemented), a
+  // cheap way to tell the network stack this one specific request
+  // matters more than the dozens of others this same preload phase is
+  // about to fire at once.
+  if (priority) img.fetchPriority = priority;
   img.src = url;
 }
 
@@ -344,8 +350,13 @@ function prefetchLazyImages(roots, limit) {
 // than two different random sets.
 async function preloadHeroImages() {
   const heroItems = await getHeroCandidates(8);
-  heroItems.forEach(function (item) {
-    prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }));
+  heroItems.forEach(function (item, index) {
+    // Only the first slide is ever the reader's own real first paint,
+    // the actual LCP candidate; the other seven are exactly as needed
+    // but not as urgent, real backdrops for whichever slide the
+    // carousel auto-advances to later, not what decides how long the
+    // reader watches an empty hero before anything shows up in it.
+    prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }), index === 0 ? 'high' : 'low');
   });
 }
 
