@@ -395,29 +395,49 @@ export async function renderDetail(root, params) {
     if (playButton) playButton.style.width = '';
     document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
   }
-  // Real feedback, twice over: pinning the whole row's own width and
-  // trusting flex-shrink to take exactly that much back out of Play
-  // still let More drift, some real combination of this row's own
-  // margins/min-content floor the flex algorithm was not resolving
-  // the way relying on it assumed. Measured instead, directly: More's
-  // own real screen position before the expanded class lands, and
-  // again immediately after (a class change is a synchronous real
-  // layout change, getBoundingClientRect reads its own real settled
-  // end state right away, no animation frame needed to see it), the
-  // real difference between those two numbers is exactly how far
-  // Play's own width needs to shrink to cancel it back out, whatever
-  // real cause actually produced that drift.
+  // Real feedback, three times over: measuring More's own real left
+  // edge right after the expanded class landed kept reading back
+  // essentially its pre-change position regardless, the actual real
+  // bug finally found: css/app.css's own real transitions animate
+  // over real elapsed time, and a synchronous read taken immediately
+  // after the class change catches that transition at real elapsed
+  // time zero, still sitting on the old, pre-change value, not
+  // wherever it actually settles. jellio-detail-actions-measuring
+  // (css/app.css's own real transition: none override) disables every
+  // real transition here for one real synchronous pass: classes go on,
+  // the real final settled layout gets read with nothing animating yet
+  // to hide it, Play's own real corrected width gets computed from
+  // that, then everything reverts and reapplies with transitions back
+  // on, so the real correction animates in smoothly alongside
+  // everything else instead of the drift only showing up once the
+  // real animation had already finished playing out uncorrected.
   function expandActions() {
     if (actionsExpanded) return;
     actionsExpanded = true;
+
     const beforeLeft = moreButton.getBoundingClientRect().left;
+
+    actions.classList.add('jellio-detail-actions-measuring');
     actions.classList.add('jellio-detail-actions-expanded');
     moreButton.classList.add('jellio-detail-icon-action-active');
     const drift = moreButton.getBoundingClientRect().left - beforeLeft;
-    if (drift && playButton) {
-      const playWidth = playButton.getBoundingClientRect().width;
-      playButton.style.width = Math.max(playWidth - drift, 0) + 'px';
-    }
+    const correctedPlayWidth =
+      drift && playButton ? Math.max(playButton.getBoundingClientRect().width - drift, 0) : null;
+
+    actions.classList.remove('jellio-detail-actions-expanded');
+    moreButton.classList.remove('jellio-detail-icon-action-active');
+    actions.classList.remove('jellio-detail-actions-measuring');
+    // Forces the browser to actually settle on that reverted, real
+    // transitions-back-on state above before the real animated state
+    // below applies, or the two would just coalesce into one instant
+    // real jump instead of a real measuring pass followed by a real
+    // animated one.
+    void actions.offsetWidth;
+
+    if (correctedPlayWidth != null) playButton.style.width = correctedPlayWidth + 'px';
+    actions.classList.add('jellio-detail-actions-expanded');
+    moreButton.classList.add('jellio-detail-icon-action-active');
+
     window.setTimeout(function () {
       document.addEventListener('pointerdown', handleActionsOutsideClick, true);
     }, 0);
