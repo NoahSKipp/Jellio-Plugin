@@ -134,25 +134,33 @@ function markSeen(exclude, item) {
 // One row per completed title, newest first, fewer than asked for
 // when the reader has finished fewer, none at all on a server with no
 // watch history: a row named after something nobody watched is worse
-// than no row. Rows are resolved and picked one at a time, in order,
-// rather than in parallel: each row's own pick() reads and then adds
-// to the same exclude object, and running them together would have
-// every row scoring against the same, still-empty exclusion set.
+// than no row. pick() itself still runs one seed at a time, in order:
+// it reads and then adds to the same exclude object, and running it
+// concurrently would have every row scoring against the same, still-
+// empty exclusion set. Fetching each seed's own candidates has no such
+// dependency on exclude at all though, only pick() reads that, so
+// every seed's own real network round trip fires together here rather
+// than the second seed waiting on the first one's response before it
+// even starts.
 export async function buildRecommendationRows(exclude) {
   const seeds = await getRecentlyCompleted(SEED_LIMIT).catch(function () {
     return [];
   });
 
+  const entriesPerSeed = await Promise.all(
+    seeds.map(function (seed) {
+      return getRecommendationCandidates(seed, POOL_LIMIT).catch(function (err) {
+        console.warn('Jellio: could not load recommendation candidates', err);
+        return null;
+      });
+    }),
+  );
+
   const rows = [];
   for (let i = 0; i < seeds.length; i++) {
+    const entries = entriesPerSeed[i];
+    if (!entries) continue;
     const seed = seeds[i];
-    let entries = [];
-    try {
-      entries = await getRecommendationCandidates(seed, POOL_LIMIT);
-    } catch (err) {
-      console.warn('Jellio: could not load recommendation candidates', err);
-      continue;
-    }
     const items = pick(seed, entries, exclude, ROW_SIZE);
     if (!items.length) continue;
     items.forEach(function (item) {
