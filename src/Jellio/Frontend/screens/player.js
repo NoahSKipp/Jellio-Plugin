@@ -343,6 +343,26 @@ export async function renderPlayer(root, params) {
   // running underneath it.
   const hasResumePosition = startTicks > 0;
 
+  // Real feedback: this used to read straight off the item passed in,
+  // which for an Episode is the episode's own real DTO, its own
+  // BackdropImageTags almost always empty and its own ImageTags.Primary
+  // the episode's own thumbnail, not the show's own real artwork every
+  // other player chrome (Nuvio's own pause screen included) actually
+  // shows here. SeriesId/ParentBackdropImageTags/SeriesPrimaryImageTag
+  // are the real fields Jellyfin's own Episode DTO already carries for
+  // exactly this, confirmed against BaseItemDto before writing this,
+  // not guessed at; a movie has no series to prefer over its own.
+  function seriesAwareArtworkUrl(maxWidth) {
+    const artId = isEpisodeItem && item.SeriesId ? item.SeriesId : itemId;
+    const backdropTag = isEpisodeItem
+      ? item.ParentBackdropImageTags && item.ParentBackdropImageTags[0]
+      : item.BackdropImageTags && item.BackdropImageTags[0];
+    const primaryTag = isEpisodeItem ? item.SeriesPrimaryImageTag : item.ImageTags && item.ImageTags.Primary;
+    const tag = backdropTag || primaryTag;
+    if (!tag) return null;
+    return getImageUrl(artId, backdropTag ? 'Backdrop' : 'Primary', { tag: tag, maxWidth: maxWidth });
+  }
+
   const video = document.createElement('video');
   video.className = 'jellio-player-video';
   video.src = streamUrl;
@@ -350,16 +370,9 @@ export async function renderPlayer(root, params) {
   // A bare <video> with nothing decoded yet paints its own flat grey
   // frame, real feedback landed on this screen as the show's own real
   // artwork replaced by a blank box for however long the first real
-  // frame takes to arrive. Backdrop first (the real 16:9 shape this
-  // element itself renders at), the poster art as the one real
-  // fallback for a title with no backdrop of its own.
-  const posterTag = (item.BackdropImageTags && item.BackdropImageTags[0]) || (item.ImageTags && item.ImageTags.Primary);
-  if (posterTag) {
-    video.poster = getImageUrl(itemId, item.BackdropImageTags && item.BackdropImageTags[0] ? 'Backdrop' : 'Primary', {
-      tag: posterTag,
-      maxWidth: 1600,
-    });
-  }
+  // frame takes to arrive.
+  const posterUrl = seriesAwareArtworkUrl(1600);
+  if (posterUrl) video.poster = posterUrl;
 
   let subtitleStyle = loadSubtitleStyle();
   applySubtitleStyle(video, subtitleStyle);
@@ -1346,10 +1359,9 @@ export async function renderPlayer(root, params) {
   // was the series name, real fields already distinguished the same
   // way screens/detail.js's own episode header just started doing).
   const pauseOverlay = el('div', 'jellio-player-pause-overlay');
-  const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
-  if (backdropTag) {
-    pauseOverlay.style.backgroundImage =
-      'url(' + getImageUrl(itemId, 'Backdrop', { tag: backdropTag, maxWidth: 1600 }) + ')';
+  const pauseBackdropUrl = seriesAwareArtworkUrl(1600);
+  if (pauseBackdropUrl) {
+    pauseOverlay.style.backgroundImage = 'url(' + pauseBackdropUrl + ')';
   }
   const pauseContent = el('div', 'jellio-player-pause-content');
   pauseContent.appendChild(el('div', 'jellio-player-pause-eyebrow', 'You’re watching'));
