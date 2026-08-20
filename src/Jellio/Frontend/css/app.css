@@ -1003,15 +1003,13 @@
    Stream instead.
 
    The only real movement is Play shrinking, More's own real screen
-   position never changing: expandActions() pins .jellio-detail-actions
-   to its own real measured collapsed width in JS right before adding
-   the two real newly visible buttons' width demand, rather than
-   guessing a fixed CSS number that would drift the moment Play's own
-   real label, font size or padding ever changed. Every other item
-   here already carries flex: 0 0 auto (a fixed, non-shrinking real
-   size), so with that one real width pinned, Play (flex: 1 1 auto,
-   the one real item this row lets flex-shrink actually act on) is the
-   only place the resulting real overflow can go. */
+   position never changing: screens/detail.js's own expandActions()
+   measures More's own real left edge immediately before and after the
+   expanded class lands, then shrinks Play's own width by exactly that
+   real measured drift, whatever real combination of this row's own
+   flex sizing actually produced it, rather than trusting flex-shrink
+   alone to redistribute the right amount on its own (real feedback
+   found live, twice, that it did not). */
 .jellio-detail-actions {
   display: flex;
   align-items: center;
