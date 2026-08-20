@@ -3,7 +3,21 @@
 // change (a hover state, a progress bar) only has one place to happen.
 import { getImageUrl } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
-import { attachCardOptionsTrigger } from './cardOptionsMenu.js';
+import {
+  attachCardOptionsTrigger,
+  openCardOptionsMenu,
+  toggleWatched,
+  toggleWatchlist,
+  animateCardRemoval,
+} from './cardOptionsMenu.js';
+import { openStreamPicker } from './streamPicker.js';
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
 
 // Rebuilds just the watched badge/progress bar over the poster image,
 // its own function so the options menu's mark watched/unwatched action
@@ -54,6 +68,115 @@ function episodeSubtitle(item) {
   return code || item.Name || '';
 }
 
+// Real feedback, the previous Jellio codebase's own real design intent
+// carried forward but changed on purpose: a wide Play button sits next
+// to a fixed More (three dot) button by default, Watchlist and Mark
+// Watched only fading in between them on hover/focus. Play shrinking
+// by exactly the same amount Watchlist+Mark Watched grow by (pure
+// flexbox, no JS measuring) is what keeps More's own real screen
+// position constant through that whole animation, the one real
+// difference from that older codebase's own version, where the three
+// dot button itself used to slide, real feedback called that
+// disorienting to land a second real tap on.
+function buildCardActions(item, card, imageWrap, options, onChanged) {
+  const opts = options || {};
+  const bar = el('div', 'jellio-card-actions');
+
+  const playButton = document.createElement('button');
+  playButton.type = 'button';
+  playButton.className = 'jellio-card-action jellio-card-action-play';
+  playButton.setAttribute('aria-label', 'Play');
+  playButton.appendChild(el('span', 'material-icons play_arrow'));
+  playButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    openStreamPicker(item);
+  });
+
+  const watchlistButton = document.createElement('button');
+  watchlistButton.type = 'button';
+  watchlistButton.className = 'jellio-card-action jellio-card-action-watchlist';
+  function paintWatchlist() {
+    const isWatchlisted = !!(item.UserData && item.UserData.IsFavorite);
+    watchlistButton.classList.toggle('jellio-card-action-active', isWatchlisted);
+    watchlistButton.setAttribute('aria-label', isWatchlisted ? 'Remove from Watchlist' : 'Add to Watchlist');
+    watchlistButton.textContent = '';
+    watchlistButton.appendChild(el('span', 'material-icons ' + (isWatchlisted ? 'bookmark_added' : 'bookmark_add')));
+  }
+  paintWatchlist();
+  watchlistButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    watchlistButton.disabled = true;
+    toggleWatchlist(item, onChanged)
+      .then(paintWatchlist)
+      .catch(function (err) {
+        console.warn('Jellio: could not update watchlist state', err);
+      })
+      .finally(function () {
+        watchlistButton.disabled = false;
+      });
+  });
+
+  const watchedButton = document.createElement('button');
+  watchedButton.type = 'button';
+  watchedButton.className = 'jellio-card-action jellio-card-action-watched';
+  function paintWatched() {
+    const isPlayed = !!(item.UserData && item.UserData.Played);
+    watchedButton.classList.toggle('jellio-card-action-active', isPlayed);
+    watchedButton.setAttribute('aria-label', isPlayed ? 'Mark as unwatched' : 'Mark as watched');
+    watchedButton.textContent = '';
+    watchedButton.appendChild(el('span', 'material-icons check'));
+  }
+  paintWatched();
+  watchedButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    watchedButton.disabled = true;
+    toggleWatched(
+      item,
+      Object.assign({}, opts, {
+        onRemoved: function () {
+          animateCardRemoval(card);
+        },
+      }),
+      onChanged,
+    )
+      .then(function () {
+        paintWatched();
+        paintCardState(imageWrap, item);
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not update watched state', err);
+      })
+      .finally(function () {
+        watchedButton.disabled = false;
+      });
+  });
+
+  const moreButton = document.createElement('button');
+  moreButton.type = 'button';
+  moreButton.className = 'jellio-card-action jellio-card-action-more';
+  moreButton.setAttribute('aria-label', 'More options');
+  moreButton.appendChild(el('span', 'material-icons more_vert'));
+  moreButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    openCardOptionsMenu(
+      item,
+      moreButton.getBoundingClientRect(),
+      onChanged,
+      Object.assign({}, opts, {
+        onRemoved: function () {
+          animateCardRemoval(card);
+        },
+      }),
+    );
+  });
+
+  bar.appendChild(playButton);
+  bar.appendChild(watchlistButton);
+  bar.appendChild(watchedButton);
+  bar.appendChild(moreButton);
+  return bar;
+}
+
 export function buildCard(item, options) {
   const isEpisode = item.Type === 'Episode' && !!item.SeriesName;
 
@@ -81,6 +204,11 @@ export function buildCard(item, options) {
   }
 
   paintCardState(imageWrap, item);
+
+  function handleChanged(updatedItem) {
+    paintCardState(imageWrap, updatedItem);
+  }
+  imageWrap.appendChild(buildCardActions(item, card, imageWrap, options, handleChanged));
 
   card.appendChild(imageWrap);
 
@@ -115,9 +243,7 @@ export function buildCard(item, options) {
   attachCardOptionsTrigger(
     card,
     item,
-    function (updatedItem) {
-      paintCardState(imageWrap, updatedItem);
-    },
+    handleChanged,
     options,
   );
 
