@@ -1052,15 +1052,16 @@
      Watched/Change Stream were collapsed to width: 0, not the tight
      real gap actually wanted there. */
   width: 100%;
-  /* More's own real 2.8em width plus a real 0.2em gap, reserved so
-     the flex content sharing this row with it (Play and the three
-     collapsible buttons) never lays out underneath the absolutely
-     positioned real button sitting on top of that same real space.
-     Real feedback: the old real 0.6em gap here read as dead space
-     between Play and More while collapsed, tightened down since
-     More's own real position no longer depends on this value at all
-     (position: absolute above, this only reserves its own real room). */
-  padding-right: 3em;
+  /* More's own real 2.8em width plus the same real 0.6em gap every
+     other item here uses on its own margin-left, reserved so the flex
+     content sharing this row with it (Play and the three collapsible
+     buttons) never lays out underneath the absolutely positioned real
+     button sitting on top of that same real space. Real feedback:
+     tightened to a real 0.2em gap once, read as Change Stream sitting
+     noticeably closer to More than Play sits to Watchlist once
+     expanded, put back to the same real 0.6em every other gap here
+     already uses. */
+  padding-right: 3.4em;
 }
 
 .jellio-detail-play {
