@@ -943,6 +943,19 @@
 
 .jellio-detail-hero-content {
   position: relative;
+  /* No width here before, only max-width: an auto-width box shrink-
+     wraps its own real content, and since .jellio-detail-actions
+     below is width: 100% (a percentage, indeterminate for this real
+     purpose), the browser falls back to summing what is actually
+     inside it instead, real Play width plus the three collapsible
+     buttons at their own real current width. Expanding those from 0
+     added its own real ~10em to that sum, growing this box itself
+     and dragging More's own right: 0 anchor right along with it, the
+     real reason More still moved after taking it out of flex flow.
+     A real width here stops that real content-driven regrowth: this
+     box is always 100% of its own real available space up to the
+     same real 40em cap, regardless of what the row inside does. */
+  width: 100%;
   max-width: 40em;
 }
 
