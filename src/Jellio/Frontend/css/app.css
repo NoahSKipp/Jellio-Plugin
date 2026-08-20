@@ -991,12 +991,25 @@
   font-size: 0.9em;
 }
 
+/* Real feedback: Play, Change Stream and Add to Watchlist used to
+   each be their own wide pill, wrapping onto two real lines at most
+   mobile widths. Play stays the one wide pill (icon plus label);
+   Watchlist, Mark Watched and More (screens/detail.js's own real
+   Change Stream destination now) are equal size icon only circles
+   alongside it, the same real hero action row shape Nuvio's own
+   screenshots show, checked before writing this rather than guessed
+   at. */
 .jellio-detail-actions {
   display: flex;
-  gap: 0.8em;
+  align-items: center;
+  gap: 0.6em;
 }
 
 .jellio-detail-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
   padding: 0.7em 2em;
   border: 0;
   border-radius: 999px;
@@ -1012,30 +1025,30 @@
   background: var(--jellio-secondary-variant);
 }
 
-.jellio-detail-watchlist,
-.jellio-detail-change-stream {
-  padding: 0.7em 1.6em;
+.jellio-detail-icon-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.8em;
+  height: 2.8em;
   border: 1px solid var(--jellio-border-color);
   border-radius: 999px;
   background: transparent;
   color: var(--jellio-text-color);
-  font-family: var(--jellio-font-family);
-  font-weight: 700;
-  font-size: 1em;
   cursor: pointer;
 }
 
-.jellio-detail-watchlist:hover,
-.jellio-detail-change-stream:hover {
+.jellio-detail-icon-action:hover {
   background: rgb(255 255 255 / 0.08);
 }
 
-.jellio-detail-watchlist:disabled {
+.jellio-detail-icon-action:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
-.jellio-detail-watchlist-active {
+.jellio-detail-icon-action-active {
   border-color: var(--jellio-secondary-color);
   color: var(--jellio-secondary-color);
 }
