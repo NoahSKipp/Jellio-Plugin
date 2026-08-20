@@ -346,8 +346,20 @@ export async function renderPlayer(root, params) {
   const video = document.createElement('video');
   video.className = 'jellio-player-video';
   video.src = streamUrl;
-  video.autoplay = !hasResumePosition;
   video.playsInline = true;
+  // A bare <video> with nothing decoded yet paints its own flat grey
+  // frame, real feedback landed on this screen as the show's own real
+  // artwork replaced by a blank box for however long the first real
+  // frame takes to arrive. Backdrop first (the real 16:9 shape this
+  // element itself renders at), the poster art as the one real
+  // fallback for a title with no backdrop of its own.
+  const posterTag = (item.BackdropImageTags && item.BackdropImageTags[0]) || (item.ImageTags && item.ImageTags.Primary);
+  if (posterTag) {
+    video.poster = getImageUrl(itemId, item.BackdropImageTags && item.BackdropImageTags[0] ? 'Backdrop' : 'Primary', {
+      tag: posterTag,
+      maxWidth: 1600,
+    });
+  }
 
   let subtitleStyle = loadSubtitleStyle();
   applySubtitleStyle(video, subtitleStyle);
@@ -600,7 +612,7 @@ export async function renderPlayer(root, params) {
         playSessionId: playSessionId,
       });
       video.load();
-      if (wasPlaying) attemptPlay();
+      if (wasPlaying) waitForPlayableBuffer(attemptPlay);
       subtitleButton.classList.add('jellio-player-pill-btn-active');
       rebuildAudioMenu();
       rebuildSubtitleMenu();
@@ -866,7 +878,7 @@ export async function renderPlayer(root, params) {
         playSessionId: playSessionId,
       });
       video.load();
-      if (wasPlaying) attemptPlay();
+      if (wasPlaying) waitForPlayableBuffer(attemptPlay);
       rebuildSubtitleMenu();
       rebuildAudioMenu();
       closePopovers(null);
@@ -1090,6 +1102,50 @@ export async function renderPlayer(root, params) {
     }
   }
 
+  // Real feedback: playback used to start the instant the browser had
+  // the bare minimum to decode a first frame, which on a live
+  // Gelato proxy still ramping up to its own real steady state
+  // (TCP slow start, the debrid/usenet host itself warming up) meant
+  // starting right as the download was at its slowest, stalling a
+  // handful of times before the pipe actually caught up. Nuvio's own
+  // real player buffers a real cushion before it ever starts for the
+  // same reason. Holding attemptPlay behind a real buffered-ahead
+  // check instead of firing on the first canplay gives the source that
+  // same real head start. A hard timeout is still real feedback's own
+  // fallback, same philosophy every other timeout in this codebase
+  // already uses: a source too slow to ever clear the cushion should
+  // still start rather than sit there forever looking broken.
+  const PREBUFFER_TARGET_SECONDS = 8;
+  const PREBUFFER_TIMEOUT_MS = 6000;
+  function waitForPlayableBuffer(callback) {
+    let settled = false;
+    function bufferedAheadSeconds() {
+      const start = video.currentTime || 0;
+      const buffered = video.buffered;
+      for (let i = 0; i < buffered.length; i++) {
+        if (buffered.start(i) <= start && buffered.end(i) >= start) {
+          return buffered.end(i) - start;
+        }
+      }
+      return 0;
+    }
+    function settle() {
+      if (settled) return;
+      settled = true;
+      video.removeEventListener('progress', check);
+      video.removeEventListener('canplaythrough', check);
+      window.clearTimeout(fallbackTimer);
+      callback();
+    }
+    function check() {
+      if (bufferedAheadSeconds() >= PREBUFFER_TARGET_SECONDS || video.readyState >= 4) settle();
+    }
+    const fallbackTimer = window.setTimeout(settle, PREBUFFER_TIMEOUT_MS);
+    video.addEventListener('progress', check);
+    video.addEventListener('canplaythrough', check);
+    check();
+  }
+
   // A forced transcode has no full file sitting on the server to seek
   // within, only whatever ffmpeg has produced so far starting from its
   // own StartTimeTicks, so reaching a new absolute position there means
@@ -1114,19 +1170,49 @@ export async function renderPlayer(root, params) {
   // real reload regardless of streamIsTranscoded, since a request the
   // server actually starts encoding or serving from the right real
   // position is the only kind of seek this runtime can actually trust.
-  function seekToAbsoluteSeconds(targetSeconds) {
+  //
+  // Real bug, found the same real way the audio track switch was:
+  // rebuilding the stream URL with a bare StartTimeTicks change while
+  // reusing the title's own existing PlaySessionId never reliably
+  // started a new real ffmpeg job (TranscodingJobHelper does not treat
+  // that as different enough from the session already live), so the
+  // seek looked like it moved and then quietly kept playing from
+  // wherever the old job already was, landing back at the start once
+  // that ran out. A real renegotiated PlaybackInfo call, the exact
+  // same fix switchAudioTrack below already proved out, hands back a
+  // genuinely fresh PlaySessionId a new job actually starts against.
+  // Carries the reader's own active audio track and any burned in
+  // subtitle track through the reload too: neither used to be passed
+  // here at all, so a seek used to silently drop them back to default.
+  async function seekToAbsoluteSeconds(targetSeconds) {
     const targetTicks = Math.max(0, Math.round(targetSeconds * TICKS_PER_SECOND));
     const wasPlaying = !video.paused;
-    streamIsTranscoded = true;
-    streamOffsetTicks = targetTicks;
-    hasReportedStart = false;
-    video.src = buildStreamUrl(itemId, mediaSource, targetTicks, {
-      audioStreamIndex: currentAudioStreamIndex,
-      forceTranscode: true,
-      playSessionId: playSessionId,
-    });
-    video.load();
-    if (wasPlaying) attemptPlay();
+    const burnedInSubtitleIndex = activeTrack ? null : activeSubtitleStreamIndex;
+    try {
+      reportPlaybackStopped(itemId, mediaSource.Id, targetTicks);
+      const info = await getPlaybackInfo(itemId, targetTicks, mediaSource.Id, currentAudioStreamIndex, burnedInSubtitleIndex);
+      const negotiated = info && info.MediaSources && info.MediaSources[0];
+      if (!negotiated) {
+        showPlayerToast('Could not seek, that stream is no longer available.');
+        return;
+      }
+      mediaSource = negotiated;
+      playSessionId = info.PlaySessionId;
+      streamIsTranscoded = true;
+      streamOffsetTicks = targetTicks;
+      hasReportedStart = false;
+      video.src = buildStreamUrl(itemId, mediaSource, targetTicks, {
+        audioStreamIndex: currentAudioStreamIndex,
+        burnInSubtitleStreamIndex: burnedInSubtitleIndex,
+        forceTranscode: true,
+        playSessionId: playSessionId,
+      });
+      video.load();
+      if (wasPlaying) waitForPlayableBuffer(attemptPlay);
+    } catch (err) {
+      console.warn('Jellio: seek failed', err);
+      showPlayerToast('Seek failed: ' + (err && err.message ? err.message : err));
+    }
   }
 
   skipBackButton.addEventListener('click', function () {
@@ -1181,7 +1267,7 @@ export async function renderPlayer(root, params) {
         playSessionId: playSessionId,
       });
       video.load();
-      if (wasPlaying) attemptPlay();
+      if (wasPlaying) waitForPlayableBuffer(attemptPlay);
       topbarMeta.textContent = sourceLabel(mediaSource);
       rebuildSubtitleMenu();
       rebuildAudioMenu();
@@ -1239,24 +1325,15 @@ export async function renderPlayer(root, params) {
   ['mousemove', 'touchstart', 'keydown', 'click'].forEach(function (eventName) {
     root.addEventListener(eventName, wakeControls);
   });
-  // shell's own background stays pointer-events: none while idle so a
-  // tap anywhere empty falls straight through to this listener rather
-  // than landing on nothing, but that means a tap aimed at a control
-  // that idle just hid unhides it, but also lands on video underneath
-  // that same button's own now real screen position, on the exact
-  // same click. Real feedback: this read as tapping the controls doing
-  // nothing at all, since the tap that should have woken them up also
-  // silently toggled playback underneath instead of just revealing
-  // them, same as it would if the button itself had been in the way
-  // the whole time. Every mainstream player's own real chrome treats a
-  // first tap on hidden controls as reveal only, a second real tap
-  // needed to actually act on whatever was under it, matched here by
-  // skipping the toggle entirely on the one tap that woke the shell.
-  video.addEventListener('click', function () {
-    if (shell.classList.contains('jellio-player-shell-idle')) return;
-    if (video.paused) attemptPlay();
-    else video.pause();
-  });
+  // Real feedback: a plain tap anywhere on the video used to toggle
+  // play/pause underneath, indistinguishable from the shell's own
+  // controls-reveal tap above and surprising every time a reader just
+  // meant to bring the controls back. Every mainstream player's own
+  // real chrome treats a tap on the video itself as reveal only, the
+  // dedicated play/pause button (built above) the one real place that
+  // actually toggles playback; root's own click listener above already
+  // wakes the shell for a tap landing on video, nothing else needed
+  // here.
   wakeControls();
 
 
@@ -1351,7 +1428,7 @@ export async function renderPlayer(root, params) {
       percent,
       function () {
         resumePrompt.overlay.remove();
-        attemptPlay();
+        waitForPlayableBuffer(attemptPlay);
       },
       function () {
         resumePrompt.overlay.remove();
@@ -1368,15 +1445,39 @@ export async function renderPlayer(root, params) {
         // saved position all over again, not the reader's own real
         // start of the title. Rebuilding the URL with a real 0 instead
         // asks the server for a real stream that actually starts there.
+        // Same real renegotiation seekToAbsoluteSeconds needs and for
+        // the same reason: reusing the title's own existing
+        // PlaySessionId on a bare StartTimeTicks change never reliably
+        // starts a fresh real ffmpeg job.
         hasReportedStart = false;
-        streamOffsetTicks = 0;
-        video.src = buildStreamUrl(itemId, mediaSource, 0, { playSessionId: playSessionId });
-        video.load();
-        attemptPlay();
+        getPlaybackInfo(itemId, 0, mediaSource.Id, currentAudioStreamIndex)
+          .then(function (info) {
+            const negotiated = info && info.MediaSources && info.MediaSources[0];
+            if (!negotiated) {
+              showPlayerToast('Could not start over, that stream is no longer available.');
+              return;
+            }
+            mediaSource = negotiated;
+            playSessionId = info.PlaySessionId;
+            streamOffsetTicks = 0;
+            video.src = buildStreamUrl(itemId, mediaSource, 0, {
+              audioStreamIndex: currentAudioStreamIndex,
+              forceTranscode: true,
+              playSessionId: playSessionId,
+            });
+            video.load();
+            waitForPlayableBuffer(attemptPlay);
+          })
+          .catch(function (err) {
+            console.warn('Jellio: could not start over', err);
+            showPlayerToast('Could not start over: ' + (err && err.message ? err.message : err));
+          });
       },
     );
     root.appendChild(resumePrompt.overlay);
     resumePrompt.resumeButton.focus();
+  } else {
+    waitForPlayableBuffer(attemptPlay);
   }
 
   let nextEpisode = null;
