@@ -273,13 +273,18 @@ export async function renderDetail(root, params) {
   // skips straight to Play for a single source title).
   const actions = el('div', 'jellio-detail-actions');
 
+  // Hoisted out of the if block below: expandActions further down
+  // needs a real handle on this to correct its own real width, a
+  // series (no playButton at all) just never has anything to correct.
+  let playButton = null;
+
   // A series has no video of its own, only its episodes do (each already
   // opens this same screen at its own item id, with its own working Play
   // button), so Play/Change Stream are skipped entirely here rather than
   // pointing at nothing playable; Watchlist/Mark Watched still apply to
   // the series itself.
   if (item.Type !== 'Series') {
-    const playButton = el('button', 'jellio-detail-play');
+    playButton = el('button', 'jellio-detail-play');
     playButton.type = 'button';
     playButton.appendChild(el('span', 'material-icons play_arrow'));
     playButton.appendChild(el('span', null, 'Play'));
@@ -383,24 +388,36 @@ export async function renderDetail(root, params) {
     actionsExpanded = false;
     actions.classList.remove('jellio-detail-actions-expanded');
     moreButton.classList.remove('jellio-detail-icon-action-active');
-    // Real counterpart to the real measured pin expandActions sets
-    // below: released back to its own natural fit-content width once
-    // there is nothing left inside it needing the real extra room.
-    actions.style.width = '';
+    // Real counterpart to the real measured correction expandActions
+    // applies below: released back to its own natural flex-computed
+    // width once there is nothing left inside it needing the real
+    // extra room.
+    if (playButton) playButton.style.width = '';
     document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
   }
+  // Real feedback, twice over: pinning the whole row's own width and
+  // trusting flex-shrink to take exactly that much back out of Play
+  // still let More drift, some real combination of this row's own
+  // margins/min-content floor the flex algorithm was not resolving
+  // the way relying on it assumed. Measured instead, directly: More's
+  // own real screen position before the expanded class lands, and
+  // again immediately after (a class change is a synchronous real
+  // layout change, getBoundingClientRect reads its own real settled
+  // end state right away, no animation frame needed to see it), the
+  // real difference between those two numbers is exactly how far
+  // Play's own width needs to shrink to cancel it back out, whatever
+  // real cause actually produced that drift.
   function expandActions() {
     if (actionsExpanded) return;
     actionsExpanded = true;
-    // Real width, measured now, before Watchlist/Mark Watched/Change
-    // Stream's own real width demand changes anything: pinning the
-    // row to this exact real number is what keeps More's own real
-    // screen position fixed once those become visible, css/app.css's
-    // own header above this same rule explains the real flex math
-    // this pin drives.
-    actions.style.width = actions.getBoundingClientRect().width + 'px';
+    const beforeLeft = moreButton.getBoundingClientRect().left;
     actions.classList.add('jellio-detail-actions-expanded');
     moreButton.classList.add('jellio-detail-icon-action-active');
+    const drift = moreButton.getBoundingClientRect().left - beforeLeft;
+    if (drift && playButton) {
+      const playWidth = playButton.getBoundingClientRect().width;
+      playButton.style.width = Math.max(playWidth - drift, 0) + 'px';
+    }
     window.setTimeout(function () {
       document.addEventListener('pointerdown', handleActionsOutsideClick, true);
     }, 0);
