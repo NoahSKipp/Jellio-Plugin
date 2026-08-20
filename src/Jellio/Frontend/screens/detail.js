@@ -5,11 +5,12 @@
 // plus a bare <video> element, see screens/player.js's own header for
 // why that needed no access to jellyfin-web's own playbackManager at
 // all, when there is not).
-import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setWatchlist } from '../runtime/api.js';
+import { getItemDetails, getImageUrl, getSeasons, getEpisodes } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
 import { describeNetworkFailure } from '../runtime/network.js';
+import { toggleWatched, toggleWatchlist } from '../components/cardOptionsMenu.js';
 
 // A failed item lookup used to just console.warn and return, leaving
 // root exactly as blank as root.textContent = '' left it: a series's
@@ -30,6 +31,54 @@ function el(tag, className, text) {
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
+}
+
+const DETAIL_OPTIONS_MENU_ID = 'jellioDetailOptionsMenu';
+
+function closeDetailOptionsMenu() {
+  const existing = document.getElementById(DETAIL_OPTIONS_MENU_ID);
+  if (existing) existing.remove();
+  document.removeEventListener('pointerdown', handleDetailOptionsOutsideClick, true);
+}
+
+function handleDetailOptionsOutsideClick(event) {
+  const menu = document.getElementById(DETAIL_OPTIONS_MENU_ID);
+  if (menu && !menu.contains(event.target)) closeDetailOptionsMenu();
+}
+
+// The one real menu behind Play's own More button: reuses
+// components/cardOptionsMenu.js's own real .jellio-card-options-menu/
+// -item styling (already the app's own established look for a small
+// floating action list) rather than a second visual language for what
+// is the exact same kind of menu.
+function openDetailOptionsMenu(anchorButton, entries) {
+  closeDetailOptionsMenu();
+  const anchorRect = anchorButton.getBoundingClientRect();
+  const menu = el('div', 'jellio-card-options-menu');
+  menu.id = DETAIL_OPTIONS_MENU_ID;
+  menu.setAttribute('role', 'menu');
+  const menuWidth = 220;
+  let left = anchorRect.right - menuWidth;
+  left = Math.max(16, Math.min(left, window.innerWidth - menuWidth - 16));
+  menu.style.left = left + 'px';
+  menu.style.top = anchorRect.bottom + 6 + 'px';
+
+  entries.forEach(function (entry) {
+    const option = el('button', 'jellio-card-options-item');
+    option.type = 'button';
+    option.appendChild(el('span', 'jellio-card-options-item-label', entry.label));
+    option.appendChild(el('span', 'material-icons jellio-card-options-item-icon ' + entry.icon));
+    option.addEventListener('click', function () {
+      closeDetailOptionsMenu();
+      entry.onSelect();
+    });
+    menu.appendChild(option);
+  });
+
+  document.body.appendChild(menu);
+  window.setTimeout(function () {
+    document.addEventListener('pointerdown', handleDetailOptionsOutsideClick, true);
+  }, 0);
 }
 
 function buildEpisodeCard(episode) {
@@ -206,6 +255,13 @@ export async function renderDetail(root, params) {
   // follow up requests otherwise all racing the same in-progress
   // insert under the same placeholder).
   const canonicalId = item.Id || itemId;
+  // toggleWatched/toggleWatchlist below (components/cardOptionsMenu.js's
+  // own shared real state calls, the same ones the poster grid's own
+  // inline actions already use) both read item.Id directly, never the
+  // canonicalId fallback above: keeping the two in sync here means
+  // every downstream real call this screen makes, shared helper or
+  // not, addresses the one real canonical id consistently.
+  item.Id = canonicalId;
 
   const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
   const hero = el('div', 'jellio-detail-hero');
@@ -252,51 +308,48 @@ export async function renderDetail(root, params) {
     heroContent.appendChild(genres);
   }
 
+  // Real feedback: three separate wide pill buttons (Play, Change
+  // Stream, Add to Watchlist) wrapped onto two real lines at most
+  // mobile widths, nothing like Nuvio's own real hero action row
+  // (screenshots checked before writing this). Play stays the one wide
+  // pill; Watchlist and Mark Watched are icon only circles the same
+  // real size as More, matching that same real reference, with Change
+  // Stream moved behind More instead of sitting out as its own wide
+  // pill for a choice most titles here only have one real answer to
+  // anyway (components/streamPicker.js's own openStreamPicker already
+  // skips straight to Play for a single source title).
   const actions = el('div', 'jellio-detail-actions');
 
   // A series has no video of its own, only its episodes do (each already
   // opens this same screen at its own item id, with its own working Play
-  // button), so this one is skipped entirely here rather than pointing at
-  // nothing playable.
+  // button), so Play/Change Stream are skipped entirely here rather than
+  // pointing at nothing playable; Watchlist/Mark Watched still apply to
+  // the series itself.
   if (item.Type !== 'Series') {
-    const playButton = el('button', 'jellio-detail-play', 'Play');
+    const playButton = el('button', 'jellio-detail-play');
     playButton.type = 'button';
+    playButton.appendChild(el('span', 'material-icons play_arrow'));
+    playButton.appendChild(el('span', null, 'Play'));
     playButton.addEventListener('click', function () {
       openStreamPicker(item);
     });
     actions.appendChild(playButton);
-
-    // Play alone already reopens the picker on its own whenever there
-    // is real more than one source and "remember my stream choice" is
-    // off; this exists for when it is on, real feedback asked for a
-    // way back to the picker from here specifically without going
-    // through Settings, for a remembered choice that stopped working.
-    // forceChoice: true skips only that remembered shortcut, a title
-    // with one real source still has nothing to change to either way.
-    const changeStreamButton = el('button', 'jellio-detail-change-stream', 'Change Stream');
-    changeStreamButton.type = 'button';
-    changeStreamButton.addEventListener('click', function () {
-      openStreamPicker(item, { forceChoice: true });
-    });
-    actions.appendChild(changeStreamButton);
   }
 
-  const isWatchlisted = !!(item.UserData && item.UserData.IsFavorite);
-  const watchlistButton = el(
-    'button',
-    'jellio-detail-watchlist' + (isWatchlisted ? ' jellio-detail-watchlist-active' : ''),
-    isWatchlisted ? 'In Watchlist' : 'Add to Watchlist',
-  );
+  const watchlistButton = el('button', 'jellio-detail-icon-action');
   watchlistButton.type = 'button';
+  function paintWatchlist() {
+    const active = !!(item.UserData && item.UserData.IsFavorite);
+    watchlistButton.classList.toggle('jellio-detail-icon-action-active', active);
+    watchlistButton.setAttribute('aria-label', active ? 'Remove from Watchlist' : 'Add to Watchlist');
+    watchlistButton.textContent = '';
+    watchlistButton.appendChild(el('span', 'material-icons ' + (active ? 'bookmark_added' : 'bookmark_add')));
+  }
+  paintWatchlist();
   watchlistButton.addEventListener('click', function () {
-    const nextState = !watchlistButton.classList.contains('jellio-detail-watchlist-active');
     watchlistButton.disabled = true;
-    setWatchlist(canonicalId, nextState)
-      .then(function (userData) {
-        const active = !!(userData && userData.IsFavorite);
-        watchlistButton.classList.toggle('jellio-detail-watchlist-active', active);
-        watchlistButton.textContent = active ? 'In Watchlist' : 'Add to Watchlist';
-      })
+    toggleWatchlist(item)
+      .then(paintWatchlist)
       .catch(function (err) {
         console.warn('Jellio: could not update watchlist state', err);
       })
@@ -305,6 +358,48 @@ export async function renderDetail(root, params) {
       });
   });
   actions.appendChild(watchlistButton);
+
+  const watchedButton = el('button', 'jellio-detail-icon-action');
+  watchedButton.type = 'button';
+  function paintWatched() {
+    const active = !!(item.UserData && item.UserData.Played);
+    watchedButton.classList.toggle('jellio-detail-icon-action-active', active);
+    watchedButton.setAttribute('aria-label', active ? 'Mark as unwatched' : 'Mark as watched');
+    watchedButton.textContent = '';
+    watchedButton.appendChild(el('span', 'material-icons check'));
+  }
+  paintWatched();
+  watchedButton.addEventListener('click', function () {
+    watchedButton.disabled = true;
+    toggleWatched(item, {})
+      .then(paintWatched)
+      .catch(function (err) {
+        console.warn('Jellio: could not update watched state', err);
+      })
+      .finally(function () {
+        watchedButton.disabled = false;
+      });
+  });
+  actions.appendChild(watchedButton);
+
+  if (item.Type !== 'Series') {
+    const moreButton = el('button', 'jellio-detail-icon-action');
+    moreButton.type = 'button';
+    moreButton.setAttribute('aria-label', 'More options');
+    moreButton.appendChild(el('span', 'material-icons more_vert'));
+    moreButton.addEventListener('click', function () {
+      openDetailOptionsMenu(moreButton, [
+        {
+          label: 'Change Stream',
+          icon: 'sync_alt',
+          onSelect: function () {
+            openStreamPicker(item, { forceChoice: true });
+          },
+        },
+      ]);
+    });
+    actions.appendChild(moreButton);
+  }
 
   heroContent.appendChild(actions);
 
