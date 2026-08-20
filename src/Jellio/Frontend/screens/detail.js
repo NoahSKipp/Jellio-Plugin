@@ -33,53 +33,6 @@ function el(tag, className, text) {
   return node;
 }
 
-const DETAIL_OPTIONS_MENU_ID = 'jellioDetailOptionsMenu';
-
-function closeDetailOptionsMenu() {
-  const existing = document.getElementById(DETAIL_OPTIONS_MENU_ID);
-  if (existing) existing.remove();
-  document.removeEventListener('pointerdown', handleDetailOptionsOutsideClick, true);
-}
-
-function handleDetailOptionsOutsideClick(event) {
-  const menu = document.getElementById(DETAIL_OPTIONS_MENU_ID);
-  if (menu && !menu.contains(event.target)) closeDetailOptionsMenu();
-}
-
-// The one real menu behind Play's own More button: reuses
-// components/cardOptionsMenu.js's own real .jellio-card-options-menu/
-// -item styling (already the app's own established look for a small
-// floating action list) rather than a second visual language for what
-// is the exact same kind of menu.
-function openDetailOptionsMenu(anchorButton, entries) {
-  closeDetailOptionsMenu();
-  const anchorRect = anchorButton.getBoundingClientRect();
-  const menu = el('div', 'jellio-card-options-menu');
-  menu.id = DETAIL_OPTIONS_MENU_ID;
-  menu.setAttribute('role', 'menu');
-  const menuWidth = 220;
-  let left = anchorRect.right - menuWidth;
-  left = Math.max(16, Math.min(left, window.innerWidth - menuWidth - 16));
-  menu.style.left = left + 'px';
-  menu.style.top = anchorRect.bottom + 6 + 'px';
-
-  entries.forEach(function (entry) {
-    const option = el('button', 'jellio-card-options-item');
-    option.type = 'button';
-    option.appendChild(el('span', 'jellio-card-options-item-label', entry.label));
-    option.appendChild(el('span', 'material-icons jellio-card-options-item-icon ' + entry.icon));
-    option.addEventListener('click', function () {
-      closeDetailOptionsMenu();
-      entry.onSelect();
-    });
-    menu.appendChild(option);
-  });
-
-  document.body.appendChild(menu);
-  window.setTimeout(function () {
-    document.addEventListener('pointerdown', handleDetailOptionsOutsideClick, true);
-  }, 0);
-}
 
 function buildEpisodeCard(episode) {
   const card = el('div', 'jellio-episode-card');
@@ -384,20 +337,38 @@ export async function renderDetail(root, params) {
   });
   actions.appendChild(watchedButton);
 
-  // Real feedback: Watchlist and Mark Watched used to sit there
-  // permanently, real Nuvio screenshots confirmed that is not the real
-  // reference either, only Play and More show by default there, real
-  // Watchlist/Mark Watched only appearing once More itself is actually
-  // tapped, More's own colour flipping to show it is now the one
-  // selected. A second real tap on an already expanded More is what
-  // actually opens the Change Stream menu (a series has no stream of
-  // its own to change, so that entry is skipped there, same real gate
-  // Play/Play button above already uses); tapping anywhere else on the
-  // page collapses back to just Play/More, the same outside click
-  // discipline every other popover in this codebase already uses.
-  // Always built, series included: a series still has real Watchlist/
-  // Mark Watched state, and More is the only real way to reach either
-  // one now that they no longer sit there permanently.
+  // Play alone already reopens components/streamPicker.js's own picker
+  // whenever there is real more than one source and "remember my
+  // stream choice" is off; this exists for when it is on, real
+  // feedback asked for a way back to the picker specifically without
+  // going through Settings, for a remembered choice that stopped
+  // working. forceChoice: true skips only that remembered shortcut, a
+  // title with one real source still has nothing to change to either
+  // way. A series has no stream of its own to change (each episode has
+  // its own), so this is skipped there the same as Play above.
+  if (item.Type !== 'Series') {
+    const changeStreamButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-collapsible');
+    changeStreamButton.type = 'button';
+    changeStreamButton.setAttribute('aria-label', 'Change Stream');
+    changeStreamButton.appendChild(el('span', 'material-icons sync_alt'));
+    changeStreamButton.addEventListener('click', function (event) {
+      event.stopPropagation();
+      openStreamPicker(item, { forceChoice: true });
+    });
+    actions.appendChild(changeStreamButton);
+  }
+
+  // Real feedback: Watchlist, Mark Watched and Change Stream used to
+  // sit there permanently, real Nuvio screenshots confirmed that is
+  // not the real reference either, only Play and More show by default
+  // there, the other three only appearing once More itself is actually
+  // tapped, More's own colour (and its own three dots rotating flat)
+  // flipping to show it is now the one selected. A second real tap on
+  // More collapses it straight back, a plain real toggle, the same as
+  // tapping anywhere else on the page; real feedback found a second
+  // tap opening a whole separate Change Stream menu instead confusing,
+  // Change Stream is a plain fourth button revealed alongside the
+  // other two instead now.
   const moreButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-more');
   moreButton.type = 'button';
   moreButton.setAttribute('aria-label', 'More options');
@@ -421,11 +392,12 @@ export async function renderDetail(root, params) {
   function expandActions() {
     if (actionsExpanded) return;
     actionsExpanded = true;
-    // Real width, measured now, before Watchlist/Mark Watched's own
-    // real width demand changes anything: pinning the row to this
-    // exact real number is what keeps More's own real screen position
-    // fixed once those two become visible, css/app.css's own header
-    // above this same rule explains the real flex math this pin drives.
+    // Real width, measured now, before Watchlist/Mark Watched/Change
+    // Stream's own real width demand changes anything: pinning the
+    // row to this exact real number is what keeps More's own real
+    // screen position fixed once those become visible, css/app.css's
+    // own header above this same rule explains the real flex math
+    // this pin drives.
     actions.style.width = actions.getBoundingClientRect().width + 'px';
     actions.classList.add('jellio-detail-actions-expanded');
     moreButton.classList.add('jellio-detail-icon-action-active');
@@ -435,21 +407,11 @@ export async function renderDetail(root, params) {
   }
   moreButton.addEventListener('click', function (event) {
     event.stopPropagation();
-    if (!actionsExpanded) {
+    if (actionsExpanded) {
+      collapseActions();
+    } else {
       expandActions();
-      return;
     }
-    const entries = [];
-    if (item.Type !== 'Series') {
-      entries.push({
-        label: 'Change Stream',
-        icon: 'sync_alt',
-        onSelect: function () {
-          openStreamPicker(item, { forceChoice: true });
-        },
-      });
-    }
-    if (entries.length) openDetailOptionsMenu(moreButton, entries);
   });
   actions.appendChild(moreButton);
 

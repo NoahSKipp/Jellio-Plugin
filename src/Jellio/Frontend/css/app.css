@@ -1016,6 +1016,12 @@
   display: flex;
   align-items: center;
   gap: 0.6em;
+  /* Real feedback: Play used to only be as wide as its own label and
+     padding needed, leaving real dead space before More. Stretched to
+     fill the row instead (jellio-detail-hero-content's own real 40em
+     cap already bounds this on a wide screen), Play (flex: 1 1 auto)
+     is the one item here that actually grows into that real width. */
+  width: 100%;
 }
 
 .jellio-detail-play {
