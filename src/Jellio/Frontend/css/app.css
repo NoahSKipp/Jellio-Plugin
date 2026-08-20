@@ -1003,14 +1003,27 @@
    Stream instead.
 
    The only real movement is Play shrinking, More's own real screen
-   position never changing: screens/detail.js's own expandActions()
-   measures More's own real left edge immediately before and after the
-   expanded class lands, then shrinks Play's own width by exactly that
-   real measured drift, whatever real combination of this row's own
-   flex sizing actually produced it, rather than trusting flex-shrink
-   alone to redistribute the right amount on its own (real feedback
-   found live, twice, that it did not). */
+   position never changing: real feedback, four times over, found
+   every real attempt at measuring or pinning some other element's own
+   width to cancel out More's own real drift after the fact left a
+   real visible flash or a real residual jump one way or another.
+   .jellio-detail-icon-action-more is position: absolute against this
+   element's own position: relative instead now, taken out of the row's
+   own flex flow altogether (padding-right below reserves its own real
+   space so the flex content here never runs underneath it): nothing
+   Play or the other three do to their own real widths can move an
+   element flexbox no longer has any real say over the position of at
+   all, the one real way to guarantee this rather than trying to
+   correct for it. */
 .jellio-detail-actions {
+  position: relative;
+  /* No global box-sizing: border-box reset in this codebase (see the
+     same real note on .jellio-detail-play below): without this,
+     padding-right just below adds on top of width: 100% instead of
+     eating into it, overflowing this row past jellio-detail-hero-content's
+     own real 40em cap by exactly that padding and dragging the
+     absolutely positioned More button out past the real edge with it. */
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   /* Real feedback: Play used to only be as wide as its own label and
@@ -1026,6 +1039,11 @@
      Watched/Change Stream were collapsed to width: 0, not the tight
      real gap actually wanted there. */
   width: 100%;
+  /* More's own real 2.8em width plus its own real 0.6em gap, reserved
+     so the flex content sharing this row with it (Play and the three
+     collapsible buttons) never lays out underneath the absolutely
+     positioned real button sitting on top of that same real space. */
+  padding-right: 3.4em;
 }
 
 .jellio-detail-play {
@@ -1099,6 +1117,14 @@
   color: var(--jellio-secondary-color);
 }
 
+.jellio-detail-icon-action-more {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0;
+}
+
 .jellio-detail-icon-action-more.jellio-detail-icon-action-active {
   background: var(--jellio-secondary-color);
   color: var(--jellio-on-secondary);
@@ -1133,20 +1159,6 @@
   margin-left: 0.6em;
   border-width: 1px;
   opacity: 1;
-}
-
-/* screens/detail.js's own expandActions(): a synchronous
-   getBoundingClientRect read taken right after a transitioned class
-   change lands at real elapsed time zero, still reporting essentially
-   the pre-change layout, not wherever things actually settle, since
-   every transitioned property here animates over real time rather
-   than snapping. Applied for one real synchronous measuring pass
-   before the real animated one, disabling every real transition below
-   so that read reports the real final layout instead. */
-.jellio-detail-actions-measuring,
-.jellio-detail-actions-measuring .jellio-detail-play,
-.jellio-detail-actions-measuring .jellio-detail-icon-action {
-  transition: none !important;
 }
 
 .jellio-detail-overview {
