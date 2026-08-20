@@ -17,6 +17,7 @@
 // describe the same data.
 import { getMediaSources, getImageUrl } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
+import { languageName } from '../runtime/languages.js';
 
 const OVERLAY_ID = 'jellioStreamPicker';
 
@@ -142,6 +143,23 @@ export function sourceLabel(source) {
 
 function sourceDescription(source) {
   return (source.Name || '').split('\n').slice(1).join(' ').trim();
+}
+
+// Every real embedded audio language a source carries, lower cased ISO
+// 639-2/B codes straight off its own MediaStreams (the same real field
+// screens/player.js's own audio track menu already reads), not parsed
+// back out of Gelato's own free text Name: a scraper's own naming is
+// not consistent enough to filter on, the source's own real audio
+// tracks always are.
+function sourceAudioLanguages(source) {
+  const streams = source.MediaStreams || [];
+  const codes = [];
+  streams.forEach(function (stream) {
+    if (stream.Type !== 'Audio' || !stream.Language) return;
+    const code = stream.Language.toLowerCase();
+    if (codes.indexOf(code) === -1) codes.push(code);
+  });
+  return codes;
 }
 
 function playHash(itemId, mediaSourceId) {
@@ -281,17 +299,76 @@ export async function openStreamPicker(item, options) {
   panel.appendChild(left);
 
   const right = el('div', 'jellio-stream-picker-right');
-  right.appendChild(el('div', 'jellio-stream-picker-count', sources.length + ' streams found'));
-  const list = el('div', 'jellio-stream-picker-list');
+  const count = el('div', 'jellio-stream-picker-count');
+  right.appendChild(count);
+
+  // Only worth showing when there is a real choice behind it: every
+  // source carrying the exact same one language (or none at all,
+  // common for a release with no real embedded audio metadata) leaves
+  // nothing for a filter to actually narrow, same reasoning the whole
+  // picker already skips itself for a single-source title.
+  const languageCounts = {};
   sources.forEach(function (source) {
-    list.appendChild(
-      buildSourceCard(source, function (picked) {
-        if (isRememberStreamEnabled()) rememberSourceChoice(item.Id, picked.Id);
-        closeStreamPicker();
-        navigateTo(playHash(item.Id, picked.Id));
-      }),
-    );
+    sourceAudioLanguages(source).forEach(function (code) {
+      languageCounts[code] = (languageCounts[code] || 0) + 1;
+    });
   });
+  const languages = Object.keys(languageCounts).sort(function (a, b) {
+    return languageCounts[b] - languageCounts[a] || languageName(a).localeCompare(languageName(b));
+  });
+
+  let selectedLanguage = null;
+  const list = el('div', 'jellio-stream-picker-list');
+
+  function renderList() {
+    list.textContent = '';
+    const filtered = selectedLanguage
+      ? sources.filter(function (source) {
+          return sourceAudioLanguages(source).indexOf(selectedLanguage) !== -1;
+        })
+      : sources;
+    count.textContent = filtered.length + ' stream' + (filtered.length === 1 ? '' : 's') + ' found';
+    filtered.forEach(function (source) {
+      list.appendChild(
+        buildSourceCard(source, function (picked) {
+          if (isRememberStreamEnabled()) rememberSourceChoice(item.Id, picked.Id);
+          closeStreamPicker();
+          navigateTo(playHash(item.Id, picked.Id));
+        }),
+      );
+    });
+  }
+
+  if (languages.length > 1) {
+    const filterRow = el('div', 'jellio-stream-picker-filters');
+    const chips = [];
+    function setSelected(code, chip) {
+      selectedLanguage = code;
+      chips.forEach(function (entry) {
+        entry.chip.classList.toggle('jellio-stream-picker-filter-chip-active', entry.chip === chip);
+      });
+      renderList();
+    }
+    const allChip = el('button', 'jellio-stream-picker-filter-chip jellio-stream-picker-filter-chip-active', 'All');
+    allChip.type = 'button';
+    allChip.addEventListener('click', function () {
+      setSelected(null, allChip);
+    });
+    chips.push({ chip: allChip });
+    filterRow.appendChild(allChip);
+    languages.forEach(function (code) {
+      const chip = el('button', 'jellio-stream-picker-filter-chip', languageName(code));
+      chip.type = 'button';
+      chip.addEventListener('click', function () {
+        setSelected(code, chip);
+      });
+      chips.push({ chip: chip });
+      filterRow.appendChild(chip);
+    });
+    right.appendChild(filterRow);
+  }
+
+  renderList();
   right.appendChild(list);
   panel.appendChild(right);
 

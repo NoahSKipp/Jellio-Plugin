@@ -3453,6 +3453,46 @@
   color: var(--jellio-text-secondary);
 }
 
+/* Same real chip look .jellio-service-chip already uses, so this reads
+   as the same one visual language rather than a second chip style. */
+.jellio-stream-picker-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  margin-bottom: 0.9em;
+}
+
+.jellio-stream-picker-filter-chip {
+  flex: 0 0 auto;
+  padding: 0.42em 0.95em;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--jellio-text-secondary);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.7em, 0.78vw, 0.84em);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.jellio-stream-picker-filter-chip:hover {
+  background: rgb(255 255 255 / 0.14);
+  color: var(--jellio-text-color);
+}
+
+.jellio-stream-picker-filter-chip-active,
+.jellio-stream-picker-filter-chip-active:hover {
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+}
+
+.jellio-stream-picker-filter-chip:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}
+
 .jellio-stream-picker-list {
   flex: 1 1 auto;
   min-height: 0;
