@@ -12,6 +12,7 @@ import { logout } from '../runtime/auth.js';
 import { openAvatarPicker } from '../components/avatarPicker.js';
 import { refreshProfileAvatar } from '../components/navShared.js';
 import { isRememberStreamEnabled, setRememberStreamEnabled } from '../components/streamPicker.js';
+import { navigateTo } from '../runtime/router.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -171,6 +172,30 @@ export async function renderSettings(root) {
   }
   if (user) {
     profile.appendChild(el('p', 'jellio-settings-status', 'Signed in as ' + user.Name));
+  }
+
+  // Real feedback: this small account page used to be the sidebar's
+  // own real Settings destination, which used to just fall through to
+  // native jellyfin-web on a dead route, real access to Plugins/Users/
+  // Server settings landing on it by accident once native's own chrome
+  // showed through. Fixing that route (components/navShared.js's own
+  // SETTINGS_LINK) closed that accidental door along with the bug,
+  // reported live as no longer being able to reach admin at all. Real
+  // Jellyfin's own UserDto.Policy.IsAdministrator (populated for the
+  // signed in user's own real record, confirmed against BaseItemDto
+  // before writing this) is the one real gate every native admin link
+  // already uses, matched here rather than showing this to every
+  // reader. #/dashboard has no entry in app.js's own SCREENS table, so
+  // navigating there leaves native jellyfin-web showing through
+  // unreskinned, the same real fallback discipline every other
+  // unmigrated route already gets.
+  if (user && user.Policy && user.Policy.IsAdministrator) {
+    const dashboardButton = el('button', 'jellio-settings-button', 'Open admin dashboard');
+    dashboardButton.type = 'button';
+    dashboardButton.addEventListener('click', function () {
+      navigateTo('#/dashboard');
+    });
+    profile.appendChild(dashboardButton);
   }
 
   const avatarButton = el('button', 'jellio-settings-button', 'Change avatar');
