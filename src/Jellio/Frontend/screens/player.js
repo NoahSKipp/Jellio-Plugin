@@ -363,6 +363,19 @@ export async function renderPlayer(root, params) {
     return getImageUrl(artId, backdropTag ? 'Backdrop' : 'Primary', { tag: tag, maxWidth: maxWidth });
   }
 
+  // Same real series-aware fallback as the backdrop above, the one
+  // other real image type Jellyfin's own metadata providers save
+  // against a title (ParentLogoImageTag for an Episode, ImageTags.Logo
+  // for a movie or the series itself): a transparent title treatment,
+  // not guaranteed to exist for every real title the way a backdrop
+  // usually is, so this can come back null.
+  function seriesAwareLogoUrl(maxWidth) {
+    const artId = isEpisodeItem && item.SeriesId ? item.SeriesId : itemId;
+    const tag = isEpisodeItem ? item.ParentLogoImageTag : item.ImageTags && item.ImageTags.Logo;
+    if (!tag) return null;
+    return getImageUrl(artId, 'Logo', { tag: tag, maxWidth: maxWidth });
+  }
+
   const video = document.createElement('video');
   video.className = 'jellio-player-video';
   video.src = streamUrl;
@@ -373,6 +386,30 @@ export async function renderPlayer(root, params) {
   // frame takes to arrive.
   const posterUrl = seriesAwareArtworkUrl(1600);
   if (posterUrl) video.poster = posterUrl;
+
+  // Ported from the same real Nuvio loading screen this whole pass
+  // works from: the title's own real logo art breathing in place while
+  // the very first stream is still loading, standing in for a plain
+  // spinner. Only for the one real loading window before playback ever
+  // starts here, real feedback did not ask for this on every later
+  // pause, only removed once the video actually starts for the first
+  // time, never rebuilt after.
+  let loadingLogo = null;
+  const logoUrl = seriesAwareLogoUrl(800);
+  if (logoUrl) {
+    loadingLogo = el('div', 'jellio-player-loading-logo');
+    loadingLogo.style.backgroundImage = 'url(' + logoUrl + ')';
+    video.addEventListener(
+      'playing',
+      function () {
+        if (loadingLogo) {
+          loadingLogo.remove();
+          loadingLogo = null;
+        }
+      },
+      { once: true },
+    );
+  }
 
   let subtitleStyle = loadSubtitleStyle();
   applySubtitleStyle(video, subtitleStyle);
@@ -1427,6 +1464,7 @@ export async function renderPlayer(root, params) {
   });
 
   root.appendChild(video);
+  if (loadingLogo) root.appendChild(loadingLogo);
   root.appendChild(pauseOverlay);
   root.appendChild(skipButton);
   root.appendChild(shell);

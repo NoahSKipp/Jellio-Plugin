@@ -1200,6 +1200,35 @@
   background-color: var(--jellio-subtitle-bg);
 }
 
+/* Ported from Nuvio's own loading screen: the title's real logo art
+   breathing in place over the poster while the first stream is still
+   loading, standing in for a plain spinner. */
+.jellio-player-loading-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(60vw, 26em);
+  height: min(30vh, 13em);
+  transform: translate(-50%, -50%);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  pointer-events: none;
+  animation: jellio-player-logo-pulse 1800ms ease-in-out infinite;
+}
+
+@keyframes jellio-player-logo-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.08);
+    opacity: 1;
+  }
+}
+
 .jellio-player-pause-overlay {
   position: absolute;
   inset: 0;
@@ -1226,7 +1255,12 @@
 .jellio-player-pause-content {
   position: relative;
   max-width: 40em;
-  padding: clamp(24px, 5vw, 64px) clamp(16px, 3vw, 40px) 7em;
+  /* Real feedback: 7em used to clip straight into the seek row, the
+     shell's own real seek row + pill bar stacked underneath this
+     overlay together taking up more real vertical space than that at
+     most real viewport widths (seek row + pill's own padding/margins +
+     the pill bar itself), not just the pill alone. */
+  padding: clamp(24px, 5vw, 64px) clamp(16px, 3vw, 40px) 10.5em;
   color: var(--jellio-text-color);
 }
 
