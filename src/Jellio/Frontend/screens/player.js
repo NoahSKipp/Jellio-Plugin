@@ -40,6 +40,7 @@ import { invalidateHomeSections } from './home.js';
 import { sourceLabel, buildSourceCard } from '../components/streamPicker.js';
 import { renderLoading } from '../components/networkState.js';
 import { describeNetworkFailure } from '../runtime/network.js';
+import { languageName } from '../runtime/languages.js';
 
 const PROGRESS_REPORT_MS = 5000;
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
@@ -674,21 +675,6 @@ export async function renderPlayer(root, params) {
     }
   }
 
-  // Real subtitle language names for the left column, ISO 639-2/B codes
-  // being what MediaStreams.Language actually carries (confirmed
-  // against Jellyfin's own MediaStream DTO before writing this), not a
-  // code a reader would recognize on sight.
-  const SUBTITLE_LANGUAGE_NAMES = {
-    eng: 'English', ger: 'German', deu: 'German', fre: 'French', fra: 'French',
-    spa: 'Spanish', ita: 'Italian', jpn: 'Japanese', kor: 'Korean', chi: 'Chinese',
-    zho: 'Chinese', rus: 'Russian', por: 'Portuguese', dut: 'Dutch', nld: 'Dutch',
-    ara: 'Arabic', pol: 'Polish', swe: 'Swedish', tur: 'Turkish',
-  };
-  function subtitleLanguageName(code) {
-    if (!code) return 'Unknown';
-    return SUBTITLE_LANGUAGE_NAMES[code.toLowerCase()] || code.toUpperCase();
-  }
-
   // Rebuildable rather than built once: a source switch below can hand
   // back a mediaSource with an entirely different subtitle track list
   // (a different scraped file has its own real embedded/external
@@ -763,7 +749,7 @@ export async function renderPlayer(root, params) {
       if (code && languages.indexOf(code) === -1) languages.push(code);
     });
     languages.forEach(function (code) {
-      const option = el('button', 'jellio-player-popover-option', subtitleLanguageName(code));
+      const option = el('button', 'jellio-player-popover-option', languageName(code));
       option.type = 'button';
       option.addEventListener('click', function () {
         selectedSubtitleLanguage = code;
