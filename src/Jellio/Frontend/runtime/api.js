@@ -831,6 +831,67 @@ export async function setUserAvatar(presetId) {
   invalidateCurrentUser();
 }
 
+// Real endpoint, POST /Users/{id}/Configuration (UserController.cs's
+// own UpdateUserConfiguration): replaces the whole real
+// UserConfiguration object rather than patching one field, so this
+// starts from the signed in user's own current one (already sitting on
+// the cached user object getCurrentUser above returns) and only
+// overwrites the two real fields this screen actually exposes,
+// AudioLanguagePreference and SubtitleLanguagePreference. Real ISO
+// 639-2 codes Jellyfin's own PlaybackInfo negotiation already reads
+// server side to pick a MediaSource's own real
+// DefaultAudioStreamIndex/DefaultSubtitleStreamIndex automatically, no
+// client side track selection logic needed here for this to take
+// effect on the next real negotiated stream.
+export async function updateLanguagePreferences(audioLanguage, subtitleLanguage) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const user = await getCurrentUser();
+  const configuration = Object.assign({}, user.Configuration, {
+    AudioLanguagePreference: audioLanguage || '',
+    SubtitleLanguagePreference: subtitleLanguage || '',
+  });
+  const response = await fetch(getServerAddress() + '/Users/' + userId + '/Configuration', {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json', Accept: 'application/json' }, getAuthHeaders()),
+    body: JSON.stringify(configuration),
+  });
+  if (!response.ok) {
+    const err = new Error('Request failed: Configuration');
+    err.status = response.status;
+    throw err;
+  }
+  invalidateCurrentUser();
+}
+
+// Real endpoint, GET /QuickConnect/Enabled (QuickConnectController.cs):
+// a server admin can turn the whole real feature off, checked before
+// this screen bothers offering a code field nobody could ever actually
+// use.
+export function isQuickConnectEnabled() {
+  return getJson('/QuickConnect/Enabled').catch(function () {
+    return false;
+  });
+}
+
+// Real endpoint, POST /QuickConnect/Authorize?code= (the signed in
+// session's own token approving a real pending request another device
+// started), returns a real bool for whether the code actually matched
+// a pending request, not just whether the call itself succeeded.
+export async function authorizeQuickConnect(code) {
+  const response = await fetch(getServerAddress() + '/QuickConnect/Authorize?code=' + encodeURIComponent(code), {
+    method: 'POST',
+    headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()),
+  });
+  if (!response.ok) {
+    const err = new Error('Request failed: QuickConnect/Authorize');
+    err.status = response.status;
+    throw err;
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : true;
+}
+
 // Streaming service hub: which catalog collections a server really has,
 // the only thing that can be asked. Gelato writes no Studios/network
 // field onto an imported item at all (GelatoManager.IntoBaseItem sets

@@ -7,12 +7,21 @@
 // endpoint": components/streamPicker.js's own preference has no server
 // side concept at all, client only, same as screens/player.js's own
 // subtitle style.
-import { getCurrentUser, updateUserPassword, getSleepTimerStatus, cancelSleepTimer } from '../runtime/api.js';
+import {
+  getCurrentUser,
+  updateUserPassword,
+  getSleepTimerStatus,
+  cancelSleepTimer,
+  updateLanguagePreferences,
+  isQuickConnectEnabled,
+  authorizeQuickConnect,
+} from '../runtime/api.js';
 import { logout } from '../runtime/auth.js';
 import { openAvatarPicker } from '../components/avatarPicker.js';
 import { refreshProfileAvatar } from '../components/navShared.js';
 import { isRememberStreamEnabled, setRememberStreamEnabled } from '../components/streamPicker.js';
 import { navigateTo } from '../runtime/router.js';
+import { LANGUAGE_OPTIONS, languageName } from '../runtime/languages.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -119,6 +128,140 @@ function buildPlaybackSection() {
   return section;
 }
 
+// Real fields, UserDto.Configuration.AudioLanguagePreference/
+// SubtitleLanguagePreference (confirmed against UserConfiguration.cs
+// before writing this): Jellyfin's own PlaybackInfo negotiation
+// already reads these server side to pick a MediaSource's own real
+// DefaultAudioStreamIndex/DefaultSubtitleStreamIndex, so saving a
+// choice here is the whole fix, nothing else in this codebase needs to
+// change for it to take effect on the next real stream negotiated.
+function buildLanguageSection(user) {
+  const section = el('section', 'jellio-settings-section');
+  section.appendChild(el('h2', 'jellio-settings-section-title', 'Language'));
+
+  const configuration = (user && user.Configuration) || {};
+  const status = el(
+    'p',
+    'jellio-settings-status',
+    'Used automatically when Jellyfin picks a stream’s default audio and subtitle track.',
+  );
+
+  function buildSelect(labelText, currentCode) {
+    const field = el('div', 'jellio-settings-field');
+    field.appendChild(el('label', 'jellio-settings-field-label', labelText));
+    const select = document.createElement('select');
+    select.className = 'jellio-settings-input';
+    const noneOption = document.createElement('option');
+    noneOption.value = '';
+    noneOption.textContent = 'No preference';
+    select.appendChild(noneOption);
+    LANGUAGE_OPTIONS.forEach(function (option) {
+      const opt = document.createElement('option');
+      opt.value = option.code;
+      opt.textContent = option.name;
+      select.appendChild(opt);
+    });
+    // A saved code might be the alternate ISO form this canonical
+    // option list does not itself carry (deu rather than ger, for a
+    // preference set from some other real Jellyfin client): matched by
+    // real name, the one thing both forms actually agree on, rather
+    // than left looking unset.
+    const matched = LANGUAGE_OPTIONS.find(function (option) {
+      return option.code === (currentCode || '').toLowerCase() || option.name === languageName(currentCode);
+    });
+    select.value = matched ? matched.code : '';
+    field.appendChild(select);
+    return { field: field, select: select };
+  }
+
+  const audio = buildSelect('Default audio language', configuration.AudioLanguagePreference);
+  const subtitle = buildSelect('Default subtitle language', configuration.SubtitleLanguagePreference);
+
+  function handleChange() {
+    audio.select.disabled = true;
+    subtitle.select.disabled = true;
+    status.textContent = 'Saving…';
+    updateLanguagePreferences(audio.select.value, subtitle.select.value)
+      .then(function () {
+        status.textContent = 'Saved, takes effect the next time you start playback.';
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not update language preferences', err);
+        status.textContent = 'Could not save language preferences.';
+      })
+      .finally(function () {
+        audio.select.disabled = false;
+        subtitle.select.disabled = false;
+      });
+  }
+  audio.select.addEventListener('change', handleChange);
+  subtitle.select.addEventListener('change', handleChange);
+
+  section.appendChild(audio.field);
+  section.appendChild(subtitle.field);
+  section.appendChild(status);
+  return section;
+}
+
+// Real endpoint pair, GET /QuickConnect/Enabled + POST /QuickConnect/
+// Authorize: no section at all when the server admin has turned the
+// whole real feature off, same reasoning every other self hiding
+// section in this screen already uses (buildSleepTimerSection above
+// included).
+async function buildQuickConnectSection() {
+  let enabled = false;
+  try {
+    enabled = await isQuickConnectEnabled();
+  } catch (err) {
+    console.warn('Jellio: could not check Quick Connect availability', err);
+  }
+  if (!enabled) return null;
+
+  const section = el('section', 'jellio-settings-section');
+  section.appendChild(el('h2', 'jellio-settings-section-title', 'Quick Connect'));
+
+  const form = document.createElement('form');
+  form.className = 'jellio-settings-form';
+
+  const codeInput = document.createElement('input');
+  codeInput.type = 'text';
+  codeInput.placeholder = 'Code shown on the other device';
+  codeInput.autocomplete = 'off';
+  codeInput.className = 'jellio-settings-input';
+  codeInput.maxLength = 6;
+
+  const status = el('p', 'jellio-settings-status');
+  const submit = el('button', 'jellio-settings-button', 'Approve');
+  submit.type = 'submit';
+
+  form.appendChild(codeInput);
+  form.appendChild(status);
+  form.appendChild(submit);
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    const code = codeInput.value.trim();
+    if (!code) return;
+    submit.disabled = true;
+    status.textContent = 'Approving…';
+    authorizeQuickConnect(code)
+      .then(function (authorized) {
+        status.textContent = authorized ? 'Device approved.' : 'That code was not recognized.';
+        if (authorized) form.reset();
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not authorize Quick Connect', err);
+        status.textContent = 'Could not approve that code.';
+      })
+      .finally(function () {
+        submit.disabled = false;
+      });
+  });
+
+  section.appendChild(form);
+  return section;
+}
+
 async function buildSleepTimerSection() {
   const section = el('section', 'jellio-settings-section');
   section.appendChild(el('h2', 'jellio-settings-section-title', 'Sleep timer'));
@@ -212,8 +355,11 @@ export async function renderSettings(root) {
   root.appendChild(profile);
 
   root.appendChild(buildPlaybackSection());
+  root.appendChild(buildLanguageSection(user));
   root.appendChild(buildPasswordSection());
   root.appendChild(await buildSleepTimerSection());
+  const quickConnect = await buildQuickConnectSection();
+  if (quickConnect) root.appendChild(quickConnect);
 
   const account = el('section', 'jellio-settings-section');
   const logoutButton = el('button', 'jellio-settings-button jellio-settings-button-danger', 'Sign out');
