@@ -2221,6 +2221,29 @@
   color: var(--jellio-text-color);
 }
 
+/* Language and Quick Connect sections: a labelled select or input
+   stacked with its own field label above it, same real .jellio-settings-
+   form gap the password fields already use rather than a third layout. */
+.jellio-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+
+.jellio-settings-field-label {
+  color: var(--jellio-text-secondary);
+  font-size: 0.85em;
+}
+
+select.jellio-settings-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8em center;
+  background-size: 1.1em;
+  padding-right: 2.4em;
+}
+
 .jellio-sidebar-now-playing {
   position: relative;
 }
