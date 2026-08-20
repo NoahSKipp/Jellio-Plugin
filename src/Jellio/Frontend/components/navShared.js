@@ -52,7 +52,15 @@ const LIBRARY_ROUTES = {
   musicvideos: 'musicvideos',
 };
 
-export const SETTINGS_LINK = { icon: 'settings', label: 'Settings', hash: '#/mypreferencesmenu' };
+// Real bug, found live: this used to point at native jellyfin-web's
+// own preferences route, never a real path app.js's own SCREENS table
+// recognizes, so Emby.Page.show() either landed on a native page this
+// runtime never reskinned or, on a build where that route no longer
+// exists at all, fell back to native's own home. screens/settings.js
+// is this runtime's own real settings screen, mounted at #/account
+// (app.js's own SCREENS.account), the one real hash that actually
+// reaches it.
+export const SETTINGS_LINK = { icon: 'settings', label: 'Settings', hash: '#/account' };
 
 function libraryHash(view) {
   const route = view.CollectionType && LIBRARY_ROUTES[view.CollectionType];

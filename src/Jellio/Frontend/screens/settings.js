@@ -1,12 +1,11 @@
-// Account settings, this runtime's own screen. Additive alongside the
-// sidebar's existing Settings link to native's real #/mypreferencesmenu
-// (Display, Home, Playback, Subtitles and the rest stay there, out of
-// scope here), the same native fallback discipline every other screen in
-// this codebase already follows: this covers only what has a real,
-// confirmed endpoint and a clear place in a small account page. Remember
-// my stream choice is the one real exception to "a confirmed endpoint":
-// components/streamPicker.js's own preference has no server side
-// concept at all, client only, same as screens/player.js's own
+// Account settings, this runtime's own screen, the sidebar's Settings
+// link's own real destination (components/navShared.js's own
+// SETTINGS_LINK, #/account). Covers only what has a real, confirmed
+// endpoint and a clear place in a small account page, the same
+// discipline every other screen in this codebase already follows.
+// Remember my stream choice is the one real exception to "a confirmed
+// endpoint": components/streamPicker.js's own preference has no server
+// side concept at all, client only, same as screens/player.js's own
 // subtitle style.
 import { getCurrentUser, updateUserPassword, getSleepTimerStatus, cancelSleepTimer } from '../runtime/api.js';
 import { logout } from '../runtime/auth.js';
