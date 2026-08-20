@@ -452,36 +452,56 @@ function runTrackedTasks(tasks) {
 async function preloadInitialData() {
   showSplash();
 
+  const route = parseRoute();
   const tasks = [
     { label: 'Account', run: getCurrentUser },
     { label: 'Streaming services', run: getCollections },
   ];
 
-  let views = [];
-  try {
-    views = await getUserViews();
-  } catch (err) {
-    console.warn('Jellio: could not preload library list', err);
-  }
-
-  const route = parseRoute();
-
   if (route.path === 'home') {
     tasks.push({ label: 'Featured', run: preloadHeroImages });
-    tasks.push({ label: 'Home', run: preloadHomeRows });
+    // Home's own rows, recommendation/catalog/genre alike, run in the
+    // background rather than as a tracked, splash-blocking task: this
+    // used to keep the splash up until that whole chain resolved, the
+    // slowest phase on this whole page deciding how long every reader
+    // stared at it regardless of how fast Account/Streaming/Featured
+    // above already were. preloadHomeRows() memoizes into home.js's
+    // own homeSectionsPromise, so renderHome()'s later real call to
+    // preloadHomeSectionsWithProgress() below reuses this exact same
+    // in-flight promise and streams each phase's own sections in as it
+    // resolves, real Nuvio-style progressive reveal, instead of a
+    // blank splash standing in for all of it at once.
+    preloadHomeRows().catch(function (err) {
+      console.warn('Jellio: could not preload home rows', err);
+    });
   } else {
-    const currentParentId = route.params.get('topParentId') || route.params.get('parentId');
-    const currentView = views.filter(function (view) {
-      return view.CollectionType && view.Id === currentParentId;
-    })[0];
-    if (currentView) {
-      tasks.push({
-        label: currentView.Name || 'Library',
-        run: function () {
-          return preloadLibraryCoverflow(currentView);
-        },
-      });
-    }
+    // getUserViews() used to be awaited ahead of this whole task list,
+    // real reason being the current view's own real name for the
+    // splash's own step label below, but that inserted one full serial
+    // round trip in front of Account/Streaming/Featured on every real
+    // load, not only a library one. Folded into its own tracked task
+    // instead, it now runs together with the others rather than
+    // gating them from even starting.
+    tasks.push({
+      label: 'Library',
+      run: async function () {
+        const currentParentId = route.params.get('topParentId') || route.params.get('parentId');
+        if (!currentParentId) return;
+        let views = [];
+        try {
+          views = await getUserViews();
+        } catch (err) {
+          console.warn('Jellio: could not preload library list', err);
+          return;
+        }
+        const currentView = views.filter(function (view) {
+          return view.CollectionType && view.Id === currentParentId;
+        })[0];
+        if (currentView) {
+          await preloadLibraryCoverflow(currentView);
+        }
+      },
+    });
   }
 
   await withTimeout(runTrackedTasks(tasks), PRELOAD_TIMEOUT_MS);
