@@ -559,18 +559,50 @@
   cursor: pointer;
 }
 
-/* components/cardOptionsMenu.js's own animateCardRemoval(): a Continue
-   Watching card leaving that row for good (Remove from Continue
-   Watching) fades, shrinks and blurs out in place rather than just
-   vanishing or sitting there under a repainted badge, the closest a
-   web target gets to Nuvio's own real spring-collapse removal without
-   a haptic channel to fire alongside it. */
+/* components/cardOptionsMenu.js's own plainRemoval(), the one real
+   fallback for a card with no decoded poster image to shatter into
+   the snap effect below: fades, shrinks and blurs out in place rather
+   than just vanishing, still reads as a real deliberate removal. */
 .jellio-card-removing {
   transition: opacity 260ms ease, transform 260ms ease, filter 260ms ease;
   opacity: 0;
   transform: scale(0.82);
   filter: blur(6px);
   pointer-events: none;
+}
+
+/* components/cardOptionsMenu.js's own animateCardRemoval(): a real
+   Thanos snap, asked for directly, the closest a web target gets to
+   Nuvio's own real spring collapse plus haptic tick with neither a
+   spring physics engine nor a haptic channel to fire either one
+   through. Fixed rather than absolute: the overlay sits over the
+   card's own real viewport rect at the moment removal started,
+   independent of whatever the row underneath does to its own layout
+   once the real card node is gone. */
+.jellio-card-snap-overlay {
+  position: fixed;
+  z-index: 10003;
+  pointer-events: none;
+}
+
+.jellio-card-snap-shard {
+  position: absolute;
+  background-repeat: no-repeat;
+  animation: jellio-card-snap-dissolve 550ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes jellio-card-snap-dissolve {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--jellio-snap-drift-x), var(--jellio-snap-drift-y)) rotate(var(--jellio-snap-rotate)) scale(0.4);
+    filter: blur(3px);
+  }
 }
 
 .jellio-card-image-wrap {
@@ -665,6 +697,109 @@
   background: var(--jellio-secondary-color);
 }
 
+/* components/card.js's own buildCardActions(): a wide Play button and
+   a fixed More button sit on every card by default on a real mouse,
+   Watchlist and Mark Watched only real, clickable space between
+   hover/focus reveals. Play's own flex-basis shrinking by exactly the
+   amount Watchlist+Mark Watched grow by (pure flexbox math, no JS
+   measuring either width) is what keeps More's own real screen
+   position constant through the whole animation, the one real
+   difference from the previous Jellio codebase's own version, where
+   the three dot button itself used to slide, real feedback called
+   that disorienting to land a second real tap on.
+
+   hover: none (touch, real Nuvio screenshots confirmed against before
+   writing this) never shows this bar at all: Nuvio's own real mobile
+   card has nothing on it but the poster itself, every quick action
+   reachable through the long press sheet components/cardOptionsMenu.js
+   already owns instead, this bar's own real job is a real mouse
+   hovering a card with nothing to press and hold in the first place. */
+.jellio-card-actions {
+  position: absolute;
+  left: 0.5em;
+  right: 0.5em;
+  bottom: 0.9em;
+  display: none;
+  align-items: center;
+  gap: 0.35em;
+}
+
+@media (hover: hover) {
+  .jellio-card-actions {
+    display: flex;
+  }
+}
+
+.jellio-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.2em;
+  min-width: 2.2em;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.55);
+  color: var(--jellio-text-color);
+  cursor: pointer;
+  transition: background-color 160ms ease, flex-basis 220ms cubic-bezier(0.4, 0, 0.2, 1), width 220ms cubic-bezier(0.4, 0, 0.2, 1), opacity 220ms ease;
+}
+
+.jellio-card-action:hover {
+  background: rgb(0 0 0 / 0.75);
+}
+
+.jellio-card-action:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.jellio-card-action .material-icons {
+  font-size: 1.15em;
+}
+
+.jellio-card-action-play {
+  flex: 1 1 auto;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+}
+
+.jellio-card-action-play:hover {
+  background: var(--jellio-secondary-variant);
+}
+
+.jellio-card-action-active {
+  color: var(--jellio-secondary-color);
+}
+
+.jellio-card-action-more {
+  flex: 0 0 2.2em;
+}
+
+@media (hover: hover) {
+  .jellio-card-action-watchlist,
+  .jellio-card-action-watched {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+
+  .jellio-card:hover .jellio-card-action-play,
+  .jellio-card:focus-within .jellio-card-action-play {
+    flex: 0 0 2.2em;
+  }
+
+  .jellio-card:hover .jellio-card-action-watchlist,
+  .jellio-card:hover .jellio-card-action-watched,
+  .jellio-card:focus-within .jellio-card-action-watchlist,
+  .jellio-card:focus-within .jellio-card-action-watched {
+    flex: 0 0 2.2em;
+    width: 2.2em;
+    opacity: 1;
+  }
+}
+
 .jellio-card-options-menu {
   position: fixed;
   z-index: 10002;
@@ -680,8 +815,15 @@
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
 }
 
+/* Label left, icon right, the same real layout Nuvio's own mobile
+   action sheet screenshots show, matched here rather than a plain
+   text row. */
 .jellio-card-options-item {
-  padding: 0.7em 0.9em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.8em 0.9em;
   border: 0;
   border-radius: calc(var(--jellio-card-radius) / 2);
   background: transparent;
@@ -696,6 +838,21 @@
 .jellio-card-options-item:focus-visible {
   background: rgb(255 255 255 / 0.08);
   outline: none;
+}
+
+.jellio-card-options-item-icon {
+  flex: 0 0 auto;
+  font-size: 1.15em;
+}
+
+/* Remove/Remove from Library/Remove from Continue Watching: real
+   destructive real actions, the same real pink-red every other
+   destructive action in this codebase's own settings screen already
+   uses (jellio-settings-button-danger's own sibling), not a plain
+   colour guess. */
+.jellio-card-options-item-danger,
+.jellio-card-options-item-danger .jellio-card-options-item-icon {
+  color: #ff6b81;
 }
 
 .jellio-library-header {

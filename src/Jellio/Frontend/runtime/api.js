@@ -436,6 +436,25 @@ export async function setPlayed(itemId, isPlayed) {
   return response.json();
 }
 
+// Real endpoint, DELETE /Items/{id} (ItemsController.cs's own real
+// DeleteItem, the same one native jellyfin-web's own Delete button
+// calls): removes the item's own record, including whatever Gelato
+// itself imported for it, not just a client side hide. Server side
+// authorization (admin, or the signed in user's own real
+// Policy.EnableContentDeletion) decides whether this actually succeeds,
+// this runtime does not duplicate that check client side.
+export async function deleteItem(itemId) {
+  const response = await fetch(getServerAddress() + '/Items/' + itemId, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const err = new Error('Request failed: delete item');
+    err.status = response.status;
+    throw err;
+  }
+}
+
 // Real endpoint pair, POST/DELETE /Users/{id}/FavoriteItems/{itemId}
 // (this app's own Watchlist is Jellyfin's own real favorites concept
 // under a different label, not a separate state), returns the item's
