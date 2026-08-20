@@ -412,11 +412,21 @@ export async function renderDetail(root, params) {
     actionsExpanded = false;
     actions.classList.remove('jellio-detail-actions-expanded');
     moreButton.classList.remove('jellio-detail-icon-action-active');
+    // Real counterpart to the real measured pin expandActions sets
+    // below: released back to its own natural fit-content width once
+    // there is nothing left inside it needing the real extra room.
+    actions.style.width = '';
     document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
   }
   function expandActions() {
     if (actionsExpanded) return;
     actionsExpanded = true;
+    // Real width, measured now, before Watchlist/Mark Watched's own
+    // real width demand changes anything: pinning the row to this
+    // exact real number is what keeps More's own real screen position
+    // fixed once those two become visible, css/app.css's own header
+    // above this same rule explains the real flex math this pin drives.
+    actions.style.width = actions.getBoundingClientRect().width + 'px';
     actions.classList.add('jellio-detail-actions-expanded');
     moreButton.classList.add('jellio-detail-icon-action-active');
     window.setTimeout(function () {
