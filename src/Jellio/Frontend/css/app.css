@@ -1057,6 +1057,7 @@
   font-family: var(--jellio-font-family);
   font-weight: 700;
   font-size: 1em;
+  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -1079,6 +1080,8 @@
   border-radius: 999px;
   background: transparent;
   color: var(--jellio-text-color);
+  font-size: 1em;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -1130,6 +1133,20 @@
   margin-left: 0.6em;
   border-width: 1px;
   opacity: 1;
+}
+
+/* screens/detail.js's own expandActions(): a synchronous
+   getBoundingClientRect read taken right after a transitioned class
+   change lands at real elapsed time zero, still reporting essentially
+   the pre-change layout, not wherever things actually settle, since
+   every transitioned property here animates over real time rather
+   than snapping. Applied for one real synchronous measuring pass
+   before the real animated one, disabling every real transition below
+   so that read reports the real final layout instead. */
+.jellio-detail-actions-measuring,
+.jellio-detail-actions-measuring .jellio-detail-play,
+.jellio-detail-actions-measuring .jellio-detail-icon-action {
+  transition: none !important;
 }
 
 .jellio-detail-overview {
