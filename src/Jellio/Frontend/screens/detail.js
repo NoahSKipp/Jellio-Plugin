@@ -273,18 +273,13 @@ export async function renderDetail(root, params) {
   // skips straight to Play for a single source title).
   const actions = el('div', 'jellio-detail-actions');
 
-  // Hoisted out of the if block below: expandActions further down
-  // needs a real handle on this to correct its own real width, a
-  // series (no playButton at all) just never has anything to correct.
-  let playButton = null;
-
   // A series has no video of its own, only its episodes do (each already
   // opens this same screen at its own item id, with its own working Play
   // button), so Play/Change Stream are skipped entirely here rather than
   // pointing at nothing playable; Watchlist/Mark Watched still apply to
   // the series itself.
   if (item.Type !== 'Series') {
-    playButton = el('button', 'jellio-detail-play');
+    const playButton = el('button', 'jellio-detail-play');
     playButton.type = 'button';
     playButton.appendChild(el('span', 'material-icons play_arrow'));
     playButton.appendChild(el('span', null, 'Play'));
@@ -374,6 +369,20 @@ export async function renderDetail(root, params) {
   // tap opening a whole separate Change Stream menu instead confusing,
   // Change Stream is a plain fourth button revealed alongside the
   // other two instead now.
+  //
+  // Real feedback, four times over: every real attempt at measuring or
+  // pinning some other element's own width to cancel out More's own
+  // real drift kept a real visible flash or a real residual jump one
+  // way or another, transitions and synchronous layout reads never
+  // actually behaving quite the way relying on them assumed. Given up
+  // on cancelling real drift after the fact entirely: More
+  // (css/app.css's own jellio-detail-icon-action-more) is now position:
+  // absolute, right: 0 against .jellio-detail-actions' own real
+  // position: relative, taken out of this row's own flex flow
+  // altogether. Nothing Play or the other three do to their own real
+  // widths can ever move an element that flexbox no longer has any
+  // real say over the position of at all, the one real way to
+  // guarantee this rather than trying to correct for it.
   const moreButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-more');
   moreButton.type = 'button';
   moreButton.setAttribute('aria-label', 'More options');
@@ -388,56 +397,13 @@ export async function renderDetail(root, params) {
     actionsExpanded = false;
     actions.classList.remove('jellio-detail-actions-expanded');
     moreButton.classList.remove('jellio-detail-icon-action-active');
-    // Real counterpart to the real measured correction expandActions
-    // applies below: released back to its own natural flex-computed
-    // width once there is nothing left inside it needing the real
-    // extra room.
-    if (playButton) playButton.style.width = '';
     document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
   }
-  // Real feedback, three times over: measuring More's own real left
-  // edge right after the expanded class landed kept reading back
-  // essentially its pre-change position regardless, the actual real
-  // bug finally found: css/app.css's own real transitions animate
-  // over real elapsed time, and a synchronous read taken immediately
-  // after the class change catches that transition at real elapsed
-  // time zero, still sitting on the old, pre-change value, not
-  // wherever it actually settles. jellio-detail-actions-measuring
-  // (css/app.css's own real transition: none override) disables every
-  // real transition here for one real synchronous pass: classes go on,
-  // the real final settled layout gets read with nothing animating yet
-  // to hide it, Play's own real corrected width gets computed from
-  // that, then everything reverts and reapplies with transitions back
-  // on, so the real correction animates in smoothly alongside
-  // everything else instead of the drift only showing up once the
-  // real animation had already finished playing out uncorrected.
   function expandActions() {
     if (actionsExpanded) return;
     actionsExpanded = true;
-
-    const beforeLeft = moreButton.getBoundingClientRect().left;
-
-    actions.classList.add('jellio-detail-actions-measuring');
     actions.classList.add('jellio-detail-actions-expanded');
     moreButton.classList.add('jellio-detail-icon-action-active');
-    const drift = moreButton.getBoundingClientRect().left - beforeLeft;
-    const correctedPlayWidth =
-      drift && playButton ? Math.max(playButton.getBoundingClientRect().width - drift, 0) : null;
-
-    actions.classList.remove('jellio-detail-actions-expanded');
-    moreButton.classList.remove('jellio-detail-icon-action-active');
-    actions.classList.remove('jellio-detail-actions-measuring');
-    // Forces the browser to actually settle on that reverted, real
-    // transitions-back-on state above before the real animated state
-    // below applies, or the two would just coalesce into one instant
-    // real jump instead of a real measuring pass followed by a real
-    // animated one.
-    void actions.offsetWidth;
-
-    if (correctedPlayWidth != null) playButton.style.width = correctedPlayWidth + 'px';
-    actions.classList.add('jellio-detail-actions-expanded');
-    moreButton.classList.add('jellio-detail-icon-action-active');
-
     window.setTimeout(function () {
       document.addEventListener('pointerdown', handleActionsOutsideClick, true);
     }, 0);
