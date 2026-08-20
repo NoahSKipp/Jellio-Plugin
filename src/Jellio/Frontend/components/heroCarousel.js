@@ -128,7 +128,13 @@ export function buildHeroCarousel(options) {
     logo.onerror = function () {
       logo.classList.add('jellio-hero-logo-hidden');
     };
-    logo.src = getImageUrl(item.Id, 'Logo', {});
+    // css/app.css's own .jellio-hero-logo caps this at 5.5em tall,
+    // never more than a few hundred real pixels wide on any real
+    // screen; no maxWidth here meant every request served the source
+    // logo at its own real original resolution instead, some of them
+    // several MB, real cost paid in full for a source-quality asset
+    // rendered no bigger than a real button icon.
+    logo.src = getImageUrl(item.Id, 'Logo', { maxWidth: 800 });
 
     title.textContent = item.Name || '';
     meta.textContent = metaLine(item);
