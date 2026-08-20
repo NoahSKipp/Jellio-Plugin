@@ -1015,12 +1015,18 @@
 .jellio-detail-actions {
   display: flex;
   align-items: center;
-  gap: 0.6em;
   /* Real feedback: Play used to only be as wide as its own label and
      padding needed, leaving real dead space before More. Stretched to
      fill the row instead (jellio-detail-hero-content's own real 40em
      cap already bounds this on a wide screen), Play (flex: 1 1 auto)
-     is the one item here that actually grows into that real width. */
+     is the one item here that actually grows into that real width. No
+     real gap here: spacing lives on each item's own real margin-left
+     below instead, since a real CSS gap reserves its own real space
+     between every flex child regardless of that child's own current
+     width, real feedback found that read as three real phantom gaps
+     sitting between Play and More the whole time Watchlist/Mark
+     Watched/Change Stream were collapsed to width: 0, not the tight
+     real gap actually wanted there. */
   width: 100%;
 }
 
@@ -1054,6 +1060,7 @@
   flex: 0 0 auto;
   width: 2.8em;
   height: 2.8em;
+  margin-left: 0.6em;
   border: 1px solid var(--jellio-border-color);
   border-radius: 999px;
   background: transparent;
@@ -1096,14 +1103,17 @@
 .jellio-detail-icon-action-collapsible {
   width: 0;
   min-width: 0;
+  margin-left: 0;
   border-width: 0;
   opacity: 0;
   overflow: hidden;
-  transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1), opacity 220ms ease, border-width 220ms ease;
+  transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1), margin-left 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 220ms ease, border-width 220ms ease;
 }
 
 .jellio-detail-actions-expanded .jellio-detail-icon-action-collapsible {
   width: 2.8em;
+  margin-left: 0.6em;
   border-width: 1px;
   opacity: 1;
 }
