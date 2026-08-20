@@ -336,7 +336,7 @@ export async function renderDetail(root, params) {
     actions.appendChild(playButton);
   }
 
-  const watchlistButton = el('button', 'jellio-detail-icon-action');
+  const watchlistButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-collapsible');
   watchlistButton.type = 'button';
   function paintWatchlist() {
     const active = !!(item.UserData && item.UserData.IsFavorite);
@@ -346,7 +346,8 @@ export async function renderDetail(root, params) {
     watchlistButton.appendChild(el('span', 'material-icons ' + (active ? 'bookmark_added' : 'bookmark_add')));
   }
   paintWatchlist();
-  watchlistButton.addEventListener('click', function () {
+  watchlistButton.addEventListener('click', function (event) {
+    event.stopPropagation();
     watchlistButton.disabled = true;
     toggleWatchlist(item)
       .then(paintWatchlist)
@@ -359,7 +360,7 @@ export async function renderDetail(root, params) {
   });
   actions.appendChild(watchlistButton);
 
-  const watchedButton = el('button', 'jellio-detail-icon-action');
+  const watchedButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-collapsible');
   watchedButton.type = 'button';
   function paintWatched() {
     const active = !!(item.UserData && item.UserData.Played);
@@ -369,7 +370,8 @@ export async function renderDetail(root, params) {
     watchedButton.appendChild(el('span', 'material-icons check'));
   }
   paintWatched();
-  watchedButton.addEventListener('click', function () {
+  watchedButton.addEventListener('click', function (event) {
+    event.stopPropagation();
     watchedButton.disabled = true;
     toggleWatched(item, {})
       .then(paintWatched)
@@ -382,24 +384,64 @@ export async function renderDetail(root, params) {
   });
   actions.appendChild(watchedButton);
 
-  if (item.Type !== 'Series') {
-    const moreButton = el('button', 'jellio-detail-icon-action');
-    moreButton.type = 'button';
-    moreButton.setAttribute('aria-label', 'More options');
-    moreButton.appendChild(el('span', 'material-icons more_vert'));
-    moreButton.addEventListener('click', function () {
-      openDetailOptionsMenu(moreButton, [
-        {
-          label: 'Change Stream',
-          icon: 'sync_alt',
-          onSelect: function () {
-            openStreamPicker(item, { forceChoice: true });
-          },
-        },
-      ]);
-    });
-    actions.appendChild(moreButton);
+  // Real feedback: Watchlist and Mark Watched used to sit there
+  // permanently, real Nuvio screenshots confirmed that is not the real
+  // reference either, only Play and More show by default there, real
+  // Watchlist/Mark Watched only appearing once More itself is actually
+  // tapped, More's own colour flipping to show it is now the one
+  // selected. A second real tap on an already expanded More is what
+  // actually opens the Change Stream menu (a series has no stream of
+  // its own to change, so that entry is skipped there, same real gate
+  // Play/Play button above already uses); tapping anywhere else on the
+  // page collapses back to just Play/More, the same outside click
+  // discipline every other popover in this codebase already uses.
+  // Always built, series included: a series still has real Watchlist/
+  // Mark Watched state, and More is the only real way to reach either
+  // one now that they no longer sit there permanently.
+  const moreButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-more');
+  moreButton.type = 'button';
+  moreButton.setAttribute('aria-label', 'More options');
+  moreButton.appendChild(el('span', 'material-icons more_vert'));
+
+  let actionsExpanded = false;
+  function handleActionsOutsideClick(event) {
+    if (!actions.contains(event.target)) collapseActions();
   }
+  function collapseActions() {
+    if (!actionsExpanded) return;
+    actionsExpanded = false;
+    actions.classList.remove('jellio-detail-actions-expanded');
+    moreButton.classList.remove('jellio-detail-icon-action-active');
+    document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
+  }
+  function expandActions() {
+    if (actionsExpanded) return;
+    actionsExpanded = true;
+    actions.classList.add('jellio-detail-actions-expanded');
+    moreButton.classList.add('jellio-detail-icon-action-active');
+    window.setTimeout(function () {
+      document.addEventListener('pointerdown', handleActionsOutsideClick, true);
+    }, 0);
+  }
+  moreButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    if (!actionsExpanded) {
+      expandActions();
+      return;
+    }
+    const entries = [];
+    if (item.Type !== 'Series') {
+      entries.push({
+        label: 'Change Stream',
+        icon: 'sync_alt',
+        onSelect: function () {
+          openStreamPicker(item, { forceChoice: true });
+        },
+      });
+    }
+    if (entries.length) openDetailOptionsMenu(moreButton, entries);
+  });
+  actions.appendChild(moreButton);
 
   heroContent.appendChild(actions);
 

@@ -993,12 +993,14 @@
 
 /* Real feedback: Play, Change Stream and Add to Watchlist used to
    each be their own wide pill, wrapping onto two real lines at most
-   mobile widths. Play stays the one wide pill (icon plus label);
-   Watchlist, Mark Watched and More (screens/detail.js's own real
-   Change Stream destination now) are equal size icon only circles
-   alongside it, the same real hero action row shape Nuvio's own
-   screenshots show, checked before writing this rather than guessed
-   at. */
+   mobile widths, then (a next real pass) Watchlist/Mark Watched sat
+   there permanently instead, still not the real Nuvio reference.
+   Real end state, checked against actual screenshots: only Play and
+   More show by default; tapping More reveals Watchlist and Mark
+   Watched between them (screens/detail.js's own expandActions()),
+   More's own colour flipping to show it is now the one selected, a
+   second real tap on that same already expanded More opening Change
+   Stream instead. */
 .jellio-detail-actions {
   display: flex;
   align-items: center;
@@ -1019,10 +1021,15 @@
   font-weight: 700;
   font-size: 1em;
   cursor: pointer;
+  transition: padding 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .jellio-detail-play:hover {
   background: var(--jellio-secondary-variant);
+}
+
+.jellio-detail-actions-expanded .jellio-detail-play {
+  padding: 0.7em 1.2em;
 }
 
 .jellio-detail-icon-action {
@@ -1051,6 +1058,26 @@
 .jellio-detail-icon-action-active {
   border-color: var(--jellio-secondary-color);
   color: var(--jellio-secondary-color);
+}
+
+.jellio-detail-icon-action-more.jellio-detail-icon-action-active {
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+}
+
+.jellio-detail-icon-action-collapsible {
+  width: 0;
+  min-width: 0;
+  border-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1), opacity 220ms ease, border-width 220ms ease;
+}
+
+.jellio-detail-actions-expanded .jellio-detail-icon-action-collapsible {
+  width: 2.8em;
+  border-width: 1px;
+  opacity: 1;
 }
 
 .jellio-detail-overview {
