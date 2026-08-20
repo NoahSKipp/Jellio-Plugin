@@ -1052,11 +1052,15 @@
      Watched/Change Stream were collapsed to width: 0, not the tight
      real gap actually wanted there. */
   width: 100%;
-  /* More's own real 2.8em width plus its own real 0.6em gap, reserved
-     so the flex content sharing this row with it (Play and the three
+  /* More's own real 2.8em width plus a real 0.2em gap, reserved so
+     the flex content sharing this row with it (Play and the three
      collapsible buttons) never lays out underneath the absolutely
-     positioned real button sitting on top of that same real space. */
-  padding-right: 3.4em;
+     positioned real button sitting on top of that same real space.
+     Real feedback: the old real 0.6em gap here read as dead space
+     between Play and More while collapsed, tightened down since
+     More's own real position no longer depends on this value at all
+     (position: absolute above, this only reserves its own real room). */
+  padding-right: 3em;
 }
 
 .jellio-detail-play {
@@ -1066,20 +1070,19 @@
   gap: 0.4em;
   flex: 1 1 auto;
   height: 2.8em;
-  padding: 0 2.8em;
-  /* No global box-sizing: border-box reset in this codebase
-     (css/app.css's own header a little further down already documents
-     the same real gap live elsewhere): without this explicit override
-     here, screens/detail.js's own drift correction sets a real
-     content-box width against a real border-box measurement
-     (getBoundingClientRect always reports the real border box), off
-     by exactly this button's own real horizontal padding and silently
-     undershooting the real correction needed, reported live as More
-     still drifting even after that fix landed. Also what makes this
-     button's own real height match .jellio-detail-icon-action's
-     exactly, both a real 2.8em border box now, not two different real
-     box models producing two different real rendered heights for
-     numerically identical CSS. */
+  /* Real feedback: this button's own real horizontal padding used to
+     be 2.8em a side, a real 5.6em floor on its own min-content width
+     that left no real room for the three collapsible buttons plus
+     More's own reserved space once expanded, clipping into More on a
+     real narrow phone screen. Tightened down so expanding has real
+     room to fit without that real overflow. */
+  padding: 0 1.6em;
+  /* No global box-sizing: border-box reset in this codebase (css/app.css's
+     own header a little further down already documents the same real
+     gap live elsewhere): without this explicit override here, this
+     button's own real height would not match .jellio-detail-icon-action's
+     exactly, two different real box models producing two different
+     real rendered heights for numerically identical CSS. */
   box-sizing: border-box;
   border: 0;
   border-radius: 999px;
