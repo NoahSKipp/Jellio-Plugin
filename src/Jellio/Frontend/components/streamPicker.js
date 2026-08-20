@@ -145,18 +145,70 @@ function sourceDescription(source) {
   return (source.Name || '').split('\n').slice(1).join(' ').trim();
 }
 
-// Every real embedded audio language a source carries, lower cased ISO
-// 639-2/B codes straight off its own MediaStreams (the same real field
-// screens/player.js's own audio track menu already reads), not parsed
-// back out of Gelato's own free text Name: a scraper's own naming is
-// not consistent enough to filter on, the source's own real audio
-// tracks always are.
-function sourceAudioLanguages(source) {
-  const streams = source.MediaStreams || [];
+// Real bug, found live: this used to read only MediaStreams, on the
+// real assumption that field was reliably populated for every source
+// runtime/api.js's own getMediaSources hands back. Real feedback (a
+// screenshot of the actual picker) proved that wrong: Gelato's own
+// bulk GET /Items/{id}?Fields=MediaSources listing only fully probes
+// whichever one source already got played before, every other one of
+// 38+ real results coming back with no MediaStreams audio entries at
+// all, filtering German or English both landing on that exact same
+// single already-probed source. AIOStreams' own real stream titles
+// already carry a flag emoji per embedded audio language right in
+// source.Name (confirmed against that same screenshot, not guessed
+// at), a real signal every one of these sources actually has, unlike
+// MediaStreams here, so this now reads both and keeps whichever codes
+// either one finds.
+const REGIONAL_INDICATOR_BASE = 0x1f1e6; // Unicode regional indicator 'A'
+
+// One flag per major real source country for each language this
+// picker's own LANGUAGE_OPTIONS list already covers, not every real
+// ISO 3166 territory that happens to speak it.
+const FLAG_COUNTRY_TO_LANGUAGE = {
+  DE: 'ger', AT: 'ger', CH: 'ger',
+  GB: 'eng', US: 'eng', CA: 'eng', AU: 'eng', IE: 'eng',
+  FR: 'fre',
+  ES: 'spa', MX: 'spa', AR: 'spa',
+  IT: 'ita',
+  JP: 'jpn',
+  KR: 'kor',
+  CN: 'chi', TW: 'chi', HK: 'chi',
+  RU: 'rus',
+  PT: 'por', BR: 'por',
+  NL: 'dut',
+  SA: 'ara', AE: 'ara',
+  PL: 'pol',
+  SE: 'swe',
+  TR: 'tur',
+};
+
+// Array.from rather than a plain index walk: a flag emoji is a
+// surrogate pair per regional indicator, a bare string index would
+// split it and never match either half.
+function flagLanguages(text) {
   const codes = [];
-  streams.forEach(function (stream) {
+  const chars = Array.from(text || '');
+  for (let i = 0; i < chars.length - 1; i++) {
+    const a = chars[i].codePointAt(0);
+    const b = chars[i + 1].codePointAt(0);
+    if (a < REGIONAL_INDICATOR_BASE || a > REGIONAL_INDICATOR_BASE + 25) continue;
+    if (b < REGIONAL_INDICATOR_BASE || b > REGIONAL_INDICATOR_BASE + 25) continue;
+    const country = String.fromCharCode(65 + (a - REGIONAL_INDICATOR_BASE)) + String.fromCharCode(65 + (b - REGIONAL_INDICATOR_BASE));
+    const code = FLAG_COUNTRY_TO_LANGUAGE[country];
+    if (code && codes.indexOf(code) === -1) codes.push(code);
+    i++;
+  }
+  return codes;
+}
+
+function sourceAudioLanguages(source) {
+  const codes = [];
+  (source.MediaStreams || []).forEach(function (stream) {
     if (stream.Type !== 'Audio' || !stream.Language) return;
     const code = stream.Language.toLowerCase();
+    if (codes.indexOf(code) === -1) codes.push(code);
+  });
+  flagLanguages(source.Name).forEach(function (code) {
     if (codes.indexOf(code) === -1) codes.push(code);
   });
   return codes;
