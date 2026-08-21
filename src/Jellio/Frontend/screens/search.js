@@ -5,6 +5,7 @@
 // one entry per character typed.
 import { searchItems } from '../runtime/api.js';
 import { buildCard } from '../components/card.js';
+import { appendCardsLazily } from '../components/lazyGrid.js';
 import { describeNetworkFailure } from '../runtime/network.js';
 
 const DEBOUNCE_MS = 300;
@@ -50,9 +51,7 @@ export async function renderSearch(root) {
       .then(function (items) {
         if (thisRequest !== requestId) return;
         grid.textContent = '';
-        items.forEach(function (item) {
-          grid.appendChild(buildCard(item));
-        });
+        appendCardsLazily(grid, items, buildCard);
         status.textContent = items.length ? '' : 'No results for “' + term + '”.';
       })
       .catch(function (err) {

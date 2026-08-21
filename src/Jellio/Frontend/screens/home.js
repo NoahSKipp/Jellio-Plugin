@@ -14,6 +14,7 @@ import {
 } from '../runtime/api.js';
 import { buildRecommendationRows, titleKey } from '../runtime/recommend.js';
 import { buildCard } from '../components/card.js';
+import { appendCardsLazily } from '../components/lazyGrid.js';
 import { buildRow } from '../components/row.js';
 import { groupByService, logoSlug, serviceOf } from '../components/services.js';
 import { buildHeroCarousel } from '../components/heroCarousel.js';
@@ -233,9 +234,7 @@ async function renderWatchlist(root) {
 
   try {
     const items = await getWatchlistItems();
-    items.forEach(function (item) {
-      grid.appendChild(buildCard(item));
-    });
+    appendCardsLazily(grid, items, buildCard);
   } catch (err) {
     console.warn('Jellio: could not load watchlist', err);
   }

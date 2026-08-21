@@ -899,6 +899,15 @@
   flex: none;
 }
 
+/* components/lazyGrid.js's own real batch-load marker: spans every
+   real column so it never reads as an empty card-sized cell sitting in
+   the grid, no real height so it never adds any visible gap either,
+   there purely for a real IntersectionObserver to watch. */
+.jellio-lazy-grid-sentinel {
+  grid-column: 1 / -1;
+  height: 1px;
+}
+
 .jellio-search-header {
   padding: clamp(24px, 4vw, 56px) var(--jellio-safe-gutter) clamp(16px, 2vw, 28px);
 }
