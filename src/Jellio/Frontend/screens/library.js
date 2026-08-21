@@ -219,51 +219,67 @@ const ANIME_EMPTY_MESSAGE =
 // anime" rule the original codebase's own libraryBrowse.js documents:
 // showing nothing is the honest outcome when no catalog is configured,
 // not a copy of the Shows page.
-async function renderAnime(root, collectionType) {
+// Fire and forget, same reasoning renderLibrary's own header above
+// documents: this used to await the whole real fetch chain (catalogs,
+// then every catalog's own items, then the coverflow) before ever
+// returning, which meant app.js's own sync() queue sat blocked behind
+// however long that took before the next real navigation could even
+// start, the exact bug this screen's own sibling function next to it
+// already avoids.
+function renderAnime(root, collectionType) {
   const header = el('header', 'jellio-library-header');
   header.appendChild(el('h1', 'jellio-library-title', 'Anime'));
   root.appendChild(header);
 
-  let animeCollections = [];
-  try {
-    const collections = await getCollections();
-    animeCollections = collections.filter(function (item) {
-      return /anime|anilist/i.test(item.Name || '');
-    });
-  } catch (err) {
-    console.warn('Jellio: could not load anime catalogs', err);
-  }
-
-  if (!animeCollections.length) {
-    root.appendChild(el('p', 'jellio-service-empty', ANIME_EMPTY_MESSAGE));
-    return undefined;
-  }
-
   const rows = el('div', 'jellio-rows');
   root.appendChild(rows);
 
-  const itemLists = await Promise.allSettled(
-    animeCollections.slice(0, MAX_ANIME_ROWS).map(function (collection) {
-      return getCollectionItems(collection.Id, collectionType, ROW_LIMIT);
-    }),
-  );
+  let coverflowDestroy = null;
 
-  // The coverflow features whichever catalog actually has the most
-  // real items behind it, rather than always the first one returned.
-  let coverflowSource = [];
-  itemLists.forEach(function (result, index) {
-    if (result.status !== 'fulfilled') return;
-    const items = result.value;
-    if (items.length > coverflowSource.length) coverflowSource = items;
-    const row = buildRow(animeCollections[index].Name, items);
-    if (row) rows.appendChild(row);
-  });
+  (async function () {
+    let animeCollections = [];
+    try {
+      const collections = await getCollections();
+      animeCollections = collections.filter(function (item) {
+        return /anime|anilist/i.test(item.Name || '');
+      });
+    } catch (err) {
+      console.warn('Jellio: could not load anime catalogs', err);
+    }
 
-  if (!rows.children.length) {
-    rows.remove();
-    root.appendChild(el('p', 'jellio-service-empty', ANIME_EMPTY_MESSAGE));
-    return undefined;
-  }
+    if (!animeCollections.length) {
+      rows.remove();
+      root.appendChild(el('p', 'jellio-service-empty', ANIME_EMPTY_MESSAGE));
+      return;
+    }
 
-  return mountCoverflow(root, { items: coverflowSource });
+    const itemLists = await Promise.allSettled(
+      animeCollections.slice(0, MAX_ANIME_ROWS).map(function (collection) {
+        return getCollectionItems(collection.Id, collectionType, ROW_LIMIT);
+      }),
+    );
+
+    // The coverflow features whichever catalog actually has the most
+    // real items behind it, rather than always the first one returned.
+    let coverflowSource = [];
+    itemLists.forEach(function (result, index) {
+      if (result.status !== 'fulfilled') return;
+      const items = result.value;
+      if (items.length > coverflowSource.length) coverflowSource = items;
+      const row = buildRow(animeCollections[index].Name, items);
+      if (row) rows.appendChild(row);
+    });
+
+    if (!rows.children.length) {
+      rows.remove();
+      root.appendChild(el('p', 'jellio-service-empty', ANIME_EMPTY_MESSAGE));
+      return;
+    }
+
+    coverflowDestroy = mountCoverflow(root, { items: coverflowSource });
+  })();
+
+  return function () {
+    if (coverflowDestroy) coverflowDestroy();
+  };
 }
