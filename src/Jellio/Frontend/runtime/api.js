@@ -228,9 +228,16 @@ export function getNextUp(limit) {
   const params = new URLSearchParams({
     userId: userId,
     Limit: String(limit || 20),
-    Fields: 'PrimaryImageAspectRatio',
+    // Genres/People beyond the default PrimaryImageAspectRatio: this
+    // same real list already backs a "Because you're watching" row
+    // (runtime/recommend.js), the exact fields its own scorer needs,
+    // no second query added just to get them.
+    Fields: 'PrimaryImageAspectRatio,Genres,People,RunTimeTicks',
   });
-  return getJson('/Shows/NextUp?' + params.toString()).then(function (result) {
+  const path = '/Shows/NextUp?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  }, SHORT_CACHE_TTL_MS).then(function (result) {
     return (result && result.Items) || [];
   });
 }
@@ -249,7 +256,7 @@ export function getRecentlyCompleted(limit) {
     SortBy: 'DatePlayed',
     SortOrder: 'Descending',
     Limit: String(limit),
-    Fields: 'Genres,People,ProductionYear,CommunityRating',
+    Fields: 'Genres,People,ProductionYear,CommunityRating,RunTimeTicks',
   });
   return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
     return (result && result.Items) || [];
@@ -279,7 +286,11 @@ export async function getRecommendationCandidates(seed, limit) {
     userId +
     '/Items?Recursive=true&IncludeItemTypes=Movie,Series&Limit=' +
     (limit || 100) +
-    '&Fields=Genres,ProductionYear,CommunityRating&SortBy=Random';
+    // RunTimeTicks alongside the fields already asked for: runtime/
+    // recommend.js's own score() weighs how close a candidate's own
+    // length sits to the seed's, the same kind of real signal era
+    // already scores, not something this query fetched before.
+    '&Fields=Genres,ProductionYear,CommunityRating,RunTimeTicks&SortBy=Random';
 
   const jobs = [];
   if (genres.length) {
@@ -325,6 +336,29 @@ export async function getRecommendationCandidates(seed, limit) {
   });
 }
 
+// Every real item crediting one specific person as Actor or Director,
+// the same real query shape getRecommendationCandidates above already
+// uses per seed's own People field, exposed on its own here: runtime/
+// recommend.js's own "More with [actor]" row aggregates a person's own
+// real appearance count across the reader's whole watch history rather
+// than one seed at a time, so it needs this by itself, not tied to a
+// single seed's own candidate pool.
+export function getPersonItems(personId, limit) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    Recursive: 'true',
+    IncludeItemTypes: 'Movie,Series',
+    PersonIds: personId,
+    Limit: String(limit || 20),
+    Fields: 'ProductionYear,CommunityRating,Genres',
+    SortBy: 'CommunityRating',
+    SortOrder: 'Descending',
+  });
+  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+    return (result && result.Items) || [];
+  });
+}
 
 // Real, confirmed against the original Jellio codebase's own
 // libraryBrowse.js: a BoxSet mixed into a movie/series catalog by an addon
