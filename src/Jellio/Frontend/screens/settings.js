@@ -307,12 +307,20 @@ export async function renderSettings(root) {
   const profile = el('section', 'jellio-settings-section');
   profile.appendChild(el('h2', 'jellio-settings-section-title', 'Profile'));
 
-  let user = null;
-  try {
-    user = await getCurrentUser();
-  } catch (err) {
-    console.warn('Jellio: could not load current user', err);
-  }
+  // buildSleepTimerSection/buildQuickConnectSection each own real
+  // network round trip and neither one depends on the signed in
+  // user's own data at all, so all three fire together here instead
+  // of those two sections each waiting on the user fetch to even
+  // start.
+  const [userResult, sleepTimerSection, quickConnectSection] = await Promise.all([
+    getCurrentUser().catch(function (err) {
+      console.warn('Jellio: could not load current user', err);
+      return null;
+    }),
+    buildSleepTimerSection(),
+    buildQuickConnectSection(),
+  ]);
+  const user = userResult;
   if (user) {
     profile.appendChild(el('p', 'jellio-settings-status', 'Signed in as ' + user.Name));
   }
@@ -357,9 +365,8 @@ export async function renderSettings(root) {
   root.appendChild(buildPlaybackSection());
   root.appendChild(buildLanguageSection(user));
   root.appendChild(buildPasswordSection());
-  root.appendChild(await buildSleepTimerSection());
-  const quickConnect = await buildQuickConnectSection();
-  if (quickConnect) root.appendChild(quickConnect);
+  root.appendChild(sleepTimerSection);
+  if (quickConnectSection) root.appendChild(quickConnectSection);
 
   const account = el('section', 'jellio-settings-section');
   const logoutButton = el('button', 'jellio-settings-button jellio-settings-button-danger', 'Sign out');
