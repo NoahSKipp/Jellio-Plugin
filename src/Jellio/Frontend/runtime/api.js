@@ -233,6 +233,14 @@ export function getNextUp(limit) {
     // (runtime/recommend.js), the exact fields its own scorer needs,
     // no second query added just to get them.
     Fields: 'PrimaryImageAspectRatio,Genres,People,RunTimeTicks',
+    // TvShowsController's own real default for this param is true: an
+    // episode already sitting mid playback (real PositionTicks > 0)
+    // still counts as that series' own "next" episode server side
+    // unless this is turned off, so it landed in both this row and
+    // getResumeItems above at once, real feedback live. Continue
+    // Watching already owns any title with real progress on it; Up Next
+    // should only ever be the genuinely un-started next episode.
+    enableResumable: 'false',
   });
   const path = '/Shows/NextUp?' + params.toString();
   return cached(path, function () {
