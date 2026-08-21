@@ -7,6 +7,7 @@
 // endpoints, own markup.
 import { getPerson, getPersonFilmography, getImageUrl } from '../runtime/api.js';
 import { buildCard } from '../components/card.js';
+import { appendCardsLazily } from '../components/lazyGrid.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
 import { navigateTo } from '../runtime/router.js';
 import { describeNetworkFailure } from '../runtime/network.js';
@@ -46,7 +47,7 @@ export async function renderPerson(root, params) {
   if (imageTag) {
     const photo = document.createElement('img');
     photo.className = 'jellio-person-photo';
-    photo.src = getImageUrl(personId, 'Primary', { tag: imageTag, maxWidth: 400 });
+    photo.src = getImageUrl(personId, 'Primary', { tag: imageTag, maxWidth: 400, quality: 85 });
     photo.alt = '';
     header.appendChild(photo);
   } else {
@@ -69,9 +70,7 @@ export async function renderPerson(root, params) {
 
   try {
     const items = await getPersonFilmography(personId);
-    items.forEach(function (item) {
-      grid.appendChild(buildCard(item));
-    });
+    appendCardsLazily(grid, items, buildCard);
   } catch (err) {
     console.warn('Jellio: could not load filmography', err);
   }

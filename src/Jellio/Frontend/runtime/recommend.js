@@ -13,9 +13,22 @@
 // people 94% and ordered by billing, community rating 94% but bunched
 // between 6.6 and 8.1 at the quartiles, why rating is only ever a
 // tiebreaker below: it barely separates anything.
-import { getRecentlyCompleted, getRecommendationCandidates } from './api.js';
+import { getRecentlyCompleted, getRecommendationCandidates, getNextUp, getGenreItems, getPersonItems } from './api.js';
 
 const SEED_LIMIT = 4;
+// Seeds for the two aggregate rows below, a wider real sample of the
+// same real endpoint rather than a second one: the first SEED_LIMIT of
+// this same, already sorted-by-DatePlayed list is exactly what used to
+// be fetched on its own for the per title rows, so one real call here
+// covers both instead of firing the same real query twice at two
+// different limits.
+const HISTORY_SAMPLE_LIMIT = 60;
+// A NextUp item is the reader's own real "currently watching", not
+// something finished yet, so it earns the same real per title
+// treatment as a completed seed, just fewer of them: NextUp's own
+// list is normally short (one entry per series in progress), unlike
+// getRecentlyCompleted's much deeper real history.
+const NEXTUP_SEED_LIMIT = 2;
 const POOL_LIMIT = 100;
 const ROW_SIZE = 20;
 
@@ -24,6 +37,7 @@ const WEIGHT = {
   person: 1.2,
   era: 0.4,
   rating: 0.3,
+  runtime: 0.3,
 };
 
 // Diversity is enforced here, at selection, and not by lowering the
@@ -40,6 +54,19 @@ const MAX_PER_GENRE = 3;
 // row however well it matches otherwise. Unrated titles pass, no
 // rating is not a bad rating.
 const MIN_RATING = 5;
+
+// A genre or person needs to recur at least this many times across
+// the reader's own real watch history before it is a real enough
+// pattern to build a whole row around, not just one title that
+// happened to have five genres tagged on it.
+const MIN_GENRE_COUNT = 3;
+const MIN_PERSON_COUNT = 2;
+const MAX_GENRE_ROWS = 1;
+const MAX_PERSON_ROWS = 1;
+
+// 1 hour in the same real ticks every RunTimeTicks field already uses
+// (api.js's own TICKS_PER_SECOND header documents the same real unit).
+const TICKS_PER_HOUR = 10000000 * 3600;
 
 function jaccard(a, b) {
   if (!a.length || !b.length) return 0;
@@ -69,6 +96,15 @@ function score(seed, entry) {
 
   if (item.CommunityRating) {
     total += WEIGHT.rating * (item.CommunityRating / 10);
+  }
+
+  // A feature-length pick for a seed that was itself a quick watch, or
+  // the reverse, reads as a mismatch even with genres lined up
+  // perfectly: same real one-hour-gap-forgiving shape the era term
+  // above already uses, just measured in runtime instead of years.
+  if (seed.RunTimeTicks && item.RunTimeTicks) {
+    const gap = Math.abs(seed.RunTimeTicks - item.RunTimeTicks);
+    total += WEIGHT.runtime * (1 - Math.min(1, gap / TICKS_PER_HOUR));
   }
 
   return total;
@@ -131,22 +167,29 @@ function markSeen(exclude, item) {
   exclude[titleKey(item)] = true;
 }
 
-// One row per completed title, newest first, fewer than asked for
-// when the reader has finished fewer, none at all on a server with no
-// watch history: a row named after something nobody watched is worse
-// than no row. pick() itself still runs one seed at a time, in order:
-// it reads and then adds to the same exclude object, and running it
-// concurrently would have every row scoring against the same, still-
-// empty exclusion set. Fetching each seed's own candidates has no such
-// dependency on exclude at all though, only pick() reads that, so
-// every seed's own real network round trip fires together here rather
-// than the second seed waiting on the first one's response before it
-// even starts.
-export async function buildRecommendationRows(exclude) {
-  const seeds = await getRecentlyCompleted(SEED_LIMIT).catch(function () {
-    return [];
+// Same real shape as screens/home.js's own private dedupe(): kept here
+// too rather than imported across that boundary, small enough not to
+// be worth sharing, and this file already owns titleKey/exclude's own
+// real contract.
+function dedupe(items, exclude) {
+  const kept = [];
+  items.forEach(function (item) {
+    if (exclude[item.Id] || exclude[titleKey(item)]) return;
+    exclude[item.Id] = true;
+    exclude[titleKey(item)] = true;
+    kept.push(item);
   });
+  return kept;
+}
 
+// Scores and picks one row per seed, in order: pick() reads and then
+// adds to the same exclude object, and running it concurrently would
+// have every row scoring against the same, still-empty exclusion set.
+// Fetching each seed's own candidates has no such dependency on
+// exclude at all though, only pick() reads that, so every seed's own
+// real network round trip fires together here rather than the second
+// seed waiting on the first one's response before it even starts.
+async function buildSeedRows(seeds, titleFor, exclude) {
   const entriesPerSeed = await Promise.all(
     seeds.map(function (seed) {
       return getRecommendationCandidates(seed, POOL_LIMIT).catch(function (err) {
@@ -166,7 +209,111 @@ export async function buildRecommendationRows(exclude) {
     items.forEach(function (item) {
       markSeen(exclude, item);
     });
-    rows.push({ title: 'Because you watched ' + seed.Name, items: items });
+    rows.push({ title: titleFor(seed), items: items });
   }
   return rows;
+}
+
+// Genre and person, aggregated across the reader's own whole real
+// watch history sample rather than one seed at a time: a broader "you
+// generally like X" signal, alongside the per title "because you
+// watched" rows above, not a replacement for them.
+function topGenres(history) {
+  const counts = {};
+  history.forEach(function (item) {
+    (item.Genres || []).forEach(function (genre) {
+      counts[genre] = (counts[genre] || 0) + 1;
+    });
+  });
+  return Object.keys(counts)
+    .filter(function (genre) {
+      return counts[genre] >= MIN_GENRE_COUNT;
+    })
+    .sort(function (a, b) {
+      return counts[b] - counts[a];
+    });
+}
+
+function topPeople(history) {
+  const counts = {};
+  history.forEach(function (item) {
+    (item.People || []).forEach(function (person) {
+      if (!person.Id || (person.Type !== 'Actor' && person.Type !== 'Director')) return;
+      const entry = counts[person.Id] || (counts[person.Id] = { id: person.Id, name: person.Name, count: 0 });
+      entry.count += 1;
+    });
+  });
+  return Object.keys(counts)
+    .map(function (id) {
+      return counts[id];
+    })
+    .filter(function (entry) {
+      return entry.count >= MIN_PERSON_COUNT;
+    })
+    .sort(function (a, b) {
+      return b.count - a.count;
+    });
+}
+
+async function buildTopGenreRows(history, exclude) {
+  const genres = topGenres(history).slice(0, MAX_GENRE_ROWS);
+  const rows = [];
+  for (let i = 0; i < genres.length; i++) {
+    const genre = genres[i];
+    try {
+      const items = dedupe(await getGenreItems(null, 'Movie,Series', genre, ROW_SIZE), exclude);
+      if (items.length) rows.push({ title: 'Your ' + genre + ' picks', items: items });
+    } catch (err) {
+      console.warn('Jellio: could not load top genre row', err);
+    }
+  }
+  return rows;
+}
+
+async function buildTopPersonRows(history, exclude) {
+  const people = topPeople(history).slice(0, MAX_PERSON_ROWS);
+  const rows = [];
+  for (let i = 0; i < people.length; i++) {
+    const person = people[i];
+    try {
+      const items = dedupe(await getPersonItems(person.id, ROW_SIZE), exclude);
+      if (items.length) rows.push({ title: 'More with ' + person.name, items: items });
+    } catch (err) {
+      console.warn('Jellio: could not load top person row', err);
+    }
+  }
+  return rows;
+}
+
+// Every personalized row this app builds without a second backend: one
+// row per recently completed title ("Because you watched X"), one per
+// series still in progress ("Because you're watching X", from NextUp's
+// own seed shape), plus the two aggregate rows above. exclude is
+// screens/home.js's own shared seen object, carried through and added
+// to here in the same real priority order real feedback already
+// established: per title rows first (the strongest, most specific
+// signal), the two aggregate rows after.
+export async function buildRecommendationRows(exclude) {
+  const [history, nextUp] = await Promise.all([
+    getRecentlyCompleted(HISTORY_SAMPLE_LIMIT).catch(function () {
+      return [];
+    }),
+    getNextUp(NEXTUP_SEED_LIMIT).catch(function () {
+      return [];
+    }),
+  ]);
+
+  const completedSeeds = history.slice(0, SEED_LIMIT);
+  const completedRows = await buildSeedRows(completedSeeds, function (seed) {
+    return 'Because you watched ' + seed.Name;
+  }, exclude);
+
+  const nextUpRows = await buildSeedRows(nextUp, function (seed) {
+    return "Because you're watching " + (seed.SeriesName || seed.Name);
+  }, exclude);
+
+  const genreRows = await buildTopGenreRows(history, exclude);
+  const personRows = await buildTopPersonRows(history, exclude);
+
+  return completedRows.concat(nextUpRows, genreRows, personRows);
 }

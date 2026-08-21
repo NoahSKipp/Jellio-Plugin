@@ -193,7 +193,12 @@ export function buildCard(item, options) {
   if (imageTag) {
     const img = document.createElement('img');
     img.className = 'jellio-card-image';
-    img.src = getImageUrl(item.Id, 'Primary', { tag: imageTag, maxWidth: 400 });
+    // quality: 85 alongside the existing maxWidth: every card grid can
+    // hold a hundred-plus of these at once, and a poster shrunk to
+    // this real display size loses nothing visible at a JPEG quality
+    // a shade under the server's own real default, real bytes saved on
+    // every single one of them for it.
+    img.src = getImageUrl(item.Id, 'Primary', { tag: imageTag, maxWidth: 400, quality: 85 });
     img.alt = item.Name || '';
     img.loading = 'lazy';
     imageWrap.appendChild(img);
