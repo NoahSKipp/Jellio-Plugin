@@ -6,7 +6,7 @@
 // plus a bare <video> element, see screens/player.js's own header for
 // why that needed no access to jellyfin-web's own playbackManager at
 // all, when there is not).
-import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setPlayed } from '../runtime/api.js';
+import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setPlayed, getSeriesNextUp } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
@@ -340,6 +340,56 @@ function isSpecialsSeason(season) {
   return /special/i.test(season.Name || '');
 }
 
+// A series' own real hero Play button (real feedback: it had none at
+// all, only Watchlist/Mark Watched, unlike a movie or an episode)
+// needs a real episode to actually open the stream picker against, not
+// the series item itself, a real Jellyfin Series carries no video of
+// its own. runtime/api.js's own getSeriesNextUp already answers "what
+// should this reader watch next" the same way a real Up Next row does,
+// scoped to just this series; a series with no watch history at all
+// still needs a real fallback target though (real feedback specifically
+// asked for one: "starts the playback from ep 1"), covered here by
+// walking straight to the first real season's own first real episode
+// instead of trusting an unscoped, undocumented "does NextUp already
+// default to episode one" real server behaviour to hold across every
+// real Jellyfin version this plugin runs against.
+async function resolveSeriesPlayTarget(seriesId) {
+  let episode = null;
+  try {
+    episode = await getSeriesNextUp(seriesId);
+  } catch (err) {
+    console.warn('Jellio: could not load next up for series', err);
+  }
+
+  if (!episode) {
+    try {
+      const seasons = await getSeasons(seriesId);
+      const orderedSeasons = seasons.slice().sort(function (a, b) {
+        return (isSpecialsSeason(a) ? 1 : 0) - (isSpecialsSeason(b) ? 1 : 0);
+      });
+      const firstSeason = orderedSeasons[0];
+      if (firstSeason) {
+        const episodes = await getEpisodes(seriesId, firstSeason.Id);
+        episode = episodes[0] || null;
+      }
+    } catch (err) {
+      console.warn('Jellio: could not load first episode for series', err);
+    }
+  }
+
+  if (!episode) return null;
+
+  // Real watch history, not only a real in-progress position: real
+  // feedback drew the line at "is this really episode one of season
+  // one, untouched", not at whether this exact episode itself has a
+  // real partial position on it, one real episode already finished
+  // still means the next one up is a real "Resume", not a "Play".
+  const isFirstEpisode = episode.ParentIndexNumber === 1 && episode.IndexNumber === 1;
+  const hasProgress = !!(episode.UserData && episode.UserData.PlaybackPositionTicks > 0);
+  const resume = hasProgress || !isFirstEpisode;
+  return { episode: episode, resume: resume };
+}
+
 // Season tabs plus the current season's own episode track, appended in
 // place once seasons resolve rather than blocking the rest of the screen
 // on a series with a lot of them. Real endpoints, GET /Shows/{id}/Seasons
@@ -589,9 +639,12 @@ export async function renderDetail(root, params) {
 
   // A series has no video of its own, only its episodes do (each already
   // opens this same screen at its own item id, with its own working Play
-  // button), so Play/Change Stream are skipped entirely here rather than
+  // button), so Change Stream is skipped entirely here rather than
   // pointing at nothing playable; Watchlist/Mark Watched still apply to
-  // the series itself.
+  // the series itself. Play itself still belongs here though (real
+  // feedback: a series page with none at all, unlike a movie or an
+  // episode), just resolved lazily against whichever episode
+  // resolveSeriesPlayTarget() above actually decides is next.
   if (!isSeries) {
     const playButton = el('button', 'jellio-detail-play');
     playButton.type = 'button';
@@ -601,6 +654,35 @@ export async function renderDetail(root, params) {
       openStreamPicker(item);
     });
     actions.appendChild(playButton);
+  } else {
+    const playButton = el('button', 'jellio-detail-play');
+    playButton.type = 'button';
+    const playIcon = el('span', 'material-icons play_arrow');
+    const playLabel = el('span', null, 'Play');
+    playButton.appendChild(playIcon);
+    playButton.appendChild(playLabel);
+    actions.appendChild(playButton);
+
+    const targetPromise = resolveSeriesPlayTarget(item.Id).then(function (result) {
+      if (result && result.resume) {
+        playLabel.textContent = 'Resume S' + result.episode.ParentIndexNumber + ' E' + result.episode.IndexNumber;
+      }
+      return result;
+    });
+
+    playButton.addEventListener('click', function () {
+      playButton.disabled = true;
+      targetPromise
+        .then(function (result) {
+          if (result && result.episode) openStreamPicker(result.episode);
+        })
+        .catch(function (err) {
+          console.warn('Jellio: could not resolve series play target', err);
+        })
+        .finally(function () {
+          playButton.disabled = false;
+        });
+    });
   }
 
   const watchlistButton = el('button', iconActionClass);

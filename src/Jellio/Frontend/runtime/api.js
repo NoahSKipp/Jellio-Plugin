@@ -273,6 +273,28 @@ export function getNextUp(limit) {
   });
 }
 
+// Same real endpoint as getNextUp above, scoped to one series for the
+// detail screen's own series-level Play button: enableResumable stays
+// at its own real server default here (true), unlike the home row
+// above, that button's whole real point is surfacing a title actually
+// in progress, not only a genuinely unstarted one.
+export function getSeriesNextUp(seriesId) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    userId: userId,
+    seriesId: seriesId,
+    Limit: '1',
+    Fields: 'PrimaryImageAspectRatio,RunTimeTicks',
+  });
+  const path = '/Shows/NextUp?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  }, SHORT_CACHE_TTL_MS).then(function (result) {
+    return (result && result.Items && result.Items[0]) || null;
+  });
+}
+
 // Seeds for "Because you watched": the reader's own most recently
 // completed titles. IsPlayed is Jellyfin's own definition of finished
 // (every episode, for a series), ported from the original codebase's
