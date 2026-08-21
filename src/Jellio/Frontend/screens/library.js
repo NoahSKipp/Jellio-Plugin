@@ -351,8 +351,7 @@ function renderAnime(root, collectionType) {
       if (result.status !== 'fulfilled' || index === trendingIndex) return;
       const items = result.value;
       const name = animeCollections[index].Name || '';
-      const badge = TRENDING_ANIME_NAME.test(name) ? { icon: 'trending_up', text: 'Trending on AniList' } : null;
-      const row = buildRow(name, items, null, badge);
+      const row = buildRow(name, items);
       if (row) rows.appendChild(row);
     });
 

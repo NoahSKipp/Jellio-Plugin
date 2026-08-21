@@ -666,46 +666,21 @@
   background: var(--jellio-secondary-color);
 }
 
-.jellio-row-title-wrap {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6em;
-}
-
-/* Icon plus uppercase text, no pill: components/row.js's own
-   buildBadge(), the same real shape Harbor's own TrendingBadge uses on
-   its anime hero, at the row rather than per card since one real
-   catalog collection either is a Trending on AniList source or is not.
-   Real feedback: Harbor's own reference version left its icon the same
-   plain text colour as everything around it, read here as "not colored
-   or anything" once actually shipped, this real trending green now
-   marks it as its own real signal instead of blending in. */
-.jellio-row-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.3em;
-  color: var(--jellio-trending-color);
-  font-size: clamp(0.7em, 0.82vw, 0.82em);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.jellio-row-badge .material-icons {
-  font-size: 1.1em;
-}
-
-/* Same real chip, above components/libraryCoverflow.js's own stage
-   instead of next to a row title: the Anime page's own coverflow now
-   only ever shows this when its own real candidates are the Trending
-   on AniList catalog itself. */
+/* Icon plus uppercase text, above components/libraryCoverflow.js's own
+   stage: the Anime page's own coverflow only ever shows this when its
+   own real candidates are the Trending on AniList catalog itself, real
+   feedback has since asked this off every row entirely
+   (components/row.js's own buildBadge() is gone, this is the one place
+   it survives). Real feedback: only the icon should read as the
+   trending signal, the label text stays the row's own plain text
+   colour rather than the whole chip going orange. */
 .jellio-coverflow-badge {
   display: flex;
   align-items: center;
   gap: 0.35em;
   padding: 0 var(--jellio-safe-gutter);
   margin-bottom: clamp(8px, 1vw, 16px);
-  color: var(--jellio-trending-color);
+  color: var(--jellio-text-secondary);
   font-family: var(--jellio-font-family);
   font-size: clamp(0.72em, 0.84vw, 0.84em);
   font-weight: 700;
@@ -714,6 +689,7 @@
 }
 
 .jellio-coverflow-badge .material-icons {
+  color: var(--jellio-trending-color);
   font-size: 1.15em;
 }
 
