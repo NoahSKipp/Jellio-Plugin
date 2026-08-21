@@ -11,7 +11,8 @@ import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
 import { describeNetworkFailure } from '../runtime/network.js';
-import { toggleWatched, toggleWatchlist } from '../components/cardOptionsMenu.js';
+import { toggleWatched, toggleWatchlist, toggleRating } from '../components/cardOptionsMenu.js';
+import { attachScrollArrows } from '../components/scrollArrows.js';
 
 // A failed item lookup used to just console.warn and return, leaving
 // root exactly as blank as root.textContent = '' left it: a series's
@@ -428,11 +429,27 @@ async function buildSeasonsSection(seriesId) {
   const section = el('section', 'jellio-detail-seasons');
   section.appendChild(el('h2', 'jellio-row-title', 'Episodes'));
 
+  // Real feedback: neither row had any visible way to reach anything
+  // scrolled past its own edge except a mouse drag or a trackpad swipe,
+  // real gap on a series with enough seasons or one season with enough
+  // episodes. components/scrollArrows.js's own attachScrollArrows(),
+  // the same hover revealed prev/next control components/row.js's own
+  // rows already use, needs its own position: relative wrap around each
+  // real track to anchor against, same real shape that file's own
+  // trackWrap already is.
+  const tabsWrap = el('div', 'jellio-season-tabs-wrap');
   const tabs = el('div', 'jellio-season-tabs');
   tabs.setAttribute('role', 'tablist');
+  tabsWrap.appendChild(tabs);
+
+  const trackWrap = el('div', 'jellio-episode-track-wrap');
   const track = el('div', 'jellio-episode-track');
-  section.appendChild(tabs);
-  section.appendChild(track);
+  trackWrap.appendChild(track);
+
+  section.appendChild(tabsWrap);
+  section.appendChild(trackWrap);
+  attachScrollArrows(tabsWrap, tabs);
+  const refreshTrackArrows = attachScrollArrows(trackWrap, track);
 
   // The exact array each episode card's own context menu mutates in
   // place (screens/detail.js's own openEpisodeOptionsMenu, above),
@@ -451,6 +468,13 @@ async function buildSeasonsSection(seriesId) {
         }),
       );
     });
+    // A season switch swaps in a real different episode count, well
+    // after attachScrollArrows()'s own one time initial check already
+    // ran and found nothing here yet: this real season might cross the
+    // "does this even need arrows" line the last one did not either
+    // way, requestAnimationFrame so the track's own real scrollWidth
+    // reflects what was just appended before this checks it.
+    window.requestAnimationFrame(refreshTrackArrows);
   }
 
   function selectSeason(season, tabButton) {
@@ -635,20 +659,18 @@ export async function renderDetail(root, params) {
   // pill for a choice most titles here only have one real answer to
   // anyway (components/streamPicker.js's own openStreamPicker already
   // skips straight to Play for a single source title).
-  // A series has no video of its own, only its episodes do, so there is
-  // no Play here to make room for and nothing to hide behind More
-  // either: Watchlist and Mark Watched render as plain, always-visible
-  // buttons for one below, skipping the collapsible/More machinery this
-  // row otherwise needs entirely rather than collapsing two of a series'
-  // own only three real actions behind a button with nothing else real
-  // left to reveal. jellio-detail-actions-has-more only joins this row's
-  // own class list for the other case: css/app.css's own real
-  // padding-right on that modifier reserves the absolutely positioned
-  // More button's own space, real dead space on the right of a series'
-  // own two plain buttons with no such button to reserve it for.
+  // A series used to render Watchlist/Mark Watched plain and always
+  // visible instead, skipping this row's own collapsible/More machinery
+  // entirely: real reasoning at the time was that a series had no Play
+  // of its own to lead the row, nothing behind More worth collapsing
+  // two of only three real actions for. Real feedback since then: a
+  // series' own hero now has a working Play (resolveSeriesPlayTarget()
+  // above), the same real leading action a movie or an episode already
+  // has, so the same real collapsed-behind-More treatment applies here
+  // too now, not a second, inconsistent always-expanded row.
   const isSeries = item.Type === 'Series';
-  const iconActionClass = isSeries ? 'jellio-detail-icon-action' : 'jellio-detail-icon-action jellio-detail-icon-action-collapsible';
-  const actions = el('div', 'jellio-detail-actions' + (isSeries ? '' : ' jellio-detail-actions-has-more'));
+  const iconActionClass = 'jellio-detail-icon-action jellio-detail-icon-action-collapsible';
+  const actions = el('div', 'jellio-detail-actions jellio-detail-actions-has-more');
 
   // A series has no video of its own, only its episodes do (each already
   // opens this same screen at its own item id, with its own working Play
@@ -746,6 +768,82 @@ export async function renderDetail(root, params) {
   });
   actions.appendChild(watchedButton);
 
+  // Real Jellyfin's own native like/dislike (UserData.Likes, POST/DELETE
+  // /Users/{id}/Items/{id}/Rating), not a second real system this
+  // runtime invented: real feedback asked for a personal rating that
+  // could also feed runtime/recommend.js's own scorer, and this is the
+  // one Jellyfin already has. jellio-detail-icon-action-pop below plays
+  // a quick real bounce on whichever thumb the reader just actually
+  // set, css/app.css's own jellio-thumb-pop keyframe, removed again on
+  // its own animationend so the same thumb can replay it next time
+  // rather than only ever once.
+  function playPop(button) {
+    button.classList.remove('jellio-detail-icon-action-pop');
+    // Forces a real reflow: re-adding the same real class in the same
+    // real tick would not restart a still-matching CSS animation at
+    // all otherwise, the same real trick every other one-shot class
+    // toggle in this codebase already needs.
+    void button.offsetWidth;
+    button.classList.add('jellio-detail-icon-action-pop');
+    button.addEventListener('animationend', function handler() {
+      button.classList.remove('jellio-detail-icon-action-pop');
+      button.removeEventListener('animationend', handler);
+    });
+  }
+
+  const thumbsUpButton = el('button', iconActionClass);
+  thumbsUpButton.type = 'button';
+  const thumbsDownButton = el('button', iconActionClass);
+  thumbsDownButton.type = 'button';
+
+  function paintThumbs() {
+    const likes = item.UserData && item.UserData.Likes;
+    thumbsUpButton.classList.toggle('jellio-detail-icon-action-active', likes === true);
+    thumbsUpButton.setAttribute('aria-label', likes === true ? 'Remove like' : 'Like');
+    thumbsUpButton.textContent = '';
+    thumbsUpButton.appendChild(el('span', 'material-icons ' + (likes === true ? 'thumb_up' : 'thumb_up_alt')));
+
+    thumbsDownButton.classList.toggle('jellio-detail-icon-action-active', likes === false);
+    thumbsDownButton.setAttribute('aria-label', likes === false ? 'Remove dislike' : 'Dislike');
+    thumbsDownButton.textContent = '';
+    thumbsDownButton.appendChild(el('span', 'material-icons ' + (likes === false ? 'thumb_down' : 'thumb_down_alt')));
+  }
+  paintThumbs();
+
+  thumbsUpButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    thumbsUpButton.disabled = true;
+    toggleRating(item, true)
+      .then(function () {
+        paintThumbs();
+        playPop(thumbsUpButton);
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not update rating', err);
+      })
+      .finally(function () {
+        thumbsUpButton.disabled = false;
+      });
+  });
+  actions.appendChild(thumbsUpButton);
+
+  thumbsDownButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    thumbsDownButton.disabled = true;
+    toggleRating(item, false)
+      .then(function () {
+        paintThumbs();
+        playPop(thumbsDownButton);
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not update rating', err);
+      })
+      .finally(function () {
+        thumbsDownButton.disabled = false;
+      });
+  });
+  actions.appendChild(thumbsDownButton);
+
   // Play alone already reopens components/streamPicker.js's own picker
   // whenever there is real more than one source and "remember my
   // stream choice" is off; this exists for when it is on, real
@@ -754,7 +852,9 @@ export async function renderDetail(root, params) {
   // working. forceChoice: true skips only that remembered shortcut, a
   // title with one real source still has nothing to change to either
   // way. A series has no stream of its own to change (each episode has
-  // its own), so this is skipped there the same as Play above.
+  // its own), so this is skipped there the same as Play above; More
+  // still applies to a series though, real feedback's own point,
+  // collapsing Watchlist/Mark Watched behind it just the same.
   if (!isSeries) {
     const changeStreamButton = el('button', iconActionClass);
     changeStreamButton.type = 'button';
@@ -765,70 +865,67 @@ export async function renderDetail(root, params) {
       openStreamPicker(item, { forceChoice: true });
     });
     actions.appendChild(changeStreamButton);
-
-    // Real feedback: Watchlist, Mark Watched and Change Stream used to
-    // sit there permanently, real Nuvio screenshots confirmed that is
-    // not the real reference either, only Play and More show by default
-    // there, the other three only appearing once More itself is actually
-    // tapped, More's own colour (and its own three dots rotating flat)
-    // flipping to show it is now the one selected. A second real tap on
-    // More collapses it straight back, a plain real toggle, the same as
-    // tapping anywhere else on the page; real feedback found a second
-    // tap opening a whole separate Change Stream menu instead confusing,
-    // Change Stream is a plain fourth button revealed alongside the
-    // other two instead now. A series has none of Play/Change
-    // Stream/More at all (this whole block is skipped for one), so its
-    // own Watchlist/Mark Watched above render plain and always visible
-    // instead, nothing left behind More worth collapsing them for.
-    //
-    // Real feedback, four times over: every real attempt at measuring or
-    // pinning some other element's own width to cancel out More's own
-    // real drift kept a real visible flash or a real residual jump one
-    // way or another, transitions and synchronous layout reads never
-    // actually behaving quite the way relying on them assumed. Given up
-    // on cancelling real drift after the fact entirely: More
-    // (css/app.css's own jellio-detail-icon-action-more) is now position:
-    // absolute, right: 0 against .jellio-detail-actions' own real
-    // position: relative, taken out of this row's own flex flow
-    // altogether. Nothing Play or the other three do to their own real
-    // widths can ever move an element that flexbox no longer has any
-    // real say over the position of at all, the one real way to
-    // guarantee this rather than trying to correct for it.
-    const moreButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-more');
-    moreButton.type = 'button';
-    moreButton.setAttribute('aria-label', 'More options');
-    moreButton.appendChild(el('span', 'material-icons more_vert'));
-
-    let actionsExpanded = false;
-    function handleActionsOutsideClick(event) {
-      if (!actions.contains(event.target)) collapseActions();
-    }
-    function collapseActions() {
-      if (!actionsExpanded) return;
-      actionsExpanded = false;
-      actions.classList.remove('jellio-detail-actions-expanded');
-      moreButton.classList.remove('jellio-detail-icon-action-active');
-      document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
-    }
-    function expandActions() {
-      if (actionsExpanded) return;
-      actionsExpanded = true;
-      actions.classList.add('jellio-detail-actions-expanded');
-      moreButton.classList.add('jellio-detail-icon-action-active');
-      window.setTimeout(function () {
-        document.addEventListener('pointerdown', handleActionsOutsideClick, true);
-      }, 0);
-    }
-    moreButton.addEventListener('click', function (event) {
-      event.stopPropagation();
-      if (actionsExpanded) {
-        collapseActions();
-      } else {
-        expandActions();
-      }
-    });
-    actions.appendChild(moreButton);
   }
+
+  // Real feedback: Watchlist, Mark Watched and Change Stream used to
+  // sit there permanently, real Nuvio screenshots confirmed that is
+  // not the real reference either, only Play and More show by default
+  // there, the other two or three only appearing once More itself is
+  // actually tapped, More's own colour (and its own three dots rotating
+  // flat) flipping to show it is now the one selected. A second real
+  // tap on More collapses it straight back, a plain real toggle, the
+  // same as tapping anywhere else on the page; real feedback found a
+  // second tap opening a whole separate Change Stream menu instead
+  // confusing, Change Stream is a plain extra button revealed alongside
+  // the other two instead now, for whichever title actually has one.
+  //
+  // Real feedback, four times over: every real attempt at measuring or
+  // pinning some other element's own width to cancel out More's own
+  // real drift kept a real visible flash or a real residual jump one
+  // way or another, transitions and synchronous layout reads never
+  // actually behaving quite the way relying on them assumed. Given up
+  // on cancelling real drift after the fact entirely: More
+  // (css/app.css's own jellio-detail-icon-action-more) is now position:
+  // absolute, right: 0 against .jellio-detail-actions' own real
+  // position: relative, taken out of this row's own flex flow
+  // altogether. Nothing Play or the other buttons do to their own real
+  // widths can ever move an element that flexbox no longer has any
+  // real say over the position of at all, the one real way to
+  // guarantee this rather than trying to correct for it.
+  const moreButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-more');
+  moreButton.type = 'button';
+  moreButton.setAttribute('aria-label', 'More options');
+  moreButton.appendChild(el('span', 'material-icons more_vert'));
+
+  let actionsExpanded = false;
+  function handleActionsOutsideClick(event) {
+    if (!actions.contains(event.target)) collapseActions();
+  }
+  function collapseActions() {
+    if (!actionsExpanded) return;
+    actionsExpanded = false;
+    actions.classList.remove('jellio-detail-actions-expanded');
+    moreButton.classList.remove('jellio-detail-icon-action-active');
+    document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
+  }
+  function expandActions() {
+    if (actionsExpanded) return;
+    actionsExpanded = true;
+    actions.classList.add('jellio-detail-actions-expanded');
+    moreButton.classList.add('jellio-detail-icon-action-active');
+    window.setTimeout(function () {
+      document.addEventListener('pointerdown', handleActionsOutsideClick, true);
+    }, 0);
+  }
+  moreButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    if (actionsExpanded) {
+      collapseActions();
+    } else {
+      expandActions();
+    }
+  });
+  actions.appendChild(moreButton);
 
   heroContent.appendChild(actions);
 

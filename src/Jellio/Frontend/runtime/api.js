@@ -591,6 +591,29 @@ export async function setWatchlist(itemId, isWatchlisted) {
   return response.json();
 }
 
+// Real endpoint pair, POST/DELETE /Users/{id}/Items/{itemId}/Rating
+// (UserLibraryController.cs's own real UpdateItemRating/DeleteItemRating):
+// a plain real like/dislike, UserData.Likes (true/false/absent), not a
+// 1-10 star scale, same real shape the stock UI's own thumbs already
+// use. Clearing sends the DELETE with no real likes query param at
+// all, the one way this endpoint returns UserData.Likes to real
+// undefined rather than toggling it to the opposite real value.
+export async function setItemRating(itemId, likes) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const path = '/Users/' + userId + '/Items/' + itemId + '/Rating' + (likes == null ? '' : '?likes=' + likes);
+  const response = await fetch(getServerAddress() + path, {
+    method: likes == null ? 'DELETE' : 'POST',
+    headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()),
+  });
+  if (!response.ok) {
+    const err = new Error('Request failed: Rating');
+    err.status = response.status;
+    throw err;
+  }
+  return response.json();
+}
+
 // Real mechanism, confirmed against JMSFusion's own source
 // (RuntimeModules/api.js's own getVideoStreamUrl) before writing any of
 // this, not guessed at: POST /Items/{id}/PlaybackInfo negotiates a real
@@ -922,22 +945,19 @@ export function getAvatarPresetUrl(id) {
   return getServerAddress() + '/Jellio/avatars/' + encodeURIComponent(id);
 }
 
-// Setting the chosen preset as a user's own avatar is not Jellio's job,
-// real mechanism confirmed against jellyfin-apiclient-javascript's own
-// uploadUserImage before writing this: fetch the preset's own bytes,
-// base64 encode them, POST to the same real POST /Users/{id}/Images/
-// Primary endpoint the stock profile page's own file upload already
-// uses, body is the base64 payload itself with Content-Type set to the
-// image's real mime type, not JSON.
-export async function setUserAvatar(presetId) {
+// Shared real mechanism confirmed against jellyfin-apiclient-javascript's
+// own uploadUserImage before writing this: base64 encode whatever real
+// image bytes the caller already has (a preset's own fetched blob, or a
+// real file the reader picked off their own device), POST to the same
+// real POST /Users/{id}/Images/Primary endpoint the stock profile page's
+// own file upload already uses, body is the base64 payload itself with
+// Content-Type set to the image's real mime type, not JSON. Real
+// Jellyfin accepts an animated gif here same as any other real image
+// type, nothing this call needs to special case either way.
+async function uploadUserAvatarBlob(blob) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
 
-  const imageResponse = await fetch(getAvatarPresetUrl(presetId));
-  if (!imageResponse.ok) {
-    throw new Error('Could not load preset avatar');
-  }
-  const blob = await imageResponse.blob();
   const contentType = blob.type || 'image/png';
 
   const base64 = await new Promise(function (resolve, reject) {
@@ -960,6 +980,58 @@ export async function setUserAvatar(presetId) {
     throw err;
   }
   invalidateCurrentUser();
+}
+
+// Setting a chosen preset as a user's own avatar is not Jellio's job:
+// fetch that preset's own bytes off Jellio's own AvatarsController and
+// hand them to the same real upload path a real device file already
+// goes through below.
+export async function setUserAvatar(presetId) {
+  const imageResponse = await fetch(getAvatarPresetUrl(presetId));
+  if (!imageResponse.ok) {
+    throw new Error('Could not load preset avatar');
+  }
+  const blob = await imageResponse.blob();
+  return uploadUserAvatarBlob(blob);
+}
+
+// A real file the reader picked off their own device (components/
+// avatarPicker.js's own upload tile): real Jellyfin already supports
+// this natively (an animated gif included) for a user's own avatar,
+// this runtime just never had a way to reach it, presets only, until
+// real feedback asked directly for one.
+export function setUserAvatarFromFile(file) {
+  return uploadUserAvatarBlob(file);
+}
+
+// Real Jellyfin SyncPlay endpoints (SyncPlayController.cs), the same
+// real group create/join/leave/list calls the stock web client's own
+// SyncPlay menu already drives. components/groupWatch.js's own real
+// modal calls these directly rather than forwarding a click at native
+// jellyfin-web's own hidden header button the way this app's sidebar
+// used to: real feedback was that native's own menu rendered tiny and
+// off in a real corner once its own header was hidden, this app's own
+// styled panel instead, same real backend underneath either way.
+// Keeping playback itself in lockstep across a group once joined is a
+// separate, larger real feature (real Jellyfin drives that over the
+// same WebSocket connection this runtime's own player has never opened
+// at all, see screens/player.js's own header for why it runs a bare
+// <video> element with none of native's own playbackManager wiring):
+// this only covers real group membership, not synced playback.
+export function getSyncPlayGroups() {
+  return getJson('/SyncPlay/List');
+}
+
+export function createSyncPlayGroup(groupName) {
+  return postJson('/SyncPlay/New', { GroupName: groupName });
+}
+
+export function joinSyncPlayGroup(groupId) {
+  return postJson('/SyncPlay/Join', { GroupId: groupId });
+}
+
+export function leaveSyncPlayGroup() {
+  return postJson('/SyncPlay/Leave', {});
 }
 
 // Real endpoint, POST /Users/{id}/Configuration (UserController.cs's

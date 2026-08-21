@@ -224,7 +224,7 @@ function buildHubStrip(collections) {
   if (!names.length) return null;
 
   const section = el('section', 'jellio-hub');
-  section.appendChild(el('h2', 'jellio-row-title', 'Your streaming'));
+  section.appendChild(el('h2', 'jellio-row-title', 'Studio Hubs'));
   const tiles = el('div', 'jellio-hub-tiles');
   names.forEach(function (name) {
     tiles.appendChild(buildHubTile(name));
@@ -236,17 +236,45 @@ function buildHubStrip(collections) {
 // #/home?tab=1, the same hash the sidebar's own Watchlist link and the
 // original Jellio codebase's own NAV_LINKS both already point at, rather
 // than a separate #/watchlist route.
+// Real feedback: one flat grid mixed movies and series together with
+// nothing telling the two apart at a glance, on a real watchlist with
+// enough of both a real title could sit anywhere in it. Split into its
+// own section per real kind instead, movies first (the same lead order
+// this app's own sidebar library links already use), each section
+// skipped outright rather than rendered empty when this reader's own
+// watchlist simply has none of that kind on it.
+function buildWatchlistSection(title, items) {
+  if (!items.length) return null;
+  const section = el('section', 'jellio-row');
+  section.appendChild(el('h2', 'jellio-row-title', title));
+  const grid = el('div', 'jellio-library-grid');
+  section.appendChild(grid);
+  appendCardsLazily(grid, items, buildCard);
+  return section;
+}
+
 async function renderWatchlist(root) {
   const header = el('header', 'jellio-home-header');
   header.appendChild(el('h1', 'jellio-home-greeting', 'Watchlist'));
   root.appendChild(header);
 
-  const grid = el('div', 'jellio-library-grid');
-  root.appendChild(grid);
-
   try {
     const items = await getWatchlistItems();
-    appendCardsLazily(grid, items, buildCard);
+    const movies = items.filter(function (item) {
+      return item.Type === 'Movie';
+    });
+    const series = items.filter(function (item) {
+      return item.Type === 'Series';
+    });
+
+    const movieSection = buildWatchlistSection('Movies', movies);
+    if (movieSection) root.appendChild(movieSection);
+    const seriesSection = buildWatchlistSection('Series', series);
+    if (seriesSection) root.appendChild(seriesSection);
+
+    if (!movieSection && !seriesSection) {
+      root.appendChild(el('p', 'jellio-service-empty', 'Nothing on your watchlist yet.'));
+    }
   } catch (err) {
     console.warn('Jellio: could not load watchlist', err);
   }
@@ -317,18 +345,17 @@ async function buildHomeSections() {
     getCollections(),
   ]);
 
-  // Up Next, then Continue Watching, then the recommendation rows,
-  // real feedback asked for this exact order: the reader's own actual
-  // watch state first (what a show is up to, what was left mid
-  // playback), then what it suggests, ahead of anything the catalog
-  // itself has to say.
-  if (nextUpResult.status === 'fulfilled') {
-    const row = buildRow('Up Next', nextUpResult.value, { upNext: true });
+  // Continue Watching, then Up Next, then the recommendation rows,
+  // real feedback's own updated order: a title actually left mid
+  // playback is the more immediate real pickup than one only queued up
+  // next, ahead of anything the catalog itself has to say either way.
+  if (resumeResult.status === 'fulfilled') {
+    const row = buildRow('Continue Watching', resumeResult.value, { continueWatching: true });
     if (row) pushAll([row]);
   }
 
-  if (resumeResult.status === 'fulfilled') {
-    const row = buildRow('Continue Watching', resumeResult.value, { continueWatching: true });
+  if (nextUpResult.status === 'fulfilled') {
+    const row = buildRow('Up Next', nextUpResult.value, { upNext: true });
     if (row) pushAll([row]);
   }
 
@@ -450,13 +477,14 @@ export async function renderHome(root, params) {
   const header = el('header', 'jellio-home-header');
   const [user] = await Promise.allSettled([getCurrentUser()]);
   const greeting = greetingFor(new Date().getHours());
-  header.appendChild(
-    el(
-      'h1',
-      'jellio-home-greeting',
-      user.status === 'fulfilled' && user.value ? greeting + ', ' + user.value.Name : greeting,
-    ),
-  );
+  const name = user.status === 'fulfilled' && user.value ? user.value.Name : '';
+  // "Still up" reads as a statement next to a plain name; real feedback
+  // wanted the late night bucket specifically to read as the direct
+  // address it actually is, a question rather than a flat greeting.
+  const greetingText = name
+    ? greeting + ', ' + name + (greeting === 'Still up' ? '?' : '')
+    : greeting + (greeting === 'Still up' ? '?' : '');
+  header.appendChild(el('h1', 'jellio-home-greeting', greetingText));
   root.appendChild(header);
 
   const rows = el('div', 'jellio-rows');

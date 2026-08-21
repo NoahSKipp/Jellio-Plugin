@@ -182,12 +182,14 @@ public class IndexHtmlPatchService(
         "components/splash.js",
         "components/card.js",
         "components/row.js",
+        "components/scrollArrows.js",
         "components/services.js",
         "components/heroCarousel.js",
         "components/streamPicker.js",
         "components/cardOptionsMenu.js",
         "components/libraryCoverflow.js",
         "components/avatarPicker.js",
+        "components/groupWatch.js",
         "components/navShared.js",
     ];
 
@@ -203,6 +205,16 @@ public class IndexHtmlPatchService(
             + "<script>\n"
             + EarlySessionCaptureScript
             + "</script>\n"
+            // css/app.css's own --jellio-font-family names Inter first,
+            // real feedback was that the sidebar (and everything else)
+            // never actually looked like it, every device this renders on
+            // falling straight through to its own fallback stack instead:
+            // nothing ever linked the real webfont itself. A client with
+            // no real path to fonts.googleapis.com still gets that same
+            // fallback stack it always has, no worse off than before.
+            + "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n"
+            + "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n"
+            + "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap\">\n"
             + $"<link rel=\"stylesheet\" href=\"/Jellio/frontend/css/app.css?v={version}\">\n"
             + preloadLinks
             + $"<script type=\"module\" src=\"/Jellio/frontend/app.js?v={version}\"></script>\n"

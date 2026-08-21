@@ -122,10 +122,27 @@ function buildEditorial(editorial) {
   return wrap;
 }
 
+// Same real chip components/row.js's own buildBadge() renders next to a
+// row title (icon plus text, no pill), reused here above the stage
+// instead: real feedback wanted the Anime page's own Trending on
+// AniList label reachable on the carousel itself, not only on a row
+// further down the page, whenever the carousel's own real candidates
+// (the anime page's own options.items) actually are that catalog.
+function buildCoverflowBadge(badge) {
+  const wrap = el('div', 'jellio-coverflow-badge');
+  const icon = el('span', 'material-icons ' + badge.icon);
+  icon.setAttribute('aria-hidden', 'true');
+  wrap.appendChild(icon);
+  wrap.appendChild(el('span', null, badge.text));
+  return wrap;
+}
+
 export function buildLibraryCoverflow(options) {
   const root = el('div', 'jellio-coverflow');
   if (options && options.editorial) {
     root.appendChild(buildEditorial(options.editorial));
+  } else if (options && options.badge) {
+    root.appendChild(buildCoverflowBadge(options.badge));
   }
   const stage = el('div', 'jellio-coverflow-stage');
   const dotsEl = el('div', 'jellio-coverflow-dots');

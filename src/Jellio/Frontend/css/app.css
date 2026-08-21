@@ -279,7 +279,7 @@
    independent of whatever width flex ends up giving it, and back on
    .jellio-sidebar's own real :hover/:focus-within expansion below. */
 .jellio-sidebar-label {
-  font-size: 0.92em;
+  font-size: 1.05em;
   font-weight: 500;
   text-align: left;
   overflow: hidden;
@@ -526,12 +526,16 @@
 /* Icon plus uppercase text, no pill: components/row.js's own
    buildBadge(), the same real shape Harbor's own TrendingBadge uses on
    its anime hero, at the row rather than per card since one real
-   catalog collection either is a Trending on AniList source or is not. */
+   catalog collection either is a Trending on AniList source or is not.
+   Real feedback: Harbor's own reference version left its icon the same
+   plain text colour as everything around it, read here as "not colored
+   or anything" once actually shipped, this real trending green now
+   marks it as its own real signal instead of blending in. */
 .jellio-row-badge {
   display: flex;
   align-items: center;
   gap: 0.3em;
-  color: var(--jellio-text-secondary);
+  color: var(--jellio-trending-color);
   font-size: clamp(0.7em, 0.82vw, 0.82em);
   font-weight: 600;
   text-transform: uppercase;
@@ -540,6 +544,28 @@
 
 .jellio-row-badge .material-icons {
   font-size: 1.1em;
+}
+
+/* Same real chip, above components/libraryCoverflow.js's own stage
+   instead of next to a row title: the Anime page's own coverflow now
+   only ever shows this when its own real candidates are the Trending
+   on AniList catalog itself. */
+.jellio-coverflow-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0 var(--jellio-safe-gutter);
+  margin-bottom: clamp(8px, 1vw, 16px);
+  color: var(--jellio-trending-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.72em, 0.84vw, 0.84em);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.jellio-coverflow-badge .material-icons {
+  font-size: 1.15em;
 }
 
 /* Nuvio's own real HomeSkeletonLoading (features/home/components/
@@ -815,7 +841,12 @@
 .jellio-card:hover .jellio-card-image,
 .jellio-card:focus-visible .jellio-card-image {
   transform: scale(1.06);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+  /* Harbor's own real hover elevation (pick-card.tsx, confirmed against
+     its real source before writing this): a far bigger, softer blur
+     with a negative spread pulling it back in tight underneath the
+     card instead of a shadow that just reads as a dark smudge behind
+     it, real depth rather than a flat tint. */
+  box-shadow: 0 24px 48px -14px rgb(0 0 0 / 0.65);
 }
 
 /* After the hover rule on purpose: a real press happens while a mouse
@@ -884,6 +915,20 @@
   border-radius: var(--jellio-card-radius);
   overflow: hidden;
   background: var(--jellio-card-bg);
+  /* Real feedback: this used to sit on .jellio-card-landscape-image
+     alone, scaling the picture behind a static size text overlay (a
+     real Ken Burns effect), not the whole real card the way every
+     plain poster card's own hover already reads. Moved to this real
+     rounded box itself, image/scrim/title/progress all its own real
+     children, so hovering scales the same one real unit every other
+     card already does; this element's own border-radius/overflow:hidden
+     still clip that unit's own real edges correctly once transformed,
+     the same as any other scaled, rounded box, and .jellio-card-
+     landscape itself carries no clip of its own for the now larger
+     real box to bleed past, same real overflow this file's own plain
+     .jellio-card-image-wrap already relies on.
+  */
+  transition: transform 200ms var(--jellio-ease-out);
 }
 
 .jellio-card-landscape-image {
@@ -891,15 +936,14 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 200ms var(--jellio-ease-out);
 }
 
-.jellio-card-landscape:hover .jellio-card-landscape-image,
-.jellio-card-landscape:focus-visible .jellio-card-landscape-image {
+.jellio-card-landscape:hover .jellio-card-landscape-image-wrap,
+.jellio-card-landscape:focus-visible .jellio-card-landscape-image-wrap {
   transform: scale(1.04);
 }
 
-.jellio-card-landscape:active .jellio-card-landscape-image {
+.jellio-card-landscape:active .jellio-card-landscape-image-wrap {
   transform: scale(1.01);
 }
 
@@ -1207,7 +1251,17 @@
   align-items: flex-end;
   background-color: var(--jellio-bg-elevated);
   background-size: cover;
-  background-position: center;
+  /* Real feedback: dead centre crops evenly off both edges, which on a
+     backdrop taller (relative to its own width) than this hero's own
+     box cut real subject matter off the top just as often as the
+     bottom, reported live against a real screenshot. Key art almost
+     always composes its own real subject in the upper half already
+     (this hero's own bottom third is exactly where the gradient scrim
+     and title card sit, real dead space in the source image itself on
+     purpose), so biasing toward the top here loses far less real
+     content than staying centred ever did.
+  */
+  background-position: center 20%;
 }
 
 /* A plain two-stop fade (near-transparent at the top straight to fully
@@ -1397,11 +1451,16 @@
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: width 220ms var(--jellio-ease-out);
+  transition: width 220ms var(--jellio-ease-out), transform 120ms var(--jellio-ease-out);
 }
 
 .jellio-detail-play:hover {
   background: var(--jellio-secondary-variant);
+  transform: scale(1.03);
+}
+
+.jellio-detail-play:active {
+  transform: scale(0.97);
 }
 
 .jellio-detail-icon-action {
@@ -1420,10 +1479,20 @@
   font-size: 1em;
   line-height: 1;
   cursor: pointer;
+  /* Harbor's own real de facto button feel (confirmed across several
+     of its own components before writing this): hover scales up a
+     touch, active scales back down past 1, applied here consistently
+     with every other real button in this codebase now carrying it. */
+  transition: background-color 160ms ease, transform 120ms var(--jellio-ease-out);
 }
 
 .jellio-detail-icon-action:hover {
   background: rgb(255 255 255 / 0.08);
+  transform: scale(1.08);
+}
+
+.jellio-detail-icon-action:active {
+  transform: scale(0.94);
 }
 
 .jellio-detail-icon-action:disabled {
@@ -1434,6 +1503,35 @@
 .jellio-detail-icon-action-active {
   border-color: var(--jellio-secondary-color);
   color: var(--jellio-secondary-color);
+}
+
+/* screens/detail.js's own playPop(): plays on whichever thumb the
+   reader just actually set, real feedback asked directly for an
+   animation here rather than a plain colour swap alone. Harbor's own
+   real "pop" (confirmed against its real source, src/index.css,
+   before writing this): a genuine spring overshoot, scale past 1
+   before settling rather than a plain ease back down, the one real
+   animation in that whole codebase that actually reads as springy.
+   Reused verbatim (its own real timing/curve, not a guess) for a
+   stronger real tell than the plain colour swap Harbor's own thumbs
+   button itself settles for. Removed again on its own animationend,
+   so the same thumb can replay it the next real time rather than only
+   once. */
+@keyframes jellio-thumb-pop {
+  0% {
+    transform: scale(0.5);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.jellio-detail-icon-action-pop .material-icons {
+  display: inline-block;
+  animation: jellio-thumb-pop 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .jellio-detail-icon-action-more {
@@ -1607,6 +1705,13 @@
   white-space: nowrap;
 }
 
+/* components/scrollArrows.js's own attachScrollArrows() anchors its
+   prev/next buttons against this, same real position: relative shape
+   components/row.js's own .jellio-row-track-wrap already is. */
+.jellio-season-tabs-wrap {
+  position: relative;
+}
+
 .jellio-season-tabs {
   display: flex;
   gap: 0.5em;
@@ -1651,6 +1756,10 @@
 
 .jellio-season-tab-selected:hover {
   color: var(--jellio-text-color);
+}
+
+.jellio-episode-track-wrap {
+  position: relative;
 }
 
 .jellio-episode-track {
@@ -2608,10 +2717,16 @@
   overflow: hidden;
   background: var(--jellio-card-bg);
   cursor: pointer;
+  transition: border-color 160ms ease, transform 120ms var(--jellio-ease-out);
 }
 
 .jellio-avatar-picker-option:hover {
   border-color: var(--jellio-secondary-color);
+  transform: scale(1.05);
+}
+
+.jellio-avatar-picker-option:active {
+  transform: scale(0.96);
 }
 
 .jellio-avatar-picker-option:disabled {
@@ -2630,6 +2745,141 @@
   margin: 1em 0 0;
   color: var(--jellio-text-secondary);
   font-size: 0.85em;
+}
+
+/* components/avatarPicker.js's own upload tile: real Jellyfin already
+   accepts a reader's own uploaded picture or gif natively for their own
+   avatar, presets were the only real way this runtime ever reached that
+   endpoint until real feedback asked for this. Dashed rather than the
+   solid ring every preset tile gets on hover, same real "add" affordance
+   components/accountSwitcher.js's own add-account tile already uses. */
+.jellio-avatar-picker-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2em;
+  border: 2px dashed rgb(255 255 255 / 0.24);
+  background: rgb(255 255 255 / 0.06);
+  color: var(--jellio-text-secondary);
+}
+
+.jellio-avatar-picker-upload:hover {
+  color: var(--jellio-text-color);
+}
+
+.jellio-avatar-picker-upload .material-icons {
+  font-size: 1.6em;
+}
+
+.jellio-avatar-picker-upload-label {
+  font-size: 0.68em;
+  font-weight: 600;
+}
+
+.jellio-avatar-picker-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* components/groupWatch.js's own real styled panel, reusing the same
+   avatar-picker-overlay/-panel/-title/-status shapes rather than a
+   third real dialog language: real feedback was that native
+   jellyfin-web's own SyncPlay menu rendered tiny and pinned to a real
+   corner nothing visible anchors it to any more, once this shell hides
+   that header, a properly sized, centred panel instead. */
+.jellio-group-watch-panel {
+  width: min(90vw, 34em);
+  position: relative;
+}
+
+.jellio-group-watch-close {
+  position: absolute;
+  top: 1.2em;
+  right: 1.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  height: 2.2em;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--jellio-text-color);
+  cursor: pointer;
+}
+
+.jellio-group-watch-close:hover {
+  background: rgb(255 255 255 / 0.16);
+}
+
+.jellio-group-watch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  margin-bottom: 1.2em;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.jellio-group-watch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+  padding: 0.8em 1em;
+  border-radius: var(--jellio-card-radius);
+  background: rgb(255 255 255 / 0.04);
+}
+
+.jellio-group-watch-row-active {
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px var(--jellio-secondary-color);
+}
+
+.jellio-group-watch-row-info {
+  min-width: 0;
+}
+
+.jellio-group-watch-row-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jellio-group-watch-row-meta {
+  display: flex;
+  gap: 0.6em;
+  margin-top: 0.2em;
+  color: var(--jellio-text-secondary);
+  font-size: 0.82em;
+}
+
+.jellio-group-watch-create {
+  display: flex;
+  gap: 0.6em;
+  align-items: center;
+}
+
+.jellio-group-watch-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.6em 1em;
+  border: 1px solid var(--jellio-border-color);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.05);
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+}
+
+.jellio-group-watch-input:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
 }
 
 /* components/accountSwitcher.js's own currently-signed-in row, sat
@@ -2746,7 +2996,8 @@
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 82%;
+  width: auto;
+  max-width: 82%;
   height: 54%;
   object-fit: contain;
   filter: brightness(0) invert(1);
@@ -2998,9 +3249,19 @@
 }
 
 .jellio-settings-status {
-  margin: 0;
+  margin: 0 0 1em;
   color: var(--jellio-text-secondary);
   font-size: clamp(0.85em, 1vw, 1em);
+}
+
+/* screens/settings.js's own Profile section: Open admin dashboard and
+   Change avatar, a real row rather than two plain section children
+   with nothing between them. */
+.jellio-settings-profile-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8em;
 }
 
 /* Remember my stream choice, screens/settings.js's own Playback
@@ -4284,6 +4545,16 @@ select.jellio-settings-input {
 .jellio-settings-button,
 .jellio-login-submit {
   transition: background-color 160ms ease, transform 120ms var(--jellio-ease-out);
+}
+
+/* Harbor's own real de facto button feel (confirmed across several of
+   its own components before writing this, the one consistent pattern
+   the whole codebase actually shares): hover scales up a touch, active
+   scales back down past 1, real press feedback rather than a colour
+   change alone. */
+.jellio-settings-button:hover,
+.jellio-login-submit:hover {
+  transform: scale(1.03);
 }
 
 .jellio-settings-button:active,

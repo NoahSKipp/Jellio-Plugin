@@ -9,7 +9,7 @@
 // manually/Start from beginning/Remove, every other card offers
 // Watchlist/Mark watched/Remove from Library, matched here rather than
 // one generic list either context has to squint past.
-import { setPlayed, setWatchlist, deleteItem, getCurrentUser } from '../runtime/api.js';
+import { setPlayed, setWatchlist, setItemRating, deleteItem, getCurrentUser } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from './streamPicker.js';
 
@@ -107,6 +107,22 @@ export function toggleWatched(item, options, onChanged) {
 export function toggleWatchlist(item, onChanged) {
   const isWatchlisted = !!(item.UserData && item.UserData.IsFavorite);
   return setWatchlist(item.Id, !isWatchlisted).then(function (updated) {
+    item.UserData = updated;
+    if (onChanged) onChanged(item);
+    return updated;
+  });
+}
+
+// Tapping the thumb already showing sets it back to real neither
+// (real Jellyfin's own UserData.Likes has three states, true/false/
+// absent, not just the two either thumb alone can reach on its own),
+// tapping the other one flips straight to it instead. screens/detail.js's
+// own thumbs pair both call this, likes true from the up one, false
+// from the down one.
+export function toggleRating(item, likes, onChanged) {
+  const current = item.UserData && item.UserData.Likes;
+  const next = current === likes ? null : likes;
+  return setItemRating(item.Id, next).then(function (updated) {
     item.UserData = updated;
     if (onChanged) onChanged(item);
     return updated;

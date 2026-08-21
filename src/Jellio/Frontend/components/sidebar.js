@@ -8,6 +8,7 @@ import { getPrimaryNavLinks, isActive, buildIconElement, buildAvatarIconMount, S
 import { navigateTo } from '../runtime/router.js';
 import { toggleNowPlayingPanel, nowPlayingCount } from './nowPlaying.js';
 import { openAccountSwitcher } from './accountSwitcher.js';
+import { openGroupWatch } from './groupWatch.js';
 import { getCurrentUser } from '../runtime/api.js';
 
 // Tagged with its own hash so updateActiveLinks() can find it again
@@ -37,6 +38,15 @@ function buildLink(link) {
   button.appendChild(labelEl);
 
   button.addEventListener('click', function () {
+    // Real bug, found live: the collapsed rail only ever expands on
+    // :hover/:focus-within, no JS state of its own at all, and a
+    // clicked button keeps real browser focus after the click fires,
+    // same as any other button. Moving the mouse off the rail right
+    // after clicking a link left :focus-within still real true, the
+    // whole rail staying expanded until some later, unrelated click
+    // elsewhere finally moved focus off it. Blurring right here is the
+    // one real place navigation and this rail's own focus state meet.
+    button.blur();
     navigateTo(link.hash);
   });
   return button;
@@ -52,21 +62,6 @@ function updateActiveLinks(container) {
       link.removeAttribute('aria-current');
     }
   });
-}
-
-// Native jellyfin-web keeps running underneath this runtime's own
-// overlay, unaware (app.js's own getRoot() only ever covers it, never
-// removes it), so its classic-skin header buttons are still real,
-// still bound and still clickable, just painted under display:none.
-// libraryMenu.js's own .headerSyncButton already opens the real
-// groupSelectionMenu (onSyncButtonClicked), so Group Watch is a
-// forwarded click rather than a UI this runtime has to build itself,
-// same technique the original codebase's own persistentSidebar.js
-// uses for the same button.
-function clickNative(selector) {
-  const el = document.querySelector(selector);
-  if (el) el.click();
-  return Boolean(el);
 }
 
 function buildGroupWatchButton() {
@@ -87,9 +82,8 @@ function buildGroupWatchButton() {
   button.appendChild(labelEl);
 
   button.addEventListener('click', function () {
-    if (!clickNative('.headerSyncButton')) {
-      console.warn('Jellio: .headerSyncButton not found, native SyncPlay menu could not open');
-    }
+    button.blur();
+    openGroupWatch();
   });
 
   return button;
@@ -124,6 +118,7 @@ function buildNowPlayingButton() {
   button.appendChild(labelEl);
 
   button.addEventListener('click', function () {
+    button.blur();
     toggleNowPlayingPanel();
   });
   return button;
@@ -165,6 +160,7 @@ async function buildProfileButton() {
   // Settings (and the switcher's own Manage Account entry) still reach
   // that screen.
   button.addEventListener('click', function () {
+    button.blur();
     openAccountSwitcher();
   });
 

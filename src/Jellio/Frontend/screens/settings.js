@@ -324,6 +324,14 @@ function buildAccountCategory(user) {
     profile.appendChild(el('p', 'jellio-settings-status', 'Signed in as ' + user.Name));
   }
 
+  // Real feedback: both buttons below used to be appended straight
+  // into this plain section, no layout of their own at all beyond
+  // .jellio-settings-button's own align-self (a no-op outside a real
+  // flex parent), so they and the status line above them all just
+  // stacked with real zero gap between them, reported live against a
+  // real screenshot.
+  const actions = el('div', 'jellio-settings-profile-actions');
+
   // Real feedback: this screen used to be the sidebar's own real
   // Settings destination, which used to just fall through to native
   // jellyfin-web on a dead route, real access to Plugins/Users/Server
@@ -345,7 +353,7 @@ function buildAccountCategory(user) {
     dashboardButton.addEventListener('click', function () {
       navigateTo('#/dashboard');
     });
-    profile.appendChild(dashboardButton);
+    actions.appendChild(dashboardButton);
   }
 
   const avatarButton = el('button', 'jellio-settings-button', 'Change avatar');
@@ -358,7 +366,8 @@ function buildAccountCategory(user) {
     // never appears until the next reload.
     openAvatarPicker(refreshProfileAvatar);
   });
-  profile.appendChild(avatarButton);
+  actions.appendChild(avatarButton);
+  profile.appendChild(actions);
   wrap.appendChild(profile);
 
   wrap.appendChild(buildPasswordSection());
