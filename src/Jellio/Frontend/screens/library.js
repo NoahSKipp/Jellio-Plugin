@@ -48,12 +48,33 @@ function el(tag, className, text) {
 // worth showing (its own MIN_SLIDES floor), rather than always reserving
 // the space: a library without a carousel is still a working library,
 // same reasoning the original codebase's own fetchItems() documents.
+//
+// Real bug, found live against a real screenshot: components/
+// libraryCoverflow.js's own real candidate fetch (runtime/api.js's own
+// getHeroCandidates) is cached by its own real parentId/itemTypes key,
+// so navigating away from a library screen and back to the exact same
+// one before that real fetch first resolves starts a second real
+// coverflow instance that shares the exact same in-flight real
+// promise. app.js's own teardownActiveScreen() calls this function's
+// own returned destroy, real cleanup for the first instance's own real
+// setInterval, but coverflow.destroy() never touched the real .ready
+// promise chain below it at all: that first instance's own real
+// insertBefore call still fired once the shared promise resolved, real
+// root already repopulated by the second real renderLibrary call by
+// then, landing two real coverflow elements in it at once instead of
+// one. cancelled, set the moment this screen is actually torn down, is
+// checked before that real insert ever runs.
 function mountCoverflow(root, options) {
+  let cancelled = false;
   const coverflow = buildLibraryCoverflow(options);
   coverflow.ready.then(function (mounted) {
+    if (cancelled) return;
     if (mounted) root.insertBefore(coverflow.element, root.firstChild);
   });
-  return coverflow.destroy;
+  return function () {
+    cancelled = true;
+    coverflow.destroy();
+  };
 }
 
 export async function renderLibrary(root, params) {
