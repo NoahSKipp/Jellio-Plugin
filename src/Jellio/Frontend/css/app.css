@@ -517,6 +517,31 @@
   background: var(--jellio-secondary-color);
 }
 
+.jellio-row-title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+}
+
+/* Icon plus uppercase text, no pill: components/row.js's own
+   buildBadge(), the same real shape Harbor's own TrendingBadge uses on
+   its anime hero, at the row rather than per card since one real
+   catalog collection either is a Trending on AniList source or is not. */
+.jellio-row-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  color: var(--jellio-text-secondary);
+  font-size: clamp(0.7em, 0.82vw, 0.82em);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.jellio-row-badge .material-icons {
+  font-size: 1.1em;
+}
+
 /* Nuvio's own real HomeSkeletonLoading (features/home/components/
    HomeSkeletonLoading.kt, confirmed against its real source before
    writing this): a 1200ms diagonal shimmer sweep, generic enough to
@@ -3612,6 +3637,47 @@ select.jellio-settings-input {
   margin-bottom: clamp(20px, 1.8vw, 38px);
   padding: clamp(14px, 1.4vw, 28px) 0 0;
   overflow: hidden;
+}
+
+/* components/libraryCoverflow.js's own buildEditorial(): the Shows
+   library's own time-of-day mood line, real feedback's own Harbor
+   reference sitting above that page's carousel, not overlaid on it or
+   tucked beside the title further down the page. */
+.jellio-coverflow-editorial {
+  padding: 0 var(--jellio-safe-gutter) clamp(10px, 1.2vw, 20px);
+}
+
+.jellio-coverflow-editorial-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--jellio-secondary-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.68em, 0.78vw, 0.8em);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.jellio-coverflow-editorial-eyebrow .material-icons {
+  font-size: 1.15em;
+}
+
+.jellio-coverflow-editorial-tagline {
+  margin: 0.2em 0 0;
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(1.3em, 2.1vw, 2em);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.jellio-coverflow-editorial-description {
+  max-width: 46em;
+  margin: 0.3em 0 0;
+  color: var(--jellio-text-secondary);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.82em, 0.95vw, 1em);
 }
 
 .jellio-coverflow-stage {

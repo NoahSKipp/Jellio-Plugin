@@ -40,6 +40,12 @@ const MAX_ANIME_CATALOG_ROWS = 1;
 const GENRE_ROWS = 4;
 const GENRE_ROW_LIMIT = 24;
 
+// Same narrower real test screens/library.js's own renderAnime uses for
+// its own row badge: the looser /anime|anilist/i test above this file
+// only decides "is this catalog anime enough to count against
+// MAX_ANIME_CATALOG_ROWS", a much broader real question.
+const TRENDING_ANIME_NAME = /anilist.*trending|trending.*anilist/i;
+
 // Catalogs worth leading with, in this order. Anything unlisted keeps
 // its own alphabetical order behind them.
 const LEAD = ['trending', 'popular', 'top rated', 'new releases'];
@@ -121,7 +127,13 @@ async function fetchCatalogRows(collections) {
     .map(function (result, index) {
       if (result.status !== 'fulfilled') return null;
       const collection = usable[index];
-      return { title: titleFor(collection.Name, collectionKind(collection)), items: result.value };
+      return {
+        title: titleFor(collection.Name, collectionKind(collection)),
+        items: result.value,
+        badge: TRENDING_ANIME_NAME.test(collection.Name || '')
+          ? { icon: 'trending_up', text: 'Trending on AniList' }
+          : null,
+      };
     })
     .filter(Boolean);
 }
@@ -129,7 +141,7 @@ async function fetchCatalogRows(collections) {
 function buildCatalogRows(catalogData, seen) {
   const sections = [];
   catalogData.forEach(function (entry) {
-    const row = buildRow(entry.title, dedupe(entry.items, seen));
+    const row = buildRow(entry.title, dedupe(entry.items, seen), null, entry.badge);
     if (row) sections.push(row);
   });
   return sections;
