@@ -5,7 +5,6 @@ import { getImageUrl } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import {
   attachCardOptionsTrigger,
-  openCardOptionsMenu,
   toggleWatched,
   toggleWatchlist,
   animateCardRemoval,
@@ -70,9 +69,12 @@ function episodeSubtitle(item) {
 // Real feedback: Play showing up on every card in a grid/row was one
 // tap too many, the card itself already navigates straight to
 // screens/detail.js's own Play button (this file's own click handler
-// below). Watchlist and Mark Watched fade in on hover/focus next to a
-// fixed More (three dot) button, the two real actions worth reaching
-// without leaving the grid at all.
+// below). Watchlist and Mark Watched fade in on hover/focus, the two
+// real actions worth reaching without leaving the grid at all; a fixed
+// More (three dot) button used to sit beside them, real feedback found
+// it redundant with the exact same menu a right click or a held press
+// already opens (attachCardOptionsTrigger below), one real way to reach
+// it being enough.
 function buildCardActions(item, card, imageWrap, options, onChanged) {
   const opts = options || {};
   const bar = el('div', 'jellio-card-actions');
@@ -136,28 +138,8 @@ function buildCardActions(item, card, imageWrap, options, onChanged) {
       });
   });
 
-  const moreButton = document.createElement('button');
-  moreButton.type = 'button';
-  moreButton.className = 'jellio-card-action jellio-card-action-more';
-  moreButton.setAttribute('aria-label', 'More options');
-  moreButton.appendChild(el('span', 'material-icons more_vert'));
-  moreButton.addEventListener('click', function (event) {
-    event.stopPropagation();
-    openCardOptionsMenu(
-      item,
-      moreButton.getBoundingClientRect(),
-      onChanged,
-      Object.assign({}, opts, {
-        onRemoved: function () {
-          animateCardRemoval(card);
-        },
-      }),
-    );
-  });
-
   bar.appendChild(watchlistButton);
   bar.appendChild(watchedButton);
-  bar.appendChild(moreButton);
   return bar;
 }
 
