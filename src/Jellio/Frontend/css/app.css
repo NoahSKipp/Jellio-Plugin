@@ -150,6 +150,16 @@
   width: var(--jellio-sidebar-width-collapsed);
   height: 100vh;
   height: 100dvh;
+  /* No global box-sizing: border-box reset in this codebase (same real
+     gap css/app.css's own .jellio-detail-play already documents
+     elsewhere): without this explicit override, the padding below adds
+     on top of the real 100dvh height instead of eating into it, real
+     bug found live, pushing this rail's own real bottom edge (and
+     whatever real row happened to sit on it, Settings the one actually
+     reported) a real 40px past the real viewport's own bottom edge, a
+     position: fixed element with nowhere left to scroll that real
+     overflow into. */
+  box-sizing: border-box;
   padding: 20px 10px;
   overflow: hidden;
   background: var(--jellio-bg-elevated);
@@ -222,11 +232,20 @@
    same icon data), em based so either one sizes with its own font
    scale rather than a viewport fraction independent of the row
    around it. */
+/* overflow: visible, real bug found live: an SVG's own viewBox clips
+   anything outside its own real bounds by default (UA stylesheet sets
+   svg { overflow: hidden }), and the anime icon's own real path data
+   (components/navShared.js's own SVG_ICONS.anime, ported artwork, not
+   redrawn here) very slightly overshoots its own real 0 0 24 24 box at
+   a couple of points, real feedback: barely visible at this rail's own
+   old 1.75em icon size, clearly visible once that grew to 2.1em. This
+   stops that clip without touching the path data itself. */
 .jellio-nav-icon-svg {
   width: 1.75em;
   height: 1.75em;
   fill: currentColor;
   flex: 0 0 auto;
+  overflow: visible;
 }
 
 /* Bigger than the shared 1.75em base above: real feedback specifically
@@ -472,11 +491,30 @@
   padding-bottom: clamp(32px, 4vw, 64px);
 }
 
+/* Real Nuvio reference (screenshot checked before writing this): a
+   short accent bar under every row title, not a full width rule.
+   ::after rather than a real border-bottom, real feedback on an
+   earlier real attempt at this exact idea elsewhere found a
+   border-bottom always spans this element's own real full width
+   (padding included), no way to make it read as short without a
+   second wrapping element just to hold it. */
 .jellio-row-title {
-  margin: 0 0 0.6em;
-  padding: 0 var(--jellio-safe-gutter);
+  position: relative;
+  margin: 0 0 0.9em;
+  padding: 0 var(--jellio-safe-gutter) 0.5em;
   font-size: clamp(1em, 1.3vw, 1.3em);
   font-weight: 700;
+}
+
+.jellio-row-title::after {
+  content: '';
+  position: absolute;
+  left: var(--jellio-safe-gutter);
+  bottom: 0;
+  width: 2.4em;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--jellio-secondary-color);
 }
 
 /* Nuvio's own real HomeSkeletonLoading (features/home/components/
@@ -546,7 +584,7 @@
 }
 
 .jellio-home-skeleton-row-title {
-  margin: 0 0 0.6em;
+  margin: 0 0 0.9em;
   margin-left: var(--jellio-safe-gutter);
   width: 8em;
   height: 1.1em;
@@ -800,6 +838,121 @@
 }
 
 .jellio-card-progress-fill {
+  height: 100%;
+  background: var(--jellio-secondary-color);
+}
+
+/* components/card.js's own buildLandscapeCard(): Up Next/Continue
+   Watching only, real Harbor/Nuvio reference (screenshots checked
+   before writing this) rather than this file's own plain 2:3 poster
+   shape every other row still uses. Wider than a poster card on
+   purpose, a real 16:9 box needs real width to read at all next to a
+   180px poster's own real height. */
+.jellio-card-landscape {
+  width: clamp(260px, 22vw, 340px);
+}
+
+.jellio-card-landscape-image-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--jellio-card-radius);
+  overflow: hidden;
+  background: var(--jellio-card-bg);
+}
+
+.jellio-card-landscape-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 200ms var(--jellio-ease-out);
+}
+
+.jellio-card-landscape:hover .jellio-card-landscape-image,
+.jellio-card-landscape:focus-visible .jellio-card-landscape-image {
+  transform: scale(1.04);
+}
+
+.jellio-card-landscape:active .jellio-card-landscape-image {
+  transform: scale(1.01);
+}
+
+.jellio-card-landscape:focus-visible {
+  outline: none;
+}
+
+.jellio-card-landscape:focus-visible .jellio-card-landscape-image-wrap {
+  outline: 2px solid rgb(var(--jellio-focus-color-rgb) / 0.9);
+  outline-offset: 2px;
+}
+
+.jellio-card-landscape-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0) 42%, rgb(0 0 0 / 0.85) 100%);
+  pointer-events: none;
+}
+
+.jellio-card-landscape-info {
+  position: absolute;
+  left: 0.85em;
+  right: 0.85em;
+  bottom: 0.75em;
+}
+
+.jellio-card-landscape-eyebrow {
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.75);
+}
+
+.jellio-card-landscape-title {
+  margin-top: 0.1em;
+  font-size: 0.94em;
+  font-weight: 700;
+  color: var(--jellio-text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jellio-card-landscape-subtitle {
+  margin-top: 0.1em;
+  font-size: 0.78em;
+  color: rgb(255 255 255 / 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jellio-card-landscape-remaining {
+  position: absolute;
+  top: 0.6em;
+  right: 0.6em;
+  padding: 0.25em 0.65em;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--jellio-text-color);
+  font-size: 0.7em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.jellio-card-landscape-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgb(255 255 255 / 0.25);
+}
+
+.jellio-card-landscape-progress-fill {
   height: 100%;
   background: var(--jellio-secondary-color);
 }
@@ -4327,15 +4480,31 @@ select.jellio-settings-input {
 }
 
 /* Real MediaStream audio languages, sourceAudioLanguages()'s own real
-   codes run through languageName(): plain secondary text rather than a
-   second row of pills, real feedback found a card already carrying a
-   resolution/bitrate/size/container/audio-codec pill row read as
-   cluttered with a sixth and seventh pill added on top of it for
-   language too. */
+   codes run through languageName(), deduped by that real resolved
+   name (buildSourceCard's own header explains why the codes alone
+   were not enough). Its own real badge row, not folded into the
+   resolution/bitrate/size/container/audio-codec row above it: real
+   feedback wanted language to stay visually its own real kind of tag,
+   not mixed in line with the technical ones, so this row's own badge
+   is outlined rather than filled, same real position this info always
+   had, just real pills now instead of plain comma separated text. */
 .jellio-stream-picker-card-langs {
-  margin-top: 0.35em;
-  font-size: 0.76em;
-  color: var(--jellio-text-tertiary);
+  margin-top: 0.4em;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+
+.jellio-stream-picker-card-lang {
+  display: inline-flex;
+  align-items: center;
+  height: 1.5em;
+  padding: 0 0.65em;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  color: var(--jellio-text-secondary);
+  font-size: 0.72em;
+  font-weight: 600;
 }
 
 /* Real feedback: could not see any of this at all on a phone. Below
