@@ -6,7 +6,7 @@
 // plus a bare <video> element, see screens/player.js's own header for
 // why that needed no access to jellyfin-web's own playbackManager at
 // all, when there is not).
-import { getItemDetails, getImageUrl, getSeasons, getEpisodes } from '../runtime/api.js';
+import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setPlayed } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
@@ -54,15 +54,15 @@ function formatRuntime(ticks) {
 // the rare episode with neither.
 function heroBackdropUrl(item, id) {
   if (item.BackdropImageTags && item.BackdropImageTags[0]) {
-    return getImageUrl(id, 'Backdrop', { tag: item.BackdropImageTags[0], maxWidth: 1600 });
+    return getImageUrl(id, 'Backdrop', { tag: item.BackdropImageTags[0], maxWidth: 1920 });
   }
   if (item.Type === 'Episode' && item.ImageTags && item.ImageTags.Primary) {
-    return getImageUrl(id, 'Primary', { tag: item.ImageTags.Primary, maxWidth: 1600 });
+    return getImageUrl(id, 'Primary', { tag: item.ImageTags.Primary, maxWidth: 1920 });
   }
   if (item.ParentBackdropItemId && item.ParentBackdropImageTags && item.ParentBackdropImageTags[0]) {
     return getImageUrl(item.ParentBackdropItemId, 'Backdrop', {
       tag: item.ParentBackdropImageTags[0],
-      maxWidth: 1600,
+      maxWidth: 1920,
     });
   }
   return null;
@@ -120,7 +120,168 @@ function buildTrailersRow(trailers) {
   return section;
 }
 
-function buildEpisodeCard(episode) {
+const EPISODE_MENU_ID = 'jellioEpisodeOptionsMenu';
+const EPISODE_HOLD_MS = 500;
+
+function closeEpisodeMenu() {
+  const existing = document.getElementById(EPISODE_MENU_ID);
+  if (existing) existing.remove();
+  document.removeEventListener('keydown', handleEpisodeMenuKeydown);
+  document.removeEventListener('pointerdown', handleEpisodeMenuOutsideClick, true);
+}
+
+function handleEpisodeMenuKeydown(event) {
+  if (event.key === 'Escape') closeEpisodeMenu();
+}
+
+function handleEpisodeMenuOutsideClick(event) {
+  const menu = document.getElementById(EPISODE_MENU_ID);
+  if (menu && !menu.contains(event.target)) closeEpisodeMenu();
+}
+
+function buildEpisodeMenuOption(label, iconName, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'jellio-card-options-item';
+  button.appendChild(el('span', 'jellio-card-options-item-label', label));
+  button.appendChild(el('span', 'material-icons jellio-card-options-item-icon ' + iconName));
+  button.addEventListener('click', function () {
+    closeEpisodeMenu();
+    onClick();
+  });
+  return button;
+}
+
+function positionEpisodeMenu(menu, anchorRect) {
+  const menuWidth = 240;
+  let left = anchorRect.left;
+  if (left + menuWidth > window.innerWidth - 16) {
+    left = window.innerWidth - menuWidth - 16;
+  }
+  menu.style.left = Math.max(16, left) + 'px';
+  menu.style.top = anchorRect.bottom + 6 + 'px';
+}
+
+// Real Nuvio reference, screenshots checked before writing this: a
+// right click (or a held press, touch's own equivalent, the same real
+// gesture components/cardOptionsMenu.js's own attachCardOptionsTrigger
+// already uses for a poster card) on an episode still opens Mark as
+// watched, Mark previous as watched and Mark season as watched, no
+// Play Manually here (that only ever made real sense for a Continue
+// Watching card with a resume position to skip past, not a season
+// browse). context.episodes is the exact same array this season's own
+// track was built from, mutated in place by setPlayed's own response
+// rather than re-fetched, so onChanged can re-render every card from
+// it directly without a second real network round trip.
+function openEpisodeOptionsMenu(episode, anchorRect, context) {
+  closeEpisodeMenu();
+
+  const menu = document.createElement('div');
+  menu.id = EPISODE_MENU_ID;
+  menu.className = 'jellio-card-options-menu';
+  menu.setAttribute('role', 'menu');
+  positionEpisodeMenu(menu, anchorRect);
+
+  const isPlayed = !!(episode.UserData && episode.UserData.Played);
+  menu.appendChild(
+    buildEpisodeMenuOption(isPlayed ? 'Mark as unwatched' : 'Mark as watched', 'check', function () {
+      setPlayed(episode.Id, !isPlayed)
+        .then(function (updated) {
+          episode.UserData = updated;
+          context.onChanged();
+        })
+        .catch(function (err) {
+          console.warn('Jellio: could not update watched state', err);
+        });
+    }),
+  );
+
+  const previous = context.episodes.slice(0, context.index);
+  if (previous.length) {
+    menu.appendChild(
+      buildEpisodeMenuOption('Mark previous as watched', 'playlist_add_check', function () {
+        Promise.all(
+          previous.map(function (prevEpisode) {
+            return setPlayed(prevEpisode.Id, true).then(function (updated) {
+              prevEpisode.UserData = updated;
+            });
+          }),
+        )
+          .then(context.onChanged)
+          .catch(function (err) {
+            console.warn('Jellio: could not mark previous episodes watched', err);
+          });
+      }),
+    );
+  }
+
+  menu.appendChild(
+    buildEpisodeMenuOption('Mark season as watched', 'done_all', function () {
+      Promise.all(
+        context.episodes.map(function (seasonEpisode) {
+          return setPlayed(seasonEpisode.Id, true).then(function (updated) {
+            seasonEpisode.UserData = updated;
+          });
+        }),
+      )
+        .then(context.onChanged)
+        .catch(function (err) {
+          console.warn('Jellio: could not mark season watched', err);
+        });
+    }),
+  );
+
+  document.body.appendChild(menu);
+  document.addEventListener('keydown', handleEpisodeMenuKeydown);
+  window.setTimeout(function () {
+    document.addEventListener('pointerdown', handleEpisodeMenuOutsideClick, true);
+  }, 0);
+
+  const first = menu.querySelector('button');
+  if (first) first.focus();
+}
+
+function attachEpisodeOptionsTrigger(card, episode, context) {
+  function trigger() {
+    openEpisodeOptionsMenu(episode, card.getBoundingClientRect(), context);
+  }
+
+  card.addEventListener('contextmenu', function (event) {
+    event.preventDefault();
+    trigger();
+  });
+
+  let holdTimer = null;
+  function cancelHold() {
+    if (holdTimer) {
+      window.clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+  }
+  card.addEventListener('pointerdown', function (event) {
+    if (event.button !== 0) return;
+    cancelHold();
+    holdTimer = window.setTimeout(function () {
+      holdTimer = null;
+      trigger();
+    }, EPISODE_HOLD_MS);
+  });
+  card.addEventListener('pointerup', cancelHold);
+  card.addEventListener('pointerleave', cancelHold);
+  card.addEventListener('pointercancel', cancelHold);
+}
+
+function paintEpisodeWatched(thumb, episode) {
+  const existing = thumb.querySelector('.jellio-episode-watched');
+  if (existing) existing.remove();
+  if (episode.UserData && episode.UserData.Played) {
+    const badge = el('span', 'jellio-episode-watched material-icons check');
+    badge.setAttribute('aria-hidden', 'true');
+    thumb.appendChild(badge);
+  }
+}
+
+function buildEpisodeCard(episode, context) {
   const card = el('div', 'jellio-episode-card');
   card.tabIndex = 0;
   card.setAttribute('role', 'button');
@@ -136,6 +297,7 @@ function buildEpisodeCard(episode) {
   if (episode.IndexNumber != null) {
     thumb.appendChild(el('span', 'jellio-episode-badge', 'E' + episode.IndexNumber));
   }
+  paintEpisodeWatched(thumb, episode);
   card.appendChild(thumb);
   card.appendChild(el('div', 'jellio-episode-title', episode.Name || ''));
   if (episode.Overview) {
@@ -150,7 +312,18 @@ function buildEpisodeCard(episode) {
       navigateTo('#/item?id=' + episode.Id);
     }
   });
+  if (context) attachEpisodeOptionsTrigger(card, episode, context);
   return card;
+}
+
+// A Specials "season" is real Jellyfin IndexNumber 0 (checked against a
+// live server before writing this, name text as a fallback for a server
+// that names one oddly): real feedback wanted it last, the same real
+// place Nuvio and native jellyfin-web both already put it, not leading
+// the row where a season list otherwise reads oldest to newest.
+function isSpecialsSeason(season) {
+  if (season.IndexNumber === 0) return true;
+  return /special/i.test(season.Name || '');
 }
 
 // Season tabs plus the current season's own episode track, appended in
@@ -167,6 +340,14 @@ async function buildSeasonsSection(seriesId) {
   }
   if (!seasons.length) return null;
 
+  // Array.prototype.sort is a real stable sort (ES2019+): every real
+  // season keeps the order the server itself sent it in, only Specials
+  // moves, to the end rather than wherever the server happened to list
+  // it (real Jellyfin puts it first, index 0).
+  const orderedSeasons = seasons.slice().sort(function (a, b) {
+    return (isSpecialsSeason(a) ? 1 : 0) - (isSpecialsSeason(b) ? 1 : 0);
+  });
+
   const section = el('section', 'jellio-detail-seasons');
   section.appendChild(el('h2', 'jellio-row-title', 'Episodes'));
 
@@ -175,6 +356,25 @@ async function buildSeasonsSection(seriesId) {
   const track = el('div', 'jellio-episode-track');
   section.appendChild(tabs);
   section.appendChild(track);
+
+  // The exact array each episode card's own context menu mutates in
+  // place (screens/detail.js's own openEpisodeOptionsMenu, above),
+  // re-rendered straight from it again on a mark watched/unwatched
+  // rather than a second real fetch of the same season.
+  function renderTrack(episodes) {
+    track.textContent = '';
+    episodes.forEach(function (episode, index) {
+      track.appendChild(
+        buildEpisodeCard(episode, {
+          episodes: episodes,
+          index: index,
+          onChanged: function () {
+            renderTrack(episodes);
+          },
+        }),
+      );
+    });
+  }
 
   function selectSeason(season, tabButton) {
     Array.prototype.forEach.call(tabs.children, function (child) {
@@ -185,17 +385,13 @@ async function buildSeasonsSection(seriesId) {
     tabButton.setAttribute('aria-selected', 'true');
     track.textContent = '';
     getEpisodes(seriesId, season.Id)
-      .then(function (episodes) {
-        episodes.forEach(function (episode) {
-          track.appendChild(buildEpisodeCard(episode));
-        });
-      })
+      .then(renderTrack)
       .catch(function (err) {
         console.warn('Jellio: could not load episodes', err);
       });
   }
 
-  seasons.forEach(function (season, index) {
+  orderedSeasons.forEach(function (season, index) {
     const tab = el('button', 'jellio-season-tab', season.Name || '');
     tab.type = 'button';
     tab.setAttribute('role', 'tab');
@@ -362,14 +558,27 @@ export async function renderDetail(root, params) {
   // pill for a choice most titles here only have one real answer to
   // anyway (components/streamPicker.js's own openStreamPicker already
   // skips straight to Play for a single source title).
-  const actions = el('div', 'jellio-detail-actions');
+  // A series has no video of its own, only its episodes do, so there is
+  // no Play here to make room for and nothing to hide behind More
+  // either: Watchlist and Mark Watched render as plain, always-visible
+  // buttons for one below, skipping the collapsible/More machinery this
+  // row otherwise needs entirely rather than collapsing two of a series'
+  // own only three real actions behind a button with nothing else real
+  // left to reveal. jellio-detail-actions-has-more only joins this row's
+  // own class list for the other case: css/app.css's own real
+  // padding-right on that modifier reserves the absolutely positioned
+  // More button's own space, real dead space on the right of a series'
+  // own two plain buttons with no such button to reserve it for.
+  const isSeries = item.Type === 'Series';
+  const iconActionClass = isSeries ? 'jellio-detail-icon-action' : 'jellio-detail-icon-action jellio-detail-icon-action-collapsible';
+  const actions = el('div', 'jellio-detail-actions' + (isSeries ? '' : ' jellio-detail-actions-has-more'));
 
   // A series has no video of its own, only its episodes do (each already
   // opens this same screen at its own item id, with its own working Play
   // button), so Play/Change Stream are skipped entirely here rather than
   // pointing at nothing playable; Watchlist/Mark Watched still apply to
   // the series itself.
-  if (item.Type !== 'Series') {
+  if (!isSeries) {
     const playButton = el('button', 'jellio-detail-play');
     playButton.type = 'button';
     playButton.appendChild(el('span', 'material-icons play_arrow'));
@@ -380,7 +589,7 @@ export async function renderDetail(root, params) {
     actions.appendChild(playButton);
   }
 
-  const watchlistButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-collapsible');
+  const watchlistButton = el('button', iconActionClass);
   watchlistButton.type = 'button';
   function paintWatchlist() {
     const active = !!(item.UserData && item.UserData.IsFavorite);
@@ -404,7 +613,7 @@ export async function renderDetail(root, params) {
   });
   actions.appendChild(watchlistButton);
 
-  const watchedButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-collapsible');
+  const watchedButton = el('button', iconActionClass);
   watchedButton.type = 'button';
   function paintWatched() {
     const active = !!(item.UserData && item.UserData.Played);
@@ -437,8 +646,8 @@ export async function renderDetail(root, params) {
   // title with one real source still has nothing to change to either
   // way. A series has no stream of its own to change (each episode has
   // its own), so this is skipped there the same as Play above.
-  if (item.Type !== 'Series') {
-    const changeStreamButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-collapsible');
+  if (!isSeries) {
+    const changeStreamButton = el('button', iconActionClass);
     changeStreamButton.type = 'button';
     changeStreamButton.setAttribute('aria-label', 'Change Stream');
     changeStreamButton.appendChild(el('span', 'material-icons sync_alt'));
@@ -447,67 +656,70 @@ export async function renderDetail(root, params) {
       openStreamPicker(item, { forceChoice: true });
     });
     actions.appendChild(changeStreamButton);
-  }
 
-  // Real feedback: Watchlist, Mark Watched and Change Stream used to
-  // sit there permanently, real Nuvio screenshots confirmed that is
-  // not the real reference either, only Play and More show by default
-  // there, the other three only appearing once More itself is actually
-  // tapped, More's own colour (and its own three dots rotating flat)
-  // flipping to show it is now the one selected. A second real tap on
-  // More collapses it straight back, a plain real toggle, the same as
-  // tapping anywhere else on the page; real feedback found a second
-  // tap opening a whole separate Change Stream menu instead confusing,
-  // Change Stream is a plain fourth button revealed alongside the
-  // other two instead now.
-  //
-  // Real feedback, four times over: every real attempt at measuring or
-  // pinning some other element's own width to cancel out More's own
-  // real drift kept a real visible flash or a real residual jump one
-  // way or another, transitions and synchronous layout reads never
-  // actually behaving quite the way relying on them assumed. Given up
-  // on cancelling real drift after the fact entirely: More
-  // (css/app.css's own jellio-detail-icon-action-more) is now position:
-  // absolute, right: 0 against .jellio-detail-actions' own real
-  // position: relative, taken out of this row's own flex flow
-  // altogether. Nothing Play or the other three do to their own real
-  // widths can ever move an element that flexbox no longer has any
-  // real say over the position of at all, the one real way to
-  // guarantee this rather than trying to correct for it.
-  const moreButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-more');
-  moreButton.type = 'button';
-  moreButton.setAttribute('aria-label', 'More options');
-  moreButton.appendChild(el('span', 'material-icons more_vert'));
+    // Real feedback: Watchlist, Mark Watched and Change Stream used to
+    // sit there permanently, real Nuvio screenshots confirmed that is
+    // not the real reference either, only Play and More show by default
+    // there, the other three only appearing once More itself is actually
+    // tapped, More's own colour (and its own three dots rotating flat)
+    // flipping to show it is now the one selected. A second real tap on
+    // More collapses it straight back, a plain real toggle, the same as
+    // tapping anywhere else on the page; real feedback found a second
+    // tap opening a whole separate Change Stream menu instead confusing,
+    // Change Stream is a plain fourth button revealed alongside the
+    // other two instead now. A series has none of Play/Change
+    // Stream/More at all (this whole block is skipped for one), so its
+    // own Watchlist/Mark Watched above render plain and always visible
+    // instead, nothing left behind More worth collapsing them for.
+    //
+    // Real feedback, four times over: every real attempt at measuring or
+    // pinning some other element's own width to cancel out More's own
+    // real drift kept a real visible flash or a real residual jump one
+    // way or another, transitions and synchronous layout reads never
+    // actually behaving quite the way relying on them assumed. Given up
+    // on cancelling real drift after the fact entirely: More
+    // (css/app.css's own jellio-detail-icon-action-more) is now position:
+    // absolute, right: 0 against .jellio-detail-actions' own real
+    // position: relative, taken out of this row's own flex flow
+    // altogether. Nothing Play or the other three do to their own real
+    // widths can ever move an element that flexbox no longer has any
+    // real say over the position of at all, the one real way to
+    // guarantee this rather than trying to correct for it.
+    const moreButton = el('button', 'jellio-detail-icon-action jellio-detail-icon-action-more');
+    moreButton.type = 'button';
+    moreButton.setAttribute('aria-label', 'More options');
+    moreButton.appendChild(el('span', 'material-icons more_vert'));
 
-  let actionsExpanded = false;
-  function handleActionsOutsideClick(event) {
-    if (!actions.contains(event.target)) collapseActions();
-  }
-  function collapseActions() {
-    if (!actionsExpanded) return;
-    actionsExpanded = false;
-    actions.classList.remove('jellio-detail-actions-expanded');
-    moreButton.classList.remove('jellio-detail-icon-action-active');
-    document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
-  }
-  function expandActions() {
-    if (actionsExpanded) return;
-    actionsExpanded = true;
-    actions.classList.add('jellio-detail-actions-expanded');
-    moreButton.classList.add('jellio-detail-icon-action-active');
-    window.setTimeout(function () {
-      document.addEventListener('pointerdown', handleActionsOutsideClick, true);
-    }, 0);
-  }
-  moreButton.addEventListener('click', function (event) {
-    event.stopPropagation();
-    if (actionsExpanded) {
-      collapseActions();
-    } else {
-      expandActions();
+    let actionsExpanded = false;
+    function handleActionsOutsideClick(event) {
+      if (!actions.contains(event.target)) collapseActions();
     }
-  });
-  actions.appendChild(moreButton);
+    function collapseActions() {
+      if (!actionsExpanded) return;
+      actionsExpanded = false;
+      actions.classList.remove('jellio-detail-actions-expanded');
+      moreButton.classList.remove('jellio-detail-icon-action-active');
+      document.removeEventListener('pointerdown', handleActionsOutsideClick, true);
+    }
+    function expandActions() {
+      if (actionsExpanded) return;
+      actionsExpanded = true;
+      actions.classList.add('jellio-detail-actions-expanded');
+      moreButton.classList.add('jellio-detail-icon-action-active');
+      window.setTimeout(function () {
+        document.addEventListener('pointerdown', handleActionsOutsideClick, true);
+      }, 0);
+    }
+    moreButton.addEventListener('click', function (event) {
+      event.stopPropagation();
+      if (actionsExpanded) {
+        collapseActions();
+      } else {
+        expandActions();
+      }
+    });
+    actions.appendChild(moreButton);
+  }
 
   heroContent.appendChild(actions);
 
