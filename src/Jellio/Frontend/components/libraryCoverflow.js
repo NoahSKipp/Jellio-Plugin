@@ -56,10 +56,16 @@ function buildSlide(item) {
   art.className = 'jellio-coverflow-art';
   art.alt = '';
   art.loading = 'lazy';
+  // css/app.css's own real coverflow slide width never approaches a
+  // real 1280px on any screen this renders on, three to a row with
+  // the side two visibly shrunk further still: real bytes paid for
+  // resolution nothing here ever actually shows. quality: 85 for the
+  // same real reason components/card.js's own poster request already
+  // carries it, imperceptible at this real display size.
   if (backdropTag) {
-    art.src = getImageUrl(item.Id, 'Backdrop', { tag: backdropTag, maxWidth: 1280 });
+    art.src = getImageUrl(item.Id, 'Backdrop', { tag: backdropTag, maxWidth: 960, quality: 85 });
   } else if (item.ImageTags && item.ImageTags.Primary) {
-    art.src = getImageUrl(item.Id, 'Primary', { tag: item.ImageTags.Primary, maxWidth: 1280 });
+    art.src = getImageUrl(item.Id, 'Primary', { tag: item.ImageTags.Primary, maxWidth: 960, quality: 85 });
   }
   slide.appendChild(art);
 
