@@ -7,6 +7,7 @@
 import { getPrimaryNavLinks, isActive, buildIconElement, buildAvatarIconMount, SETTINGS_LINK } from './navShared.js';
 import { navigateTo } from '../runtime/router.js';
 import { toggleNowPlayingPanel, nowPlayingCount } from './nowPlaying.js';
+import { openAccountSwitcher } from './accountSwitcher.js';
 
 // Tagged with its own hash so updateActiveLinks() can find it again
 // without rebuilding it: real feedback was that the whole rail
@@ -141,14 +142,14 @@ async function buildProfileButton() {
   labelEl.textContent = 'Profile';
   button.appendChild(labelEl);
 
-  // Opens the real account screen (password, sleep timer, avatar, sign
-  // out, screens/settings.js) rather than the avatar picker directly.
-  // The picker used to be this button's only destination, indistinguishable
-  // from the separate Account nav link that opened the same screen, real
-  // feedback asked for one button doing a real job instead of two doing
-  // an overlapping one. The picker is still one click away from there.
+  // Opens components/accountSwitcher.js's own quick profile switcher
+  // rather than navigating to #/account: that used to be this button's
+  // only destination, indistinguishable from the separate Settings link
+  // right below it opening the same screen, real feedback asked for two
+  // buttons doing two real jobs instead of one doing both. Settings (and
+  // the switcher's own Manage Account entry) still reach that screen.
   button.addEventListener('click', function () {
-    navigateTo('#/account');
+    openAccountSwitcher();
   });
 
   return button;
@@ -175,41 +176,54 @@ export async function renderSidebar(container) {
   }
   container.dataset.jellioBuilt = '1';
   container.textContent = '';
-  // Real bug caught here: overwriting className to just 'jellio-sidebar'
-  // dropped 'jellio-sidebar-mount' from this same node, so app.js's own
-  // getRoot() self-heal check (shell.querySelector('.jellio-sidebar-
-  // mount')) stopped finding it the instant this function's own first
-  // real call finished, on every session, and rebuilt the whole shell
-  // from scratch on every single navigation after that as a result,
-  // defeating this function's own "build once" fast path above before
-  // it ever got a real second call to skip on. A fresh mount recreated
-  // by that rebuild starts its own flex-basis layout over from nothing
-  // before css/app.css's own classes finish resolving on it, a real,
-  // visible size change on every navigation, not the moving CSS unit
-  // fixed earlier. Keeping both classes on the same node is enough:
-  // self-heal keeps finding the real mount it already has, and this
-  // function's own fast path above finally gets to run for real.
-  container.className = 'jellio-sidebar-mount jellio-sidebar';
+  // The mount itself stays a plain flex item, css/app.css's own real
+  // .jellio-sidebar-mount rule reserving the collapsed rail's real
+  // width in .jellio-shell's own flex layout. The actual visible rail
+  // is a real child of it instead of the same node wearing both classes
+  // the way this used to work: that node is now position: fixed (so it
+  // can overlay .jellio-content on hover rather than pushing it, that
+  // file's own header explains why), and a fixed-position box takes no
+  // real part in its own parent's flex layout at all, so the two real
+  // jobs (reserving space, being the visible rail) need two real nodes
+  // now, not one wearing both classes.
+  container.className = 'jellio-sidebar-mount';
+
+  const rail = document.createElement('div');
+  rail.className = 'jellio-sidebar';
+  container.appendChild(rail);
+
+  // The reader's own libraries are the one real part of this rail that
+  // grows with however many the server actually has; everything else
+  // (Home/Search/Watchlist above, Group Watch/Now Playing/Profile/
+  // Settings below) stays a fixed real height. Real feedback: Settings,
+  // and on a server with several libraries Anime itself, used to sit
+  // clipped past the bottom of a shorter viewport with no way to reach
+  // them. Only this middle group scrolls now (css/app.css's own
+  // .jellio-sidebar-scroll), so the bottom group always renders in
+  // full regardless of library count.
+  const scroll = document.createElement('div');
+  scroll.className = 'jellio-sidebar-scroll';
 
   const links = await getPrimaryNavLinks();
   links.forEach(function (link, index) {
-    container.appendChild(buildLink(link));
     // Only the three links every session always has (Home, Search,
     // Watchlist) sit above the divider; the reader's own libraries
     // start right after it, same grouping the rail always had.
-    if (index === 2) {
-      const divider = document.createElement('div');
-      divider.className = 'jellio-sidebar-divider';
-      container.appendChild(divider);
+    if (index < 3) {
+      rail.appendChild(buildLink(link));
+      if (index === 2) {
+        const divider = document.createElement('div');
+        divider.className = 'jellio-sidebar-divider';
+        rail.appendChild(divider);
+      }
+    } else {
+      scroll.appendChild(buildLink(link));
     }
   });
+  rail.appendChild(scroll);
 
-  const spacer = document.createElement('div');
-  spacer.className = 'jellio-sidebar-spacer';
-  container.appendChild(spacer);
-
-  container.appendChild(buildGroupWatchButton());
-  container.appendChild(buildNowPlayingButton());
-  container.appendChild(await buildProfileButton());
-  container.appendChild(buildLink(SETTINGS_LINK));
+  rail.appendChild(buildGroupWatchButton());
+  rail.appendChild(buildNowPlayingButton());
+  rail.appendChild(await buildProfileButton());
+  rail.appendChild(buildLink(SETTINGS_LINK));
 }
