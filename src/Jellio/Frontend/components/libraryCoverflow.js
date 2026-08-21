@@ -13,6 +13,7 @@
 // offset is always the shortest way round.
 import { getHeroCandidates, getImageUrl } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
+import { rotationSeed, seededShuffle } from '../runtime/editorial.js';
 
 const CANDIDATE_LIMIT = 8;
 
@@ -253,7 +254,14 @@ export function buildLibraryCoverflow(options) {
   const ready = fetchCandidates
     .then(function (result) {
       if (!result || result.length < MIN_SLIDES) return false;
-      items = result;
+      // Harbor's own real rotationSeed()/seededShuffle(): the same real
+      // split its own buildShowHero() keeps, reordering this real pool
+      // rather than changing which real items are in it. options.rotate
+      // is the Shows page's own real opt-in (screens/library.js), same
+      // scope its own editorial header above is limited to; the anime
+      // page's own real options.items already carries its own real
+      // Trending-catalog order and stays untouched.
+      items = options && options.rotate ? seededShuffle(result, rotationSeed()) : result;
       index = 0;
       build();
       return true;
