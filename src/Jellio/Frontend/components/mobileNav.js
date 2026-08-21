@@ -9,6 +9,7 @@
 // enough use to spend here. The sidebar rail still carries both.
 import { getPrimaryNavLinks, isActive, buildIconElement, buildAvatarIconMount, SETTINGS_LINK } from './navShared.js';
 import { navigateTo } from '../runtime/router.js';
+import { openAccountSwitcher } from './accountSwitcher.js';
 
 // Hysteresis rather than one shared threshold: a single cutoff flickers
 // compact/expanded back and forth for a scroll position sitting right
@@ -69,8 +70,11 @@ async function buildProfileButton() {
   labelEl.textContent = 'Profile';
   button.appendChild(labelEl);
 
+  // Same real switch components/sidebar.js's own Profile button now
+  // opens rather than #/account, that file's own header explains why:
+  // Settings right beside this already reaches the account screen.
   button.addEventListener('click', function () {
-    navigateTo('#/account');
+    openAccountSwitcher();
   });
   return button;
 }
