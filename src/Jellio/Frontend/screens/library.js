@@ -196,7 +196,12 @@ export async function renderLibrary(root, params) {
   // only the Shows library carries one, Movies has no equivalent real
   // reference screenshot behind it.
   const editorial = collectionType === 'tvshows' ? showsEditorial(new Date().getHours()) : null;
-  const destroy = mountCoverflow(root, { parentId, itemTypes: itemType, editorial: editorial });
+  const destroy = mountCoverflow(root, {
+    parentId,
+    itemTypes: itemType,
+    editorial: editorial,
+    rotate: collectionType === 'tvshows',
+  });
 
   // Anime has its own dedicated page (renderAnime above); best effort
   // to keep it off the plain Shows hub too, real feedback's own direct

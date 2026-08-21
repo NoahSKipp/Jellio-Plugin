@@ -189,3 +189,45 @@ export function showsEditorial(hour) {
   const copy = variants[idx];
   return { icon: BUCKET_ICONS[bucket], label: copy.kicker, tagline: copy.title, description: copy.subtitle };
 }
+
+// Harbor's own real mulberry32 PRNG, ported verbatim from
+// hero-curation.ts: seeds a Fisher-Yates shuffle deterministically, the
+// same seed producing the same order for everyone reading it in that
+// same bucket on that same day, rather than a plain Math.random() that
+// would reshuffle on every reload.
+function mulberry32(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Harbor's own real seededShuffle(): reorders a pool without touching
+// which items are in it, the same real split its own buildShowHero()
+// keeps between "what's in the pool" (untouched here) and "what order
+// it renders in" (this).
+export function seededShuffle(items, seed) {
+  const out = items.slice();
+  const rand = mulberry32(seed);
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = out[i];
+    out[i] = out[j];
+    out[j] = tmp;
+  }
+  return out;
+}
+
+// Harbor's own real rotationSeed(): dayOfYear*4 plus the current
+// bucket's own index, a distinct seed for every (day, bucket) pair so
+// the shuffle above rolls over as the reader's own local time crosses
+// into a new bucket, not just once a day at midnight.
+export function rotationSeed() {
+  const now = new Date();
+  const bucket = dayBucket(now.getHours());
+  return dayOfYear(now) * 4 + BUCKET_INDEX[bucket];
+}
