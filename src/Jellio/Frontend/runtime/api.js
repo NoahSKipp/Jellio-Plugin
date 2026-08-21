@@ -117,11 +117,21 @@ async function postJson(path, body, timeoutMs) {
 // to build for that case, only for the one real case where cached data
 // can go stale sooner than the TTL: invalidateUser() below.
 const CACHE_TTL_MS = 60000;
+// A shorter shelf life for anything that changes on the reader's own
+// action within a session (watchlist, next up) or that gets asked for
+// by more than one screen in close succession (a series' own seasons/
+// episodes: detail screen, player and the player's own episode panel
+// each ask independently, real duplication reported live within one
+// title, not across a whole session). Long enough to actually collapse
+// those real near-simultaneous requests into one, short enough that a
+// mark watched/unwatched or a watchlist toggle reads correctly again
+// well within the time it takes to navigate back and look.
+const SHORT_CACHE_TTL_MS = 8000;
 const cache = new Map();
 
-function cached(key, fetcher) {
+function cached(key, fetcher, ttlMs) {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.ts < CACHE_TTL_MS) return hit.promise;
+  if (hit && Date.now() - hit.ts < (ttlMs || CACHE_TTL_MS)) return hit.promise;
   const promise = fetcher().catch(function (err) {
     cache.delete(key);
     throw err;
@@ -353,10 +363,19 @@ export function getLibraryItems(parentId, collectionType, options) {
 // the dedicated show hierarchy API rather than a plain /Items query: a
 // season/episode listing needs real ordering and season scoping that
 // endpoint provides directly.
+// Short lived cache, same SHORT_CACHE_TTL_MS reasoning as getNextUp
+// above: the detail screen, the player and the player's own episode
+// side panel each ask for the same series' own seasons/episodes
+// independently within one real viewing session, reported live as
+// real duplicate requests landing within milliseconds of each other
+// for the exact same data.
 export function getSeasons(seriesId) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
-  return getJson('/Shows/' + seriesId + '/Seasons?userId=' + userId).then(function (result) {
+  const path = '/Shows/' + seriesId + '/Seasons?userId=' + userId;
+  return cached(path, function () {
+    return getJson(path);
+  }, SHORT_CACHE_TTL_MS).then(function (result) {
     return (result && result.Items) || [];
   });
 }
@@ -369,7 +388,10 @@ export function getEpisodes(seriesId, seasonId) {
     seasonId: seasonId,
     Fields: 'Overview,PrimaryImageAspectRatio',
   });
-  return getJson('/Shows/' + seriesId + '/Episodes?' + params.toString()).then(function (result) {
+  const path = '/Shows/' + seriesId + '/Episodes?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  }, SHORT_CACHE_TTL_MS).then(function (result) {
     return (result && result.Items) || [];
   });
 }
@@ -409,7 +431,10 @@ export function getWatchlistItems(limit) {
     Fields: 'PrimaryImageAspectRatio',
     Limit: String(limit || 100),
   });
-  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+  const path = '/Users/' + userId + '/Items?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  }, SHORT_CACHE_TTL_MS).then(function (result) {
     return (result && result.Items) || [];
   });
 }
@@ -1205,7 +1230,10 @@ export function getPersonFilmography(personId, limit) {
     Fields: 'PrimaryImageAspectRatio,ProductionYear',
     Limit: String(limit || 50),
   });
-  return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
+  const path = '/Users/' + userId + '/Items?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  }).then(function (result) {
     return (result && result.Items) || [];
   });
 }
