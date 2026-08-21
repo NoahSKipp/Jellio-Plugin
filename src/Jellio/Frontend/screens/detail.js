@@ -56,14 +56,27 @@ function heroBackdropUrl(item, id) {
   if (item.BackdropImageTags && item.BackdropImageTags[0]) {
     return getImageUrl(id, 'Backdrop', { tag: item.BackdropImageTags[0], maxWidth: 1920 });
   }
-  if (item.Type === 'Episode' && item.ImageTags && item.ImageTags.Primary) {
-    return getImageUrl(id, 'Primary', { tag: item.ImageTags.Primary, maxWidth: 1920 });
-  }
+  // Real bug, found live against a real screenshot: an episode's own
+  // real Primary image is a screengrab a metadata provider pulled
+  // straight from the episode itself, usually a real few hundred px
+  // wide and framed for a real small thumbnail, not this hero's own
+  // real large banner. The series/season's own real ParentBackdrop is
+  // real cinematic key art sized for exactly this, and used to only be
+  // reached here once the episode's own real Primary check above it
+  // had already failed, so a series with a real backdrop still rendered
+  // that low real resolution, oddly cropped screengrab stretched across
+  // the whole real hero instead. Only an episode with neither a real
+  // backdrop of its own nor a real parent one to borrow ever really
+  // needs its own Primary here now, the one real case it still can
+  // recover something from at all.
   if (item.ParentBackdropItemId && item.ParentBackdropImageTags && item.ParentBackdropImageTags[0]) {
     return getImageUrl(item.ParentBackdropItemId, 'Backdrop', {
       tag: item.ParentBackdropImageTags[0],
       maxWidth: 1920,
     });
+  }
+  if (item.Type === 'Episode' && item.ImageTags && item.ImageTags.Primary) {
+    return getImageUrl(id, 'Primary', { tag: item.ImageTags.Primary, maxWidth: 1920 });
   }
   return null;
 }
