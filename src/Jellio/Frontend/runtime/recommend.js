@@ -368,5 +368,8 @@ export async function buildRecommendationRows(exclude) {
   const genreRows = await buildTopGenreRows(history, exclude);
   const personRows = await buildTopPersonRows(history, exclude);
 
-  return completedRows.concat(nextUpRows, genreRows, personRows);
+  // Real feedback: "Top Picks for You" (genreRows' own aggregate row)
+  // should sit right after Studio Hubs, ahead of every per-title
+  // "Because you watched/watching X" row, not behind them.
+  return genreRows.concat(completedRows, nextUpRows, personRows);
 }
