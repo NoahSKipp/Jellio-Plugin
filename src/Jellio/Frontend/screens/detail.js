@@ -286,13 +286,27 @@ function buildEpisodeCard(episode, context) {
   card.tabIndex = 0;
   card.setAttribute('role', 'button');
   card.setAttribute('aria-label', episode.Name || '');
-  const thumbTag =
-    (episode.ImageTags && episode.ImageTags.Primary) ||
-    (episode.ParentThumbImageTag && episode.ParentThumbImageTag);
+  // Real bug, found live: the fallback below used to ask for
+  // episode.Id's own Primary image using ParentThumbImageTag as the
+  // tag, two real fields off completely different real items
+  // (ParentThumbImageTag is the season/series' own Thumb image, not a
+  // second Primary tag for the episode itself), so an episode with no
+  // real still of its own asked Jellyfin for an image that item never
+  // actually has under that type, an occasionally-wrong or
+  // occasionally-blank real result depending on how the server itself
+  // handles that mismatch. ParentThumbItemId (the real real id that
+  // tag actually belongs to) plus the real Thumb type is the same real
+  // pattern this file's own heroBackdropUrl() above already gets right
+  // for ParentBackdropItemId/ParentBackdropImageTags.
   const thumb = el('div', 'jellio-episode-thumb');
-  if (thumbTag) {
-    thumb.style.backgroundImage =
-      'url(' + getImageUrl(episode.Id, 'Primary', { tag: thumbTag, maxWidth: 500 }) + ')';
+  let thumbUrl = null;
+  if (episode.ImageTags && episode.ImageTags.Primary) {
+    thumbUrl = getImageUrl(episode.Id, 'Primary', { tag: episode.ImageTags.Primary, maxWidth: 500 });
+  } else if (episode.ParentThumbItemId && episode.ParentThumbImageTag) {
+    thumbUrl = getImageUrl(episode.ParentThumbItemId, 'Thumb', { tag: episode.ParentThumbImageTag, maxWidth: 500 });
+  }
+  if (thumbUrl) {
+    thumb.style.backgroundImage = 'url(' + thumbUrl + ')';
   }
   if (episode.IndexNumber != null) {
     thumb.appendChild(el('span', 'jellio-episode-badge', 'E' + episode.IndexNumber));
