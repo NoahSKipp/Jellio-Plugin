@@ -150,11 +150,17 @@ function sourceBitrateLabel(source) {
   return (video.BitRate / 1000000).toFixed(1) + ' Mbps';
 }
 
+// Real feedback, a real screenshot: a real Size well under 1MB (a
+// mislabeled real source, or a real placeholder Gelato has not
+// actually probed yet) used to round straight to a literal "0 MB"
+// tag, real feedback found that read as a broken badge rather than
+// small/unknown, blank now the same as no real Size at all.
 function formatFileSize(bytes) {
   if (!bytes) return '';
   const gb = bytes / (1024 * 1024 * 1024);
   if (gb >= 1) return gb.toFixed(1) + ' GB';
-  return Math.round(bytes / (1024 * 1024)) + ' MB';
+  const mb = Math.round(bytes / (1024 * 1024));
+  return mb > 0 ? mb + ' MB' : '';
 }
 
 // The source's own first real embedded audio track, the same one
@@ -311,10 +317,33 @@ export function buildSourceCard(source, onSelect, isActive) {
     card.appendChild(tagRow);
   }
 
+  // Real feedback, a real screenshot: German showed up twice in the
+  // same card. sourceAudioLanguages() already dedupes its own real
+  // codes against each other, but a real embedded MediaStreams
+  // Language ('de', ISO 639-1) and a real flag-emoji-derived code
+  // ('ger', ISO 639-2/T, flagLanguages() above) describe the exact
+  // same real language under two different real strings, real Gelato
+  // sources mix both conventions, so that code-level dedup never
+  // caught it. Deduping again here, against languageName()'s own real
+  // resolved display name instead of the raw code, catches that.
   const languageCodes = sourceAudioLanguages(source);
   if (languageCodes.length) {
-    const names = languageCodes.map(languageName).filter(Boolean).join(' · ');
-    if (names) card.appendChild(el('div', 'jellio-stream-picker-card-langs', names));
+    const seenNames = {};
+    const names = [];
+    languageCodes.forEach(function (code) {
+      const name = languageName(code);
+      if (name && !seenNames[name]) {
+        seenNames[name] = true;
+        names.push(name);
+      }
+    });
+    if (names.length) {
+      const langRow = el('div', 'jellio-stream-picker-card-langs');
+      names.forEach(function (name) {
+        langRow.appendChild(el('span', 'jellio-stream-picker-card-lang', name));
+      });
+      card.appendChild(langRow);
+    }
   }
 
   card.addEventListener('click', function () {

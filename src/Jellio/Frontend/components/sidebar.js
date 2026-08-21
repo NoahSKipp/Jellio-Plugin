@@ -8,6 +8,7 @@ import { getPrimaryNavLinks, isActive, buildIconElement, buildAvatarIconMount, S
 import { navigateTo } from '../runtime/router.js';
 import { toggleNowPlayingPanel, nowPlayingCount } from './nowPlaying.js';
 import { openAccountSwitcher } from './accountSwitcher.js';
+import { getCurrentUser } from '../runtime/api.js';
 
 // Tagged with its own hash so updateActiveLinks() can find it again
 // without rebuilding it: real feedback was that the whole rail
@@ -128,26 +129,41 @@ function buildNowPlayingButton() {
   return button;
 }
 
+// Real feedback: labelled "Profile" regardless of who was actually
+// signed in read as a placeholder that never got filled in, not a
+// real account row. cached('user:'+userId, ...) in runtime/api.js
+// means this real fetch is a cache hit almost every time, the same
+// one buildAvatarIconMount() below already triggers, not a second
+// real network round trip.
 async function buildProfileButton() {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'jellio-sidebar-link jellio-sidebar-profile';
-  button.title = 'Profile';
-  button.setAttribute('aria-label', 'Profile');
 
   button.appendChild(await buildAvatarIconMount());
 
+  let name = 'Profile';
+  try {
+    const user = await getCurrentUser();
+    if (user && user.Name) name = user.Name;
+  } catch (err) {
+    // Falls back to the generic label, not fatal to the rest of the rail.
+  }
+  button.title = name;
+  button.setAttribute('aria-label', name);
+
   const labelEl = document.createElement('span');
   labelEl.className = 'jellio-sidebar-label';
-  labelEl.textContent = 'Profile';
+  labelEl.textContent = name;
   button.appendChild(labelEl);
 
   // Opens components/accountSwitcher.js's own quick profile switcher
   // rather than navigating to #/account: that used to be this button's
   // only destination, indistinguishable from the separate Settings link
-  // right below it opening the same screen, real feedback asked for two
-  // buttons doing two real jobs instead of one doing both. Settings (and
-  // the switcher's own Manage Account entry) still reach that screen.
+  // further down the rail opening the same screen, real feedback asked
+  // for two buttons doing two real jobs instead of one doing both.
+  // Settings (and the switcher's own Manage Account entry) still reach
+  // that screen.
   button.addEventListener('click', function () {
     openAccountSwitcher();
   });
@@ -194,7 +210,7 @@ export async function renderSidebar(container) {
 
   // The reader's own libraries are the one real part of this rail that
   // grows with however many the server actually has; everything else
-  // (Home/Search/Watchlist above, Group Watch/Now Playing/Profile/
+  // (Profile and Home/Search/Watchlist above, Group Watch/Now Playing/
   // Settings below) stays a fixed real height. Real feedback: Settings,
   // and on a server with several libraries Anime itself, used to sit
   // clipped past the bottom of a shorter viewport with no way to reach
@@ -203,6 +219,16 @@ export async function renderSidebar(container) {
   // full regardless of library count.
   const scroll = document.createElement('div');
   scroll.className = 'jellio-sidebar-scroll';
+
+  // Real feedback: Profile used to sit at the very bottom, indistinguishable
+  // at a glance from Group Watch/Now Playing/Settings around it, the one
+  // row on this whole rail that is actually "who", not "where". Leads the
+  // rail now, its own divider below it before Home, same grouping shape
+  // Settings already gets against the libraries beneath it.
+  rail.appendChild(await buildProfileButton());
+  const profileDivider = document.createElement('div');
+  profileDivider.className = 'jellio-sidebar-divider';
+  rail.appendChild(profileDivider);
 
   const links = await getPrimaryNavLinks();
   links.forEach(function (link, index) {
@@ -224,6 +250,5 @@ export async function renderSidebar(container) {
 
   rail.appendChild(buildGroupWatchButton());
   rail.appendChild(buildNowPlayingButton());
-  rail.appendChild(await buildProfileButton());
   rail.appendChild(buildLink(SETTINGS_LINK));
 }
