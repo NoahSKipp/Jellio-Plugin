@@ -144,6 +144,18 @@ function invalidateCache(key) {
   cache.delete(key);
 }
 
+// Every real cache entry keyed off the previously signed in user
+// (views, collections, item lookups, ...) is still real, still fresh
+// data for that user, just the wrong one the moment
+// components/accountSwitcher.js switches to a different real account
+// without a real page reload. Called once, right after that switch
+// actually lands, so the next screen this runtime renders asks the
+// network again under the new real session instead of quietly
+// serving the previous reader's own cached answers.
+export function clearCache() {
+  cache.clear();
+}
+
 export function getSystemInfo() {
   return getJson('/System/Info');
 }

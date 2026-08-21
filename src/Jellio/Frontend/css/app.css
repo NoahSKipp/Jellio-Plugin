@@ -3959,6 +3959,37 @@ select.jellio-settings-input {
   color: var(--jellio-text-color);
 }
 
+/* Marks a tile whose avatar click actually signs in right here, no
+   password screen behind it, per accountSwitcher.js's own buildProfileTile. */
+.jellio-account-switcher-quick-badge {
+  position: absolute;
+  right: -0.3em;
+  bottom: -0.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  font-size: 0.9em;
+  box-shadow: 0 0 0 2px var(--jellio-bg-color);
+  pointer-events: none;
+}
+
+.jellio-account-switcher-quick-label {
+  display: block;
+  margin-top: 0.2em;
+  color: var(--jellio-secondary-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.66em, 0.78vw, 0.78em);
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .jellio-login-profile-remove {
   position: absolute;
   top: -0.4em;
