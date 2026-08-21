@@ -268,17 +268,35 @@ function renderAnime(root, collectionType) {
   root.appendChild(rows);
 
   let coverflowDestroy = null;
+  // Real bug, found live: mountCoverflow's own cancelled flag (that
+  // file's own header explains it) only ever guards the one real gap
+  // between it being called and its own real candidates resolving.
+  // Navigating away from Anime and back again before this whole IIFE's
+  // own first real await (getCollections, then itemLists) had even
+  // resolved left nothing checking whether this screen was actually
+  // still the one on real display at all: root/rows are the same
+  // persistent real nodes every renderLibrary call reuses, so a stale
+  // call finishing late still built its own real rows into an orphaned
+  // rows reference and still called mountCoverflow against the real
+  // current root, landing a second real coverflow next to whatever the
+  // real current call had already mounted, reported live as
+  // intermittent "two carousels". cancelled, set true the instant this
+  // screen's own real destroy runs, is checked after every real await
+  // below rather than only once up front.
+  let cancelled = false;
 
   (async function () {
     let animeCollections = [];
     try {
       const collections = await getCollections();
+      if (cancelled) return;
       animeCollections = collections.filter(function (item) {
         return /anime|anilist/i.test(item.Name || '');
       });
     } catch (err) {
       console.warn('Jellio: could not load anime catalogs', err);
     }
+    if (cancelled) return;
 
     if (!animeCollections.length) {
       rows.remove();
@@ -291,6 +309,7 @@ function renderAnime(root, collectionType) {
         return getCollectionItems(collection.Id, collectionType, ROW_LIMIT);
       }),
     );
+    if (cancelled) return;
 
     // Real feedback: the coverflow used to feature whichever catalog
     // actually had the most real items behind it, which on a real
@@ -342,6 +361,7 @@ function renderAnime(root, collectionType) {
       root.appendChild(el('p', 'jellio-service-empty', ANIME_EMPTY_MESSAGE));
       return;
     }
+    if (cancelled) return;
 
     coverflowDestroy = mountCoverflow(root, {
       items: coverflowSource,
@@ -350,6 +370,7 @@ function renderAnime(root, collectionType) {
   })();
 
   return function () {
+    cancelled = true;
     if (coverflowDestroy) coverflowDestroy();
   };
 }

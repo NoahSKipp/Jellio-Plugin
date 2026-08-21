@@ -6,7 +6,7 @@
 // plus a bare <video> element, see screens/player.js's own header for
 // why that needed no access to jellyfin-web's own playbackManager at
 // all, when there is not).
-import { getItemDetails, getImageUrl, getSeasons, getEpisodes, setPlayed, getSeriesNextUp } from '../runtime/api.js';
+import { getItemDetails, getImageUrl, getItem, getSeasons, getEpisodes, setPlayed, getSeriesNextUp } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
@@ -436,13 +436,20 @@ async function buildSeasonsSection(seriesId) {
   // the same hover revealed prev/next control components/row.js's own
   // rows already use, needs its own position: relative wrap around each
   // real track to anchor against, same real shape that file's own
-  // trackWrap already is.
-  const tabsWrap = el('div', 'jellio-season-tabs-wrap');
+  // trackWrap already is. Real bug, found live: an arrow only actually
+  // turns visible on hover through css/app.css's own real
+  // .jellio-row-track-wrap:hover selector, scoped to that one real
+  // class name; without it here too the arrows still built and still
+  // worked, just sitting at a real permanent opacity: 0 no hover ever
+  // reached. jellio-row-track-wrap joins each wrap's own real class
+  // rather than replacing it, this section's own real CSS still needs
+  // its own two real class names for width/overflow.
+  const tabsWrap = el('div', 'jellio-season-tabs-wrap jellio-row-track-wrap');
   const tabs = el('div', 'jellio-season-tabs');
   tabs.setAttribute('role', 'tablist');
   tabsWrap.appendChild(tabs);
 
-  const trackWrap = el('div', 'jellio-episode-track-wrap');
+  const trackWrap = el('div', 'jellio-episode-track-wrap jellio-row-track-wrap');
   const track = el('div', 'jellio-episode-track');
   trackWrap.appendChild(track);
 
@@ -796,8 +803,27 @@ export async function renderDetail(root, params) {
   const thumbsDownButton = el('button', iconActionClass);
   thumbsDownButton.type = 'button';
 
+  // Real feedback: rating one episode used to rate that one episode,
+  // real UserData.Likes living on its own real id, no different from
+  // Watchlist or Mark Watched there. A personal rating reads as one
+  // real opinion about the whole show though, not each episode judged
+  // on its own; real feedback asked for liking any one episode to like
+  // the series itself instead. ratingTarget is the series' own real
+  // item for an Episode (a real fetch, its own UserData is not part of
+  // an Episode's own real response at all), item itself otherwise; both
+  // thumbs read and write whichever one this resolves to, never the
+  // episode's own real record.
+  let ratingTarget = item;
+  const ratingTargetPromise =
+    item.Type === 'Episode' && item.SeriesId
+      ? getItem(item.SeriesId).catch(function (err) {
+          console.warn('Jellio: could not load series for rating', err);
+          return item;
+        })
+      : Promise.resolve(item);
+
   function paintThumbs() {
-    const likes = item.UserData && item.UserData.Likes;
+    const likes = ratingTarget.UserData && ratingTarget.UserData.Likes;
     thumbsUpButton.classList.toggle('jellio-detail-icon-action-active', likes === true);
     thumbsUpButton.setAttribute('aria-label', likes === true ? 'Remove like' : 'Like');
     thumbsUpButton.textContent = '';
@@ -809,11 +835,18 @@ export async function renderDetail(root, params) {
     thumbsDownButton.appendChild(el('span', 'material-icons ' + (likes === false ? 'thumb_down' : 'thumb_down_alt')));
   }
   paintThumbs();
+  ratingTargetPromise.then(function (resolved) {
+    ratingTarget = resolved;
+    paintThumbs();
+  });
 
   thumbsUpButton.addEventListener('click', function (event) {
     event.stopPropagation();
     thumbsUpButton.disabled = true;
-    toggleRating(item, true)
+    ratingTargetPromise
+      .then(function () {
+        return toggleRating(ratingTarget, true);
+      })
       .then(function () {
         paintThumbs();
         playPop(thumbsUpButton);
@@ -830,7 +863,10 @@ export async function renderDetail(root, params) {
   thumbsDownButton.addEventListener('click', function (event) {
     event.stopPropagation();
     thumbsDownButton.disabled = true;
-    toggleRating(item, false)
+    ratingTargetPromise
+      .then(function () {
+        return toggleRating(ratingTarget, false);
+      })
       .then(function () {
         paintThumbs();
         playPop(thumbsDownButton);
