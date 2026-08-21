@@ -697,16 +697,13 @@
   background: var(--jellio-secondary-color);
 }
 
-/* components/card.js's own buildCardActions(): a wide Play button and
-   a fixed More button sit on every card by default on a real mouse,
-   Watchlist and Mark Watched only real, clickable space between
-   hover/focus reveals. Play's own flex-basis shrinking by exactly the
-   amount Watchlist+Mark Watched grow by (pure flexbox math, no JS
-   measuring either width) is what keeps More's own real screen
-   position constant through the whole animation, the one real
-   difference from the previous Jellio codebase's own version, where
-   the three dot button itself used to slide, real feedback called
-   that disorienting to land a second real tap on.
+/* components/card.js's own buildCardActions(): only a fixed More
+   button sits on every card by default on a real mouse, Watchlist and
+   Mark Watched only real, clickable space between hover/focus reveals,
+   pushed against More by margin-left: auto on More itself rather than
+   Play's own former flex-basis math (real feedback: Play on the card
+   itself was one tap too many, the card's own click handler already
+   goes straight to screens/detail.js's own Play button).
 
    hover: none (touch, real Nuvio screenshots confirmed against before
    writing this) never shows this bar at all: Nuvio's own real mobile
@@ -757,22 +754,13 @@
   font-size: 1.15em;
 }
 
-.jellio-card-action-play {
-  flex: 1 1 auto;
-  background: var(--jellio-secondary-color);
-  color: var(--jellio-on-secondary);
-}
-
-.jellio-card-action-play:hover {
-  background: var(--jellio-secondary-variant);
-}
-
 .jellio-card-action-active {
   color: var(--jellio-secondary-color);
 }
 
 .jellio-card-action-more {
   flex: 0 0 2.2em;
+  margin-left: auto;
 }
 
 @media (hover: hover) {
@@ -783,11 +771,6 @@
     min-width: 0;
     opacity: 0;
     overflow: hidden;
-  }
-
-  .jellio-card:hover .jellio-card-action-play,
-  .jellio-card:focus-within .jellio-card-action-play {
-    flex: 0 0 2.2em;
   }
 
   .jellio-card:hover .jellio-card-action-watchlist,

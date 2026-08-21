@@ -10,7 +10,6 @@ import {
   toggleWatchlist,
   animateCardRemoval,
 } from './cardOptionsMenu.js';
-import { openStreamPicker } from './streamPicker.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -68,29 +67,15 @@ function episodeSubtitle(item) {
   return code || item.Name || '';
 }
 
-// Real feedback, the previous Jellio codebase's own real design intent
-// carried forward but changed on purpose: a wide Play button sits next
-// to a fixed More (three dot) button by default, Watchlist and Mark
-// Watched only fading in between them on hover/focus. Play shrinking
-// by exactly the same amount Watchlist+Mark Watched grow by (pure
-// flexbox, no JS measuring) is what keeps More's own real screen
-// position constant through that whole animation, the one real
-// difference from that older codebase's own version, where the three
-// dot button itself used to slide, real feedback called that
-// disorienting to land a second real tap on.
+// Real feedback: Play showing up on every card in a grid/row was one
+// tap too many, the card itself already navigates straight to
+// screens/detail.js's own Play button (this file's own click handler
+// below). Watchlist and Mark Watched fade in on hover/focus next to a
+// fixed More (three dot) button, the two real actions worth reaching
+// without leaving the grid at all.
 function buildCardActions(item, card, imageWrap, options, onChanged) {
   const opts = options || {};
   const bar = el('div', 'jellio-card-actions');
-
-  const playButton = document.createElement('button');
-  playButton.type = 'button';
-  playButton.className = 'jellio-card-action jellio-card-action-play';
-  playButton.setAttribute('aria-label', 'Play');
-  playButton.appendChild(el('span', 'material-icons play_arrow'));
-  playButton.addEventListener('click', function (event) {
-    event.stopPropagation();
-    openStreamPicker(item);
-  });
 
   const watchlistButton = document.createElement('button');
   watchlistButton.type = 'button';
@@ -170,7 +155,6 @@ function buildCardActions(item, card, imageWrap, options, onChanged) {
     );
   });
 
-  bar.appendChild(playButton);
   bar.appendChild(watchlistButton);
   bar.appendChild(watchedButton);
   bar.appendChild(moreButton);
