@@ -1069,12 +1069,25 @@ export async function renderPlayer(root, params) {
       });
   }
 
+  // Same real Specials-last convention screens/detail.js's own
+  // season tabs already settled on (its own isSpecialsSeason): a
+  // Specials "season" is real Jellyfin IndexNumber 0, real feedback
+  // wanted it out of the lead spot there and this panel is the same
+  // real tab bar concept, just duplicated into a second screen.
+  function isSpecialsSeason(season) {
+    if (season.IndexNumber === 0) return true;
+    return /special/i.test(season.Name || '');
+  }
+
   if (isEpisodeItem && item.SeriesId) {
     getSeasons(item.SeriesId)
       .then(function (seasons) {
         if (!seasons.length) return;
         episodesButton.disabled = false;
-        seasons.forEach(function (season) {
+        const orderedSeasons = seasons.slice().sort(function (a, b) {
+          return (isSpecialsSeason(a) ? 1 : 0) - (isSpecialsSeason(b) ? 1 : 0);
+        });
+        orderedSeasons.forEach(function (season) {
           const tab = el('button', 'jellio-player-sidepanel-tab', season.Name || '');
           tab.type = 'button';
           tab.addEventListener('click', function () {
@@ -1083,8 +1096,8 @@ export async function renderPlayer(root, params) {
           seasonTabs.appendChild(tab);
           if (season.Id === item.SeasonId) loadSeasonEpisodes(item.SeriesId, season, tab);
         });
-        if (!episodeList.children.length && seasons[0]) {
-          loadSeasonEpisodes(item.SeriesId, seasons[0], seasonTabs.firstChild);
+        if (!episodeList.children.length && orderedSeasons[0]) {
+          loadSeasonEpisodes(item.SeriesId, orderedSeasons[0], seasonTabs.firstChild);
         }
       })
       .catch(function (err) {
