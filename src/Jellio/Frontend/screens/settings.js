@@ -1,12 +1,18 @@
-// Account settings, this runtime's own screen, the sidebar's Settings
-// link's own real destination (components/navShared.js's own
-// SETTINGS_LINK, #/account). Covers only what has a real, confirmed
-// endpoint and a clear place in a small account page, the same
-// discipline every other screen in this codebase already follows.
-// Remember my stream choice is the one real exception to "a confirmed
-// endpoint": components/streamPicker.js's own preference has no server
-// side concept at all, client only, same as screens/player.js's own
-// subtitle style.
+// Settings, this runtime's own screen, the sidebar's Settings link's
+// own real destination (components/navShared.js's own SETTINGS_LINK,
+// #/account). A category sidebar (Account/Playback/Sessions/About)
+// switches which of this file's own section builders below render into
+// the content pane, one category at a time, real feedback that this
+// page belonged in real defined groups on its own screen rather than
+// one long flat column of every section stacked in a row (see
+// buildAccountCategory's own header for why these four rather than a
+// blind copy of some other real reference's own category names).
+// Covers only what has a real, confirmed endpoint and a clear place in
+// one of them, the same discipline every other screen in this codebase
+// already follows. Remember my stream choice is the one real exception
+// to "a confirmed endpoint": components/streamPicker.js's own
+// preference has no server side concept at all, client only, same as
+// screens/player.js's own subtitle style.
 import {
   getCurrentUser,
   updateUserPassword,
@@ -296,39 +302,32 @@ async function buildSleepTimerSection() {
   return section;
 }
 
-export async function renderSettings(root) {
-  root.textContent = '';
-  root.className = 'jellio-content jellio-screen-settings';
-
-  const header = el('header', 'jellio-settings-header');
-  header.appendChild(el('h1', 'jellio-settings-title', 'Account'));
-  root.appendChild(header);
+// Real feedback: this whole screen used to be one flat column, every
+// section (Profile, Playback, Language, Change password, Sleep timer,
+// Quick Connect, Sign out) stacked in a row a reader had to scroll
+// past everything else to reach. Nuvio's own real Settings screen
+// (screenshot checked before writing this) groups the same kind of
+// content behind a category sidebar instead, one category's own
+// section(s) visible at a time. Categories below are this app's own
+// real equivalent grouping, not a blind copy of Nuvio's own four
+// (Account/General/About/Advanced): Nuvio's Content & Discovery,
+// Downloads and Integrations categories describe real settings this
+// app has no equivalent of at all (no addon management, no offline
+// downloads here), nothing to port for those without inventing a
+// feature to go with it.
+function buildAccountCategory(user) {
+  const wrap = el('div', 'jellio-settings-category');
 
   const profile = el('section', 'jellio-settings-section');
   profile.appendChild(el('h2', 'jellio-settings-section-title', 'Profile'));
-
-  // buildSleepTimerSection/buildQuickConnectSection each own real
-  // network round trip and neither one depends on the signed in
-  // user's own data at all, so all three fire together here instead
-  // of those two sections each waiting on the user fetch to even
-  // start.
-  const [userResult, sleepTimerSection, quickConnectSection] = await Promise.all([
-    getCurrentUser().catch(function (err) {
-      console.warn('Jellio: could not load current user', err);
-      return null;
-    }),
-    buildSleepTimerSection(),
-    buildQuickConnectSection(),
-  ]);
-  const user = userResult;
   if (user) {
     profile.appendChild(el('p', 'jellio-settings-status', 'Signed in as ' + user.Name));
   }
 
-  // Real feedback: this small account page used to be the sidebar's
-  // own real Settings destination, which used to just fall through to
-  // native jellyfin-web on a dead route, real access to Plugins/Users/
-  // Server settings landing on it by accident once native's own chrome
+  // Real feedback: this screen used to be the sidebar's own real
+  // Settings destination, which used to just fall through to native
+  // jellyfin-web on a dead route, real access to Plugins/Users/Server
+  // settings landing on it by accident once native's own chrome
   // showed through. Fixing that route (components/navShared.js's own
   // SETTINGS_LINK) closed that accidental door along with the bug,
   // reported live as no longer being able to reach admin at all. Real
@@ -360,13 +359,9 @@ export async function renderSettings(root) {
     openAvatarPicker(refreshProfileAvatar);
   });
   profile.appendChild(avatarButton);
-  root.appendChild(profile);
+  wrap.appendChild(profile);
 
-  root.appendChild(buildPlaybackSection());
-  root.appendChild(buildLanguageSection(user));
-  root.appendChild(buildPasswordSection());
-  root.appendChild(sleepTimerSection);
-  if (quickConnectSection) root.appendChild(quickConnectSection);
+  wrap.appendChild(buildPasswordSection());
 
   const account = el('section', 'jellio-settings-section');
   const logoutButton = el('button', 'jellio-settings-button jellio-settings-button-danger', 'Sign out');
@@ -375,5 +370,123 @@ export async function renderSettings(root) {
     logout();
   });
   account.appendChild(logoutButton);
-  root.appendChild(account);
+  wrap.appendChild(account);
+
+  return wrap;
+}
+
+function buildPlaybackCategory(user) {
+  const wrap = el('div', 'jellio-settings-category');
+  wrap.appendChild(buildPlaybackSection());
+  wrap.appendChild(buildLanguageSection(user));
+  return wrap;
+}
+
+function buildSessionsCategory(sleepTimerSection, quickConnectSection) {
+  const wrap = el('div', 'jellio-settings-category');
+  wrap.appendChild(sleepTimerSection);
+  if (quickConnectSection) wrap.appendChild(quickConnectSection);
+  return wrap;
+}
+
+// app.js's own real script tag, the one IndexHtmlPatchService itself
+// stamps a ?v= query string onto every release (confirmed against
+// that file's own header, and against this exact query string live in
+// this server's own served index.html): the one place this plugin's
+// own real running version already lives on the page, read back here
+// rather than adding a second endpoint just to ask the backend for
+// what the page it already served says.
+function jellioVersion() {
+  const script = document.querySelector('script[src*="/Jellio/frontend/app.js"]');
+  if (!script) return '';
+  try {
+    return new URL(script.src, window.location.origin).searchParams.get('v') || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function buildAboutCategory() {
+  const wrap = el('div', 'jellio-settings-category');
+  const section = el('section', 'jellio-settings-section');
+  section.appendChild(el('h2', 'jellio-settings-section-title', 'About'));
+  const version = jellioVersion();
+  section.appendChild(el('p', 'jellio-settings-status', version ? 'Jellio ' + version : 'Jellio'));
+  wrap.appendChild(section);
+  return wrap;
+}
+
+const CATEGORY_ICONS = {
+  account: 'person',
+  playback: 'play_circle',
+  sessions: 'devices',
+  about: 'info',
+};
+
+export async function renderSettings(root) {
+  root.textContent = '';
+  root.className = 'jellio-content jellio-screen-settings';
+
+  const header = el('header', 'jellio-settings-header');
+  header.appendChild(el('h1', 'jellio-settings-title', 'Settings'));
+  root.appendChild(header);
+
+  // buildSleepTimerSection/buildQuickConnectSection each own real
+  // network round trip and neither one depends on the signed in
+  // user's own data at all, so all three fire together here instead
+  // of those two sections each waiting on the user fetch to even
+  // start.
+  const [userResult, sleepTimerSection, quickConnectSection] = await Promise.all([
+    getCurrentUser().catch(function (err) {
+      console.warn('Jellio: could not load current user', err);
+      return null;
+    }),
+    buildSleepTimerSection(),
+    buildQuickConnectSection(),
+  ]);
+  const user = userResult;
+
+  const categories = [
+    { id: 'account', label: 'Account', build: function () { return buildAccountCategory(user); } },
+    { id: 'playback', label: 'Playback', build: function () { return buildPlaybackCategory(user); } },
+    {
+      id: 'sessions',
+      label: 'Sessions',
+      build: function () { return buildSessionsCategory(sleepTimerSection, quickConnectSection); },
+    },
+    { id: 'about', label: 'About', build: buildAboutCategory },
+  ];
+
+  const layout = el('div', 'jellio-settings-layout');
+  const nav = el('nav', 'jellio-settings-nav');
+  nav.setAttribute('role', 'tablist');
+  const content = el('div', 'jellio-settings-content');
+  layout.appendChild(nav);
+  layout.appendChild(content);
+  root.appendChild(layout);
+
+  function selectCategory(category, button) {
+    Array.prototype.forEach.call(nav.children, function (child) {
+      child.classList.remove('jellio-settings-nav-item-active');
+      child.setAttribute('aria-selected', 'false');
+    });
+    button.classList.add('jellio-settings-nav-item-active');
+    button.setAttribute('aria-selected', 'true');
+    content.textContent = '';
+    content.appendChild(category.build());
+  }
+
+  categories.forEach(function (category, index) {
+    const button = el('button', 'jellio-settings-nav-item');
+    button.type = 'button';
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', 'false');
+    button.appendChild(el('span', 'material-icons jellio-settings-nav-icon ' + CATEGORY_ICONS[category.id]));
+    button.appendChild(el('span', 'jellio-settings-nav-label', category.label));
+    button.addEventListener('click', function () {
+      selectCategory(category, button);
+    });
+    nav.appendChild(button);
+    if (index === 0) selectCategory(category, button);
+  });
 }
