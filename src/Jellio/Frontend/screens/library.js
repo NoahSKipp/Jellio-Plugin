@@ -31,6 +31,51 @@ const TRENDING_ANIME_NAME = /anilist.*trending|trending.*anilist/i;
 const GENRE_ROWS = 6;
 const ROW_LIMIT = 20;
 
+// Generous rather than exact: this is a best effort exclusion set, not
+// a real query Jellyfin itself can answer (no CollectionType tells a
+// real anime Series apart from any other one sharing the same real TV
+// library, same constraint renderAnime's own header above already
+// documents). A catalog with more real members than this still misses
+// a few, not worth a second real paginated fetch just to close that
+// last gap.
+const ANIME_ITEM_ID_LIMIT = 500;
+
+// Every real item id any real anime/anilist catalog collection
+// currently claims, best effort: the Shows hub below drops anything in
+// this set from its own real main row and genre rows, real feedback's
+// own direct ask ("if possible show no anime at all in the Shows
+// hub"). Failure of any part of this (no catalogs configured, a
+// request that 404s) resolves to an empty real Set rather than
+// rejecting, the Shows hub renders unfiltered same as before this
+// existed rather than breaking outright over a real best effort
+// feature.
+function getAnimeItemIds() {
+  return getCollections()
+    .then(function (collections) {
+      const animeCollections = collections.filter(function (item) {
+        return /anime|anilist/i.test(item.Name || '');
+      });
+      if (!animeCollections.length) return new Set();
+      return Promise.allSettled(
+        animeCollections.map(function (collection) {
+          return getCollectionItems(collection.Id, 'tvshows', ANIME_ITEM_ID_LIMIT);
+        }),
+      ).then(function (results) {
+        const ids = new Set();
+        results.forEach(function (result) {
+          if (result.status !== 'fulfilled') return;
+          result.value.forEach(function (item) {
+            if (item && item.Id) ids.add(item.Id);
+          });
+        });
+        return ids;
+      });
+    })
+    .catch(function () {
+      return new Set();
+    });
+}
+
 // Ported in spirit from NuvioWeb's own filterPicker.js: a sort/filter
 // control over the library's own top row rather than a full rebuild of
 // the page, the per genre rows below already cover "browse by genre"
@@ -153,6 +198,12 @@ export async function renderLibrary(root, params) {
   const editorial = collectionType === 'tvshows' ? showsEditorial(new Date().getHours()) : null;
   const destroy = mountCoverflow(root, { parentId, itemTypes: itemType, editorial: editorial });
 
+  // Anime has its own dedicated page (renderAnime above); best effort
+  // to keep it off the plain Shows hub too, real feedback's own direct
+  // ask. Not attempted for any other library kind, a Movies or Books
+  // page has no real anime overlap question to answer at all.
+  const excludeAnimeIds = collectionType === 'tvshows' ? getAnimeItemIds() : Promise.resolve(null);
+
   let mainRow = null;
 
   function sortLabel(value) {
@@ -171,13 +222,21 @@ export async function renderLibrary(root, params) {
     const genre = genreSelect.value;
     let items = [];
     try {
-      const result = await getLibraryItems(parentId, collectionType, {
-        limit: ROW_LIMIT,
-        sortBy: parts[0],
-        sortOrder: parts[1],
-        genre: genre || undefined,
-      });
+      const [result, animeIds] = await Promise.all([
+        getLibraryItems(parentId, collectionType, {
+          limit: ROW_LIMIT,
+          sortBy: parts[0],
+          sortOrder: parts[1],
+          genre: genre || undefined,
+        }),
+        excludeAnimeIds,
+      ]);
       items = (result && result.Items) || [];
+      if (animeIds && animeIds.size) {
+        items = items.filter(function (item) {
+          return !animeIds.has(item.Id);
+        });
+      }
     } catch (err) {
       console.warn('Jellio: could not load library items', err);
     }
@@ -215,14 +274,25 @@ export async function renderLibrary(root, params) {
       });
       genreSelect.disabled = !genres.length;
 
-      return Promise.allSettled(
-        genres.map(function (genre) {
-          return getGenreItems(parentId, itemType, genre, ROW_LIMIT);
-        }),
-      ).then(function (genreItemLists) {
+      return Promise.all([
+        Promise.allSettled(
+          genres.map(function (genre) {
+            return getGenreItems(parentId, itemType, genre, ROW_LIMIT);
+          }),
+        ),
+        excludeAnimeIds,
+      ]).then(function (results) {
+        const genreItemLists = results[0];
+        const animeIds = results[1];
         genreItemLists.forEach(function (result, index) {
           if (result.status === 'fulfilled') {
-            const row = buildRow(genres[index], result.value);
+            let items = result.value;
+            if (animeIds && animeIds.size) {
+              items = items.filter(function (item) {
+                return !animeIds.has(item.Id);
+              });
+            }
+            const row = buildRow(genres[index], items);
             if (row) rows.appendChild(row);
           }
         });
@@ -351,8 +421,7 @@ function renderAnime(root, collectionType) {
       if (result.status !== 'fulfilled' || index === trendingIndex) return;
       const items = result.value;
       const name = animeCollections[index].Name || '';
-      const badge = TRENDING_ANIME_NAME.test(name) ? { icon: 'trending_up', text: 'Trending on AniList' } : null;
-      const row = buildRow(name, items, null, badge);
+      const row = buildRow(name, items);
       if (row) rows.appendChild(row);
     });
 

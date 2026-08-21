@@ -1,54 +1,191 @@
-// Small time-of-day copy table for the Shows library's own coverflow
-// header. Ported in spirit from Harbor's own shows hero-curation
-// (dayBucket() plus a copy table sitting above its carousel): the
-// reader's own local hour picks one of four moods, the library's own
-// real content pool never changes because of it, only which line
-// introduces it. Night's own three lines are Harbor's real ones, kept
-// verbatim, that bucket is the one real feedback specifically named
-// ("something late night... e.g see on Shows tab in harbor above
-// carousel"); morning/afternoon/evening are written fresh in the same
-// voice, past night that source's own exact copy was not something
-// this session actually read.
-const BUCKETS = [
-  {
-    start: 5,
-    end: 12,
-    icon: 'wb_sunny',
-    label: 'Morning Briefing',
-    tagline: 'Something to start the day',
-    description: 'Lighter stories and quick episodes before the day gets going.',
-  },
-  {
-    start: 12,
-    end: 17,
-    icon: 'wb_cloudy',
-    label: 'Afternoon Lineup',
-    tagline: 'A break worth taking',
-    description: 'Easy watching for whenever the day gives you a minute.',
-  },
-  {
-    start: 17,
-    end: 22,
-    icon: 'weekend',
-    label: 'Prime Time',
-    tagline: "Tonight's picks",
-    description: 'The shows worth your full attention, right when you have it.',
-  },
-  {
-    start: 22,
-    end: 29,
-    icon: 'bedtime',
-    label: 'Insomnia Lineup',
-    tagline: 'Worth the lost hour',
-    description: 'Dense plots and rich worlds for when sleep is not happening.',
-  },
-];
+// Time-of-day copy table for the Shows library's own coverflow header.
+// Ported faithfully from Harbor's own src/views/shows/hero-curation.ts
+// (dayBucket(), the real BUCKET_VARIANTS copy table, and bucketCopy()'s
+// own day-of-year rotation formula), not a single-variant-per-bucket
+// simplification: Harbor rotates through 7 real copy variants per
+// bucket, picking one by day of year rather than holding one line
+// fixed all bucket long. The library's own real content pool never
+// changes because of any of this, matching Harbor's own real
+// buildShowHero(): bucketCopy() and the item pool are two separate
+// concerns over there, this file only ever ports the first.
+const BUCKET_ICONS = {
+  morning: 'wb_sunny',
+  afternoon: 'wb_cloudy',
+  evening: 'weekend',
+  night: 'bedtime',
+};
+
+const BUCKET_INDEX = { morning: 0, afternoon: 1, evening: 2, night: 3 };
+
+const BUCKET_VARIANTS = {
+  morning: [
+    {
+      kicker: 'Morning Lineup',
+      title: 'Easing into series',
+      subtitle: 'Slow-burn worlds and bright chapters worth opening with coffee.',
+    },
+    {
+      kicker: 'Good Morning',
+      title: "Today's openers",
+      subtitle: 'Series to ease into while the day is still quiet.',
+    },
+    {
+      kicker: 'Daybreak',
+      title: 'First-light picks',
+      subtitle: 'Worlds to step into before the inbox catches up.',
+    },
+    {
+      kicker: 'AM Picks',
+      title: 'Coffee-and-couch',
+      subtitle: 'Half-hours, anthologies, and a few epics for the morning routine.',
+    },
+    {
+      kicker: 'Open the Day',
+      title: 'Series with mileage',
+      subtitle: 'Long-running comforts and new chapters worth pressing play on.',
+    },
+    {
+      kicker: 'Quiet Hours',
+      title: 'Slow-burn starts',
+      subtitle: 'Stories that reward your attention before the day gets loud.',
+    },
+    {
+      kicker: 'This Morning',
+      title: 'Worth catching up on',
+      subtitle: 'What everyone has been quietly binging this week.',
+    },
+  ],
+  afternoon: [
+    {
+      kicker: 'Afternoon Picks',
+      title: 'Daytime watching',
+      subtitle: 'Easy half-hours and lighter dramas to ride out the afternoon.',
+    },
+    {
+      kicker: 'Midday Lineup',
+      title: 'Between meetings',
+      subtitle: "Episodes you can drop into without losing the thread.",
+    },
+    {
+      kicker: 'Afternoon Roll',
+      title: 'Pick up an episode',
+      subtitle: 'Lunch-break comedies and slow-cooker dramas, ready when you are.',
+    },
+    {
+      kicker: 'The Long Lunch',
+      title: 'Series to disappear into',
+      subtitle: 'Worlds wide enough for an hour or a whole free afternoon.',
+    },
+    {
+      kicker: 'Daylight Watching',
+      title: 'Bright-side series',
+      subtitle: 'Sharp comedies, sunny worlds, and the occasional binge bait.',
+    },
+    {
+      kicker: 'Holdover Picks',
+      title: 'Carry it through the day',
+      subtitle: 'Companion series for whatever the afternoon throws at you.',
+    },
+    {
+      kicker: 'PM Picks',
+      title: 'Couch hours',
+      subtitle: 'Series for the part of the day that runs on coffee and snacks.',
+    },
+  ],
+  evening: [
+    {
+      kicker: 'Tonight',
+      title: "Tonight's lineup",
+      subtitle: 'Prestige drama, weekly chapters, and series worth disappearing into.',
+    },
+    {
+      kicker: 'Prime Time',
+      title: 'What to watch tonight',
+      subtitle: 'Crowd-pleasers, prestige picks, and the kind of series people text about.',
+    },
+    {
+      kicker: 'Sundown',
+      title: 'Evening on the couch',
+      subtitle: 'Drop-in chapters and long arcs for the post-dinner stretch.',
+    },
+    {
+      kicker: 'Press Play',
+      title: "Tonight's marquee",
+      subtitle: 'The series that make the rest of the night disappear.',
+    },
+    {
+      kicker: "Tonight's Slate",
+      title: 'Episodes worth the evening',
+      subtitle: "What's hot this week, what's prestige forever, what's worth the hours.",
+    },
+    {
+      kicker: 'Showtime',
+      title: "Tonight's main event",
+      subtitle: 'Series for the part of the day you actually look forward to.',
+    },
+    {
+      kicker: 'Saved for Now',
+      title: "Tonight's binge bait",
+      subtitle: 'Pilots that pull you in and finales that earn the season.',
+    },
+  ],
+  night: [
+    {
+      kicker: 'Late Night',
+      title: 'After-hours picks',
+      subtitle: 'Dark, immersive, and binge-worthy when the house is quiet.',
+    },
+    {
+      kicker: 'Past Midnight',
+      title: 'One more episode',
+      subtitle: "Series for the part of the night that won't let you sleep.",
+    },
+    {
+      kicker: 'Witching Hour',
+      title: 'Late-night chapters',
+      subtitle: 'Pull-you-under stories for the quietest part of the day.',
+    },
+    {
+      kicker: 'Lights Out',
+      title: 'Headphone series',
+      subtitle: 'Slow, strange, and absorbing. Best with the lights down low.',
+    },
+    {
+      kicker: 'Insomnia Lineup',
+      title: 'Worth the lost hour',
+      subtitle: 'Dense plots and rich worlds for when sleep is not happening.',
+    },
+    {
+      kicker: 'Late Show',
+      title: 'After the news',
+      subtitle: 'Quiet dramas, sharp thrillers, and series you save for yourself.',
+    },
+    {
+      kicker: 'Night Owl',
+      title: "While the world's asleep",
+      subtitle: 'Series with the patience to match your late-night hours.',
+    },
+  ],
+};
+
+function dayBucket(hour) {
+  const h = hour < 5 ? hour + 24 : hour;
+  if (h >= 5 && h < 12) return 'morning';
+  if (h >= 12 && h < 17) return 'afternoon';
+  if (h >= 17 && h < 22) return 'evening';
+  return 'night';
+}
+
+function dayOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date.getTime() - start.getTime()) / 86400000);
+}
 
 export function showsEditorial(hour) {
-  const h = hour < 5 ? hour + 24 : hour;
-  const bucket =
-    BUCKETS.filter(function (b) {
-      return h >= b.start && h < b.end;
-    })[0] || BUCKETS[2];
-  return { icon: bucket.icon, label: bucket.label, tagline: bucket.tagline, description: bucket.description };
+  const now = new Date();
+  const bucket = dayBucket(hour);
+  const variants = BUCKET_VARIANTS[bucket];
+  const idx = (dayOfYear(now) + BUCKET_INDEX[bucket] * 3) % variants.length;
+  const copy = variants[idx];
+  return { icon: BUCKET_ICONS[bucket], label: copy.kicker, tagline: copy.title, description: copy.subtitle };
 }

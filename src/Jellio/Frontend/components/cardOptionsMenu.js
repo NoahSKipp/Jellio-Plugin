@@ -9,7 +9,7 @@
 // manually/Start from beginning/Remove, every other card offers
 // Watchlist/Mark watched/Remove from Library, matched here rather than
 // one generic list either context has to squint past.
-import { setPlayed, setWatchlist, setItemRating, deleteItem, getCurrentUser } from '../runtime/api.js';
+import { setPlayed, setWatchlist, setItemRating } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from './streamPicker.js';
 
@@ -177,11 +177,34 @@ export function openCardOptionsMenu(item, anchorRect, onChanged, options) {
     );
     menu.appendChild(
       buildOption(
-        'Remove',
+        'Remove from Continue Watching',
         'delete',
         function () {
           toggleWatched(item, opts, onChanged).catch(function (err) {
             console.warn('Jellio: could not remove from continue watching', err);
+          });
+        },
+        true,
+      ),
+    );
+  } else if (opts.upNext) {
+    menu.appendChild(
+      buildOption('Go to details', 'info', function () {
+        navigateTo('#/item?id=' + item.Id);
+      }),
+    );
+    // Real gap, documented above on toggleWatched itself: Jellyfin has
+    // no endpoint that just hides one title from NextUp on its own,
+    // marking the episode played is the only real call that also drops
+    // it off this row, same mechanism Continue Watching's own Remove
+    // already leans on above.
+    menu.appendChild(
+      buildOption(
+        'Remove from Up Next',
+        'delete',
+        function () {
+          toggleWatched(item, opts, onChanged).catch(function (err) {
+            console.warn('Jellio: could not remove from up next', err);
           });
         },
         true,
@@ -208,39 +231,6 @@ export function openCardOptionsMenu(item, anchorRect, onChanged, options) {
         });
       }),
     );
-
-    // Real gate, checked async so opening this menu never waits on it:
-    // Jellyfin's own DELETE /Items/{id} only actually succeeds for an
-    // admin or a user with their own real Policy.EnableContentDeletion
-    // (confirmed against ItemsController.cs before writing this),
-    // showing this to every reader and letting the request itself fail
-    // reads live as a broken button, not a real permission boundary.
-    getCurrentUser()
-      .then(function (user) {
-        if (!document.getElementById(MENU_ID)) return;
-        const policy = user && user.Policy;
-        if (!policy || !(policy.IsAdministrator || policy.EnableContentDeletion)) return;
-        menu.appendChild(
-          buildOption(
-            'Remove from Library',
-            'delete',
-            function () {
-              if (!window.confirm('Remove "' + (item.Name || 'this title') + '" from your library? This cannot be undone.')) {
-                return;
-              }
-              deleteItem(item.Id)
-                .then(function () {
-                  if (opts.onRemoved) opts.onRemoved();
-                })
-                .catch(function (err) {
-                  console.warn('Jellio: could not remove item', err);
-                });
-            },
-            true,
-          ),
-        );
-      })
-      .catch(function () {});
   }
 
   document.body.appendChild(menu);

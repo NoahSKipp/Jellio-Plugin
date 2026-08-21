@@ -125,6 +125,14 @@ function score(seed, entry) {
   return total;
 }
 
+// Real feedback: a title already fully watched has nothing left to
+// recommend it for, "because you watched X" or not. Checked here
+// rather than at the server, same real UserData shape every other
+// signal in this file already reads off each item.
+function notPlayed(item) {
+  return !(item.UserData && item.UserData.Played);
+}
+
 // Title and year, not just id: the library really can carry a
 // handful of same name, same year titles that are different films,
 // and Gelato hands out an aliased id for the same item on some routes,
@@ -146,6 +154,7 @@ function pick(seed, entries, exclude, count) {
       if (entry.item.Id === seed.Id || titleKey(entry.item) === seedKey) return false;
       if (exclude[entry.item.Id] || exclude[titleKey(entry.item)]) return false;
       if (entry.item.CommunityRating && entry.item.CommunityRating < MIN_RATING) return false;
+      if (!notPlayed(entry.item)) return false;
       return true;
     })
     .map(function (entry) {
@@ -298,7 +307,7 @@ async function buildTopGenreRows(history, exclude) {
   for (let i = 0; i < genres.length; i++) {
     const genre = genres[i];
     try {
-      const items = dedupe(await getGenreItems(null, 'Movie,Series', genre, ROW_SIZE), exclude);
+      const items = dedupe((await getGenreItems(null, 'Movie,Series', genre, ROW_SIZE)).filter(notPlayed), exclude);
       if (items.length) rows.push({ title: 'Top Picks for You', items: items });
     } catch (err) {
       console.warn('Jellio: could not load top genre row', err);
@@ -313,7 +322,7 @@ async function buildTopPersonRows(history, exclude) {
   for (let i = 0; i < people.length; i++) {
     const person = people[i];
     try {
-      const items = dedupe(await getPersonItems(person.id, ROW_SIZE), exclude);
+      const items = dedupe((await getPersonItems(person.id, ROW_SIZE)).filter(notPlayed), exclude);
       if (items.length) rows.push({ title: 'More with ' + person.name, items: items });
     } catch (err) {
       console.warn('Jellio: could not load top person row', err);
@@ -359,5 +368,8 @@ export async function buildRecommendationRows(exclude) {
   const genreRows = await buildTopGenreRows(history, exclude);
   const personRows = await buildTopPersonRows(history, exclude);
 
-  return completedRows.concat(nextUpRows, genreRows, personRows);
+  // Real feedback: "Top Picks for You" (genreRows' own aggregate row)
+  // should sit right after Studio Hubs, ahead of every per-title
+  // "Because you watched/watching X" row, not behind them.
+  return genreRows.concat(completedRows, nextUpRows, personRows);
 }
