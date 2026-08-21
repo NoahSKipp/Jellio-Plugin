@@ -1,7 +1,7 @@
 // Shared item card, used by every screen that renders a poster grid or row
 // (home's own rows, the library grid). One definition so a later visual
 // change (a hover state, a progress bar) only has one place to happen.
-import { getImageUrl } from '../runtime/api.js';
+import { getImageUrl, TICKS_PER_SECOND } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 import {
   attachCardOptionsTrigger,
@@ -143,7 +143,140 @@ function buildCardActions(item, card, imageWrap, options, onChanged) {
   return bar;
 }
 
+// Real Harbor/Nuvio reference (screenshots checked before writing
+// this): Up Next and Continue Watching read as a landscape strip,
+// title and episode burned directly onto the bottom of a 16:9 still
+// with a remaining-time badge and a real progress bar under it, not
+// this file's own plain 2:3 poster shape every other row already
+// uses. Backdrop art fits that box far better than a poster
+// (portrait key art cropped into a wide box loses most of it), so a
+// real Backdrop tag wins here first when there is one; an Episode
+// never carries one at all (confirmed against a real server before
+// writing this, same real constraint screens/detail.js's own
+// heroBackdropUrl() already documents), so its own real still
+// (Primary) is next, then the season/series' own real Thumb, the
+// same real ParentThumbItemId/ParentThumbImageTag fallback that
+// file's own buildEpisodeCard() already fixed the same real id/type
+// mismatch bug for.
+function landscapeImageUrl(item) {
+  const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
+  if (backdropTag) {
+    return getImageUrl(item.Id, 'Backdrop', { tag: backdropTag, maxWidth: 500, quality: 85 });
+  }
+  const primaryTag = item.ImageTags && item.ImageTags.Primary;
+  if (primaryTag) {
+    return getImageUrl(item.Id, 'Primary', { tag: primaryTag, maxWidth: 500, quality: 85 });
+  }
+  if (item.ParentThumbItemId && item.ParentThumbImageTag) {
+    return getImageUrl(item.ParentThumbItemId, 'Thumb', { tag: item.ParentThumbImageTag, maxWidth: 500, quality: 85 });
+  }
+  if (item.ParentBackdropItemId && item.ParentBackdropImageTags && item.ParentBackdropImageTags[0]) {
+    return getImageUrl(item.ParentBackdropItemId, 'Backdrop', {
+      tag: item.ParentBackdropImageTags[0],
+      maxWidth: 500,
+      quality: 85,
+    });
+  }
+  return null;
+}
+
+// Real RunTimeTicks/PlaybackPositionTicks, both already real fields on
+// a real Resume/NextUp response (runtime/api.js's own getResumeItems
+// now asks for RunTimeTicks explicitly alongside the fields it already
+// requested; getNextUp already did). Blank rather than "0m left" for
+// an Up Next item, which never carries a real PlaybackPositionTicks at
+// all, matching real Harbor/Nuvio reference: only a title actually mid
+// playback shows a real remaining time at all.
+function remainingLabel(item) {
+  const userData = item.UserData || {};
+  const runTicks = item.RunTimeTicks;
+  const posTicks = userData.PlaybackPositionTicks;
+  if (!runTicks || !posTicks) return '';
+  const remainingTicks = runTicks - posTicks;
+  if (remainingTicks <= 0) return '';
+  const minutes = Math.round(remainingTicks / TICKS_PER_SECOND / 60);
+  return minutes > 0 ? minutes + 'm left' : '';
+}
+
+function paintLandscapeProgress(imageWrap, item) {
+  const existing = imageWrap.querySelector('.jellio-card-landscape-progress');
+  if (existing) existing.remove();
+  const percentage = item.UserData && item.UserData.PlayedPercentage;
+  if (!(percentage > 0)) return;
+  const progress = el('div', 'jellio-card-landscape-progress');
+  const fill = el('div', 'jellio-card-landscape-progress-fill');
+  fill.style.width = Math.min(100, percentage) + '%';
+  progress.appendChild(fill);
+  imageWrap.appendChild(progress);
+}
+
+function buildLandscapeCard(item, options) {
+  const isEpisode = item.Type === 'Episode' && !!item.SeriesName;
+
+  const card = document.createElement('div');
+  card.className = 'jellio-card jellio-card-landscape';
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', isEpisode ? item.SeriesName + ' - ' + episodeSubtitle(item) : item.Name || '');
+
+  const imageWrap = el('div', 'jellio-card-landscape-image-wrap');
+  const imageUrl = landscapeImageUrl(item);
+  if (imageUrl) {
+    const img = document.createElement('img');
+    img.className = 'jellio-card-landscape-image';
+    img.src = imageUrl;
+    img.alt = '';
+    img.loading = 'lazy';
+    imageWrap.appendChild(img);
+  } else {
+    imageWrap.appendChild(el('div', 'jellio-card-landscape-image jellio-card-image-empty'));
+  }
+
+  imageWrap.appendChild(el('div', 'jellio-card-landscape-scrim'));
+
+  const info = el('div', 'jellio-card-landscape-info');
+  if (isEpisode) {
+    const hasSeason = typeof item.ParentIndexNumber === 'number';
+    const hasEpisode = typeof item.IndexNumber === 'number';
+    const code = hasSeason && hasEpisode ? 'S' + item.ParentIndexNumber + ' E' + item.IndexNumber : '';
+    if (code) info.appendChild(el('div', 'jellio-card-landscape-eyebrow', code));
+    info.appendChild(el('div', 'jellio-card-landscape-title', item.SeriesName));
+    if (item.Name) info.appendChild(el('div', 'jellio-card-landscape-subtitle', item.Name));
+  } else {
+    info.appendChild(el('div', 'jellio-card-landscape-title', item.Name || ''));
+  }
+  imageWrap.appendChild(info);
+
+  const remaining = remainingLabel(item);
+  if (remaining) {
+    imageWrap.appendChild(el('div', 'jellio-card-landscape-remaining', remaining));
+  }
+
+  paintLandscapeProgress(imageWrap, item);
+  card.appendChild(imageWrap);
+
+  card.addEventListener('click', function () {
+    navigateTo('#/item?id=' + item.Id);
+  });
+  card.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      navigateTo('#/item?id=' + item.Id);
+    }
+  });
+
+  attachCardOptionsTrigger(card, item, function (updatedItem) {
+    paintLandscapeProgress(imageWrap, updatedItem);
+  }, options);
+
+  return card;
+}
+
 export function buildCard(item, options) {
+  if (options && (options.continueWatching || options.upNext)) {
+    return buildLandscapeCard(item, options);
+  }
+
   const isEpisode = item.Type === 'Episode' && !!item.SeriesName;
 
   const card = document.createElement('div');

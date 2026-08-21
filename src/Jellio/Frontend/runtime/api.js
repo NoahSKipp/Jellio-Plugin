@@ -210,12 +210,17 @@ export function getUserViews() {
 export function getResumeItems(limit) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
+  // RunTimeTicks alongside the field already asked for: components/
+  // card.js's own landscape Continue Watching card computes a real
+  // "X left" label from this and UserData.PlaybackPositionTicks
+  // (already a default real field), not something this query fetched
+  // before.
   const query =
     '/Users/' +
     userId +
     '/Items/Resume?Limit=' +
     (limit || 20) +
-    '&Fields=PrimaryImageAspectRatio&EnableImageTypes=Primary,Backdrop,Thumb';
+    '&Fields=PrimaryImageAspectRatio,RunTimeTicks&EnableImageTypes=Primary,Backdrop,Thumb';
   return getJson(query).then(function (result) {
     return (result && result.Items) || [];
   });
