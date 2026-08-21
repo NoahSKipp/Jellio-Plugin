@@ -356,7 +356,14 @@ async function preloadHeroImages() {
     // but not as urgent, real backdrops for whichever slide the
     // carousel auto-advances to later, not what decides how long the
     // reader watches an empty hero before anything shows up in it.
-    prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }), index === 0 ? 'high' : 'low');
+    const priority = index === 0 ? 'high' : 'low';
+    prefetchImage(getImageUrl(item.Id, 'Backdrop', { maxWidth: 1600 }), priority);
+    // The logo used to sit outside this warm-up entirely, real reason
+    // components/heroCarousel.js's own render() only ever built that
+    // <img> once it mounted, the reader watching it pop in after the
+    // splash had already stepped aside, same real gap this whole
+    // function already closed for the backdrop.
+    prefetchImage(getImageUrl(item.Id, 'Logo', { maxWidth: 800 }), priority);
   });
 }
 

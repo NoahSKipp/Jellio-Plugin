@@ -466,15 +466,28 @@ export async function renderHome(root, params) {
   // the reader has already navigated elsewhere just appends into an
   // orphaned, invisible subtree, same reasoning screens/library.js's
   // own fire-and-forget genre rows document.
-  const appended = new Set();
+  // Real bug this exact shape caused: app.js's own preloadInitialData()
+  // now fires preloadHomeRows() in the background before this screen
+  // ever mounts (see that file's own header), so on a real cold load
+  // Up Next/Continue Watching/the hub strip, pushed first and fastest,
+  // routinely finish and notify before the listener below even
+  // subscribes, missing the live path entirely; catalog/genre rows,
+  // slower and pushed later, do reach it live. Appending only the
+  // "missed" sections after the live ones, the old shape here, left
+  // Up Next and Continue Watching stranded after every row that had
+  // arrived live instead of first where they belong. appendChild on a
+  // node already in the document moves it rather than duplicating it,
+  // so replaying every section from the final, authoritative array
+  // once the whole chain settles puts everything back in its real
+  // order regardless of which ones streamed in live and which did not,
+  // same one line doing both jobs.
   preloadHomeSectionsWithProgress(function (section) {
     removeSkeleton();
-    appended.add(section);
     rows.appendChild(section);
   }).then(function (sections) {
     removeSkeleton();
     sections.forEach(function (section) {
-      if (!appended.has(section)) rows.appendChild(section);
+      rows.appendChild(section);
     });
   });
 
