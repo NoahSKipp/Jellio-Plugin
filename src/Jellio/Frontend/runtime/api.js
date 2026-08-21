@@ -164,7 +164,13 @@ export function getItemDetails(itemId) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   const params = new URLSearchParams({
-    Fields: 'Overview,Genres,People,Studios,ProductionYear',
+    // RunTimeTicks/PremiereDate/RemoteTrailers alongside the fields
+    // already asked for: an Episode's own real detail page had nothing
+    // but a bare year/rating/genre line without these, real feedback
+    // live, and RemoteTrailers is screens/detail.js's own real Trailers
+    // row's one data source (TMDb's own metadata provider, already
+    // installed, populates it server side with no extra work here).
+    Fields: 'Overview,Genres,People,Studios,ProductionYear,RunTimeTicks,PremiereDate,RemoteTrailers',
   });
   return getJson('/Users/' + userId + '/Items/' + itemId + '?' + params.toString());
 }

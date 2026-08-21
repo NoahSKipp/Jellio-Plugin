@@ -1227,6 +1227,64 @@
   margin-bottom: clamp(16px, 2vw, 32px);
 }
 
+/* screens/detail.js's own buildTrailersRow(): i.ytimg.com's own real
+   thumbnail loaded straight into the card, no Jellyfin image proxy
+   involved (this server sets no Content-Security-Policy header at all,
+   confirmed live before writing this), img.onerror already falls back
+   to a plain play icon over the card's own background if that ever
+   404s, same defensive shape components/services.js's own hub tile
+   logos already use for a missing file. */
+.jellio-trailer-card {
+  flex: 0 0 auto;
+  width: clamp(200px, 20vw, 300px);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.jellio-trailer-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--jellio-card-radius);
+  overflow: hidden;
+  background: var(--jellio-card-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.jellio-trailer-card:hover .jellio-trailer-thumb,
+.jellio-trailer-card:focus-visible .jellio-trailer-thumb {
+  transform: scale(1.04);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+.jellio-trailer-thumb-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.jellio-trailer-play {
+  position: relative;
+  z-index: 1;
+  font-size: 2.6em;
+  color: rgb(255 255 255 / 0.92);
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.6);
+}
+
+.jellio-trailer-title {
+  margin-top: 0.5em;
+  font-size: 0.88em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .jellio-season-tabs {
   display: flex;
   gap: 0.5em;

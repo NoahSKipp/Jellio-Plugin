@@ -1,4 +1,5 @@
-// Metadata view for one item: backdrop, title, overview, genres, cast.
+// Metadata view for one item: backdrop, title, overview, genres, cast,
+// trailers.
 // Play opens components/streamPicker.js's own picker first when there
 // is real more than one source to choose from (that same file falls
 // straight through to #/play, real playback, PlaybackInfo negotiation
@@ -33,6 +34,91 @@ function el(tag, className, text) {
   return node;
 }
 
+function formatRuntime(ticks) {
+  if (!ticks) return '';
+  const minutes = Math.round(ticks / 600000000);
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return hours > 0 ? hours + 'h ' + mins + 'm' : mins + 'm';
+}
+
+// An Episode's own real BaseItemDto never carries BackdropImageTags,
+// confirmed live (Jellyfin only stores backdrop art against a Movie/
+// Series/Season), so the hero above an episode's own detail page had
+// nothing to show at all, real feedback live. The episode's own still
+// (ImageTags.Primary, the same real field components/card.js's own
+// buildEpisodeCard below already reads for its own thumb) is the real
+// per-episode art Jellyfin does keep, falling back to the parent
+// series' own backdrop (ParentBackdropItemId/ParentBackdropImageTags,
+// populated whenever that series has one) rather than a blank hero for
+// the rare episode with neither.
+function heroBackdropUrl(item, id) {
+  if (item.BackdropImageTags && item.BackdropImageTags[0]) {
+    return getImageUrl(id, 'Backdrop', { tag: item.BackdropImageTags[0], maxWidth: 1600 });
+  }
+  if (item.Type === 'Episode' && item.ImageTags && item.ImageTags.Primary) {
+    return getImageUrl(id, 'Primary', { tag: item.ImageTags.Primary, maxWidth: 1600 });
+  }
+  if (item.ParentBackdropItemId && item.ParentBackdropImageTags && item.ParentBackdropImageTags[0]) {
+    return getImageUrl(item.ParentBackdropItemId, 'Backdrop', {
+      tag: item.ParentBackdropImageTags[0],
+      maxWidth: 1600,
+    });
+  }
+  return null;
+}
+
+// RemoteTrailers, runtime/api.js's own getItemDetails() Fields list:
+// TMDb's own metadata provider (already installed, confirmed against
+// this same server's own plugin list) populates this with YouTube
+// links server side on every scanned title, real data this screen used
+// to just never ask for at all. i.ytimg.com's own real thumbnail
+// convention (hqdefault.jpg, no API key needed) rather than a second
+// real network round trip through Jellyfin itself just to get a
+// preview image for a link this card already opens in a new tab.
+function extractYouTubeId(url) {
+  const match = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/.exec(url || '');
+  return match ? match[1] : null;
+}
+
+function buildTrailersRow(trailers) {
+  const usable = (trailers || []).filter(function (trailer) {
+    return trailer && trailer.Url;
+  });
+  if (!usable.length) return null;
+
+  const section = el('section', 'jellio-detail-trailers');
+  section.appendChild(el('h2', 'jellio-row-title', 'Trailers'));
+  const track = el('div', 'jellio-row-track');
+
+  usable.forEach(function (trailer) {
+    const card = el('a', 'jellio-trailer-card');
+    card.href = trailer.Url;
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+
+    const thumb = el('div', 'jellio-trailer-thumb');
+    const youTubeId = extractYouTubeId(trailer.Url);
+    if (youTubeId) {
+      const img = document.createElement('img');
+      img.className = 'jellio-trailer-thumb-image';
+      img.src = 'https://i.ytimg.com/vi/' + youTubeId + '/hqdefault.jpg';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.addEventListener('error', function () {
+        img.remove();
+      });
+      thumb.appendChild(img);
+    }
+    thumb.appendChild(el('span', 'material-icons jellio-trailer-play play_circle_filled'));
+    card.appendChild(thumb);
+    card.appendChild(el('div', 'jellio-trailer-title', trailer.Name || 'Trailer'));
+    track.appendChild(card);
+  });
+
+  section.appendChild(track);
+  return section;
+}
 
 function buildEpisodeCard(episode) {
   const card = el('div', 'jellio-episode-card');
@@ -216,11 +302,10 @@ export async function renderDetail(root, params) {
   // not, addresses the one real canonical id consistently.
   item.Id = canonicalId;
 
-  const backdropTag = item.BackdropImageTags && item.BackdropImageTags[0];
   const hero = el('div', 'jellio-detail-hero');
-  if (backdropTag) {
-    hero.style.backgroundImage =
-      'url(' + getImageUrl(canonicalId, 'Backdrop', { tag: backdropTag, maxWidth: 1600 }) + ')';
+  const backdropUrl = heroBackdropUrl(item, canonicalId);
+  if (backdropUrl) {
+    hero.style.backgroundImage = 'url(' + backdropUrl + ')';
   }
 
   const heroContent = el('div', 'jellio-detail-hero-content');
@@ -251,7 +336,13 @@ export async function renderDetail(root, params) {
   heroContent.appendChild(el('h1', 'jellio-detail-title', titleText));
 
   const meta = el('div', 'jellio-detail-meta');
-  if (item.ProductionYear) meta.appendChild(el('span', null, String(item.ProductionYear)));
+  if (item.Type === 'Episode' && item.PremiereDate) {
+    meta.appendChild(el('span', null, new Date(item.PremiereDate).toLocaleDateString()));
+  } else if (item.ProductionYear) {
+    meta.appendChild(el('span', null, String(item.ProductionYear)));
+  }
+  const runtime = formatRuntime(item.RunTimeTicks);
+  if (runtime) meta.appendChild(el('span', null, runtime));
   if (item.OfficialRating) meta.appendChild(el('span', null, item.OfficialRating));
   if (item.CommunityRating) meta.appendChild(el('span', null, item.CommunityRating.toFixed(1) + ' ★'));
   heroContent.appendChild(meta);
@@ -434,4 +525,7 @@ export async function renderDetail(root, params) {
 
   const castRow = buildCastRow(item.People);
   if (castRow) root.appendChild(castRow);
+
+  const trailersRow = buildTrailersRow(item.RemoteTrailers);
+  if (trailersRow) root.appendChild(trailersRow);
 }
