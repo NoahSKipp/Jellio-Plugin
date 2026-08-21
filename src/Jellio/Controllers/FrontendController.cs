@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.IO.Compression;
 using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -18,6 +20,17 @@ public class FrontendController : ControllerBase
         [".svg"] = "image/svg+xml",
     };
 
+    // Fonts already ship pre-compressed (woff2's own real container
+    // format already is one), a second real compression pass on top of
+    // that buys nothing and only costs real CPU for it; every other
+    // real content type served here is plain text and compresses well.
+    private static readonly HashSet<string> CompressibleExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".css",
+        ".js",
+        ".svg",
+    };
+
     // The whole assembly is one deployable unit, every embedded file in
     // it changes together whenever a real release changes any of them,
     // so the assembly's own version is already a real, correct ETag
@@ -26,6 +39,15 @@ public class FrontendController : ControllerBase
     // file content on every single request to get the same guarantee.
     private static readonly string ETagValue =
         "\"" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0.0") + "\"";
+
+    // Compressed once per real (resource, encoding) pair rather than
+    // on every request: the embedded assembly this reads from is
+    // immutable for this whole process's own real lifetime (same real
+    // reasoning ETagValue above already relies on), so gzip/brotli
+    // compressing jellio.js's own bytes over again on the next request
+    // would be real CPU spent recomputing an answer already sitting
+    // here from the one before it.
+    private static readonly ConcurrentDictionary<string, byte[]?> CompressedCache = new();
 
     [HttpGet("{**path}")]
     public IActionResult Get(string path)
@@ -43,11 +65,6 @@ public class FrontendController : ControllerBase
 
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = "Jellio.Frontend." + path.Replace('/', '.');
-        var stream = assembly.GetManifestResourceStream(resourceName);
-        if (stream is null)
-        {
-            return NotFound();
-        }
 
         // Fonts and the service logos are the exception: the same bytes
         // every release, and the logos are fetched once per tile on
@@ -89,6 +106,59 @@ public class FrontendController : ControllerBase
             Response.Headers.CacheControl = "public, max-age=31536000, immutable";
         }
 
+        // No compression middleware anywhere else in this plugin (it
+        // only ever registers its own controllers into the server's
+        // shared host, never its own app.UseResponseCompression()), so
+        // every real JS/CSS byte used to ship uncompressed regardless
+        // of what the browser actually offered to accept. Brotli
+        // preferred over gzip when a real reader's own browser sends
+        // both, same real preference order every modern browser's own
+        // Accept-Encoding header already lists them in.
+        var acceptEncoding = Request.Headers.AcceptEncoding.ToString();
+        if (CompressibleExtensions.Contains(extension))
+        {
+            var encoding =
+                acceptEncoding.Contains("br", StringComparison.OrdinalIgnoreCase) ? "br" :
+                acceptEncoding.Contains("gzip", StringComparison.OrdinalIgnoreCase) ? "gzip" :
+                null;
+            if (encoding is not null)
+            {
+                var compressed = CompressedCache.GetOrAdd(
+                    resourceName + ":" + encoding,
+                    _ => Compress(assembly, resourceName, encoding));
+                if (compressed is not null)
+                {
+                    Response.Headers.ContentEncoding = encoding;
+                    return File(compressed, contentType);
+                }
+            }
+        }
+
+        var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream is null)
+        {
+            return NotFound();
+        }
+
         return File(stream, contentType);
+    }
+
+    private static byte[]? Compress(Assembly assembly, string resourceName, string encoding)
+    {
+        using var source = assembly.GetManifestResourceStream(resourceName);
+        if (source is null)
+        {
+            return null;
+        }
+
+        using var output = new MemoryStream();
+        using (Stream compressor = encoding == "br"
+            ? new BrotliStream(output, CompressionLevel.Optimal, leaveOpen: true)
+            : new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            source.CopyTo(compressor);
+        }
+
+        return output.ToArray();
     }
 }
