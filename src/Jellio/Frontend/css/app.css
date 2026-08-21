@@ -517,6 +517,31 @@
   background: var(--jellio-secondary-color);
 }
 
+.jellio-row-title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+}
+
+/* Icon plus uppercase text, no pill: components/row.js's own
+   buildBadge(), the same real shape Harbor's own TrendingBadge uses on
+   its anime hero, at the row rather than per card since one real
+   catalog collection either is a Trending on AniList source or is not. */
+.jellio-row-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  color: var(--jellio-text-secondary);
+  font-size: clamp(0.7em, 0.82vw, 0.82em);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.jellio-row-badge .material-icons {
+  font-size: 1.1em;
+}
+
 /* Nuvio's own real HomeSkeletonLoading (features/home/components/
    HomeSkeletonLoading.kt, confirmed against its real source before
    writing this): a 1200ms diagonal shimmer sweep, generic enough to
@@ -2327,7 +2352,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(24em, 100vw);
+  width: min(34em, 100vw);
   display: flex;
   flex-direction: column;
   background: rgb(var(--jellio-bg-elevated-rgb) / 0.96);
@@ -2352,7 +2377,7 @@
 
 .jellio-player-sidepanel-title {
   font-weight: 700;
-  font-size: 1.1em;
+  font-size: 1.3em;
 }
 
 .jellio-player-sidepanel-close {
@@ -2372,7 +2397,7 @@
 .jellio-player-sidepanel-tabs {
   display: flex;
   gap: 0.4em;
-  padding: 0 1.2em 0.8em;
+  padding: 0 1.2em 1.4em;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -2381,35 +2406,52 @@
   display: none;
 }
 
+/* Plain text by default, a solid highlight badge only on the selected
+   tab: real feedback found the old bordered-pill treatment (every tab
+   outlined, only the active one's own border colour swapped) reading
+   as a warped, half rendered badge next to this panel's own real
+   text-only inactive tabs, same shape screens/detail.js's own season
+   tabs (.jellio-season-tab/-selected) already settled on instead. */
 .jellio-player-sidepanel-tab {
   flex: 0 0 auto;
-  padding: 0.4em 0.9em;
-  border: 1px solid var(--jellio-border-color);
+  padding: 0.5em 1.1em;
+  border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--jellio-text-secondary);
   font-family: var(--jellio-font-family);
+  font-weight: 600;
+  font-size: 1.05em;
   cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.jellio-player-sidepanel-tab:hover {
+  color: var(--jellio-text-color);
 }
 
 .jellio-player-sidepanel-tab-active {
-  border-color: var(--jellio-secondary-color);
+  background: var(--jellio-card-bg);
+  color: var(--jellio-text-color);
+}
+
+.jellio-player-sidepanel-tab-active:hover {
   color: var(--jellio-text-color);
 }
 
 .jellio-player-sidepanel-list {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 0 1.2em 1.2em;
+  padding: 0.4em 1.2em 1.2em;
   display: flex;
   flex-direction: column;
-  gap: 0.8em;
+  gap: 1em;
 }
 
 .jellio-player-episode-row {
   display: flex;
-  gap: 0.8em;
-  padding: 0.6em;
+  gap: 1em;
+  padding: 0.7em;
   border: 1px solid transparent;
   border-radius: var(--jellio-card-radius);
   background: rgb(255 255 255 / 0.04);
@@ -2430,7 +2472,7 @@
 .jellio-player-episode-thumb {
   position: relative;
   flex: 0 0 auto;
-  width: 7em;
+  width: 10.5em;
   aspect-ratio: 16 / 9;
   border-radius: calc(var(--jellio-card-radius) - 4px);
   background-color: var(--jellio-card-bg);
@@ -2440,23 +2482,23 @@
 
 .jellio-player-episode-rating {
   position: absolute;
-  top: 0.3em;
-  left: 0.3em;
-  padding: 0.1em 0.4em;
+  top: 0.4em;
+  left: 0.4em;
+  padding: 0.15em 0.5em;
   border-radius: 4px;
   background: rgb(0 0 0 / 0.6);
-  font-size: 0.7em;
+  font-size: 0.85em;
   font-weight: 600;
 }
 
 .jellio-player-episode-code {
   position: absolute;
-  bottom: 0.3em;
-  left: 0.3em;
-  padding: 0.1em 0.4em;
+  bottom: 0.4em;
+  left: 0.4em;
+  padding: 0.15em 0.5em;
   border-radius: 4px;
   background: rgb(0 0 0 / 0.6);
-  font-size: 0.7em;
+  font-size: 0.85em;
 }
 
 .jellio-player-episode-body {
@@ -2465,15 +2507,15 @@
 
 .jellio-player-episode-title {
   font-weight: 600;
-  font-size: 0.9em;
+  font-size: 1.1em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .jellio-player-episode-overview {
-  margin: 0.3em 0 0;
-  font-size: 0.8em;
+  margin: 0.35em 0 0;
+  font-size: 0.95em;
   color: var(--jellio-text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -3614,6 +3656,47 @@ select.jellio-settings-input {
   overflow: hidden;
 }
 
+/* components/libraryCoverflow.js's own buildEditorial(): the Shows
+   library's own time-of-day mood line, real feedback's own Harbor
+   reference sitting above that page's carousel, not overlaid on it or
+   tucked beside the title further down the page. */
+.jellio-coverflow-editorial {
+  padding: 0 var(--jellio-safe-gutter) clamp(10px, 1.2vw, 20px);
+}
+
+.jellio-coverflow-editorial-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--jellio-secondary-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.68em, 0.78vw, 0.8em);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.jellio-coverflow-editorial-eyebrow .material-icons {
+  font-size: 1.15em;
+}
+
+.jellio-coverflow-editorial-tagline {
+  margin: 0.2em 0 0;
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(1.3em, 2.1vw, 2em);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.jellio-coverflow-editorial-description {
+  max-width: 46em;
+  margin: 0.3em 0 0;
+  color: var(--jellio-text-secondary);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.82em, 0.95vw, 1em);
+}
+
 .jellio-coverflow-stage {
   position: relative;
   height: calc(clamp(320px, 34vw, 780px) / 2.2);
@@ -3957,6 +4040,37 @@ select.jellio-settings-input {
 
 .jellio-login-profile:hover .jellio-login-profile-name {
   color: var(--jellio-text-color);
+}
+
+/* Marks a tile whose avatar click actually signs in right here, no
+   password screen behind it, per accountSwitcher.js's own buildProfileTile. */
+.jellio-account-switcher-quick-badge {
+  position: absolute;
+  right: -0.3em;
+  bottom: -0.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  font-size: 0.9em;
+  box-shadow: 0 0 0 2px var(--jellio-bg-color);
+  pointer-events: none;
+}
+
+.jellio-account-switcher-quick-label {
+  display: block;
+  margin-top: 0.2em;
+  color: var(--jellio-secondary-color);
+  font-family: var(--jellio-font-family);
+  font-size: clamp(0.66em, 0.78vw, 0.78em);
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .jellio-login-profile-remove {

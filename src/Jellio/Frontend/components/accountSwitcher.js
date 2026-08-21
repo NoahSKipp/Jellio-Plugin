@@ -15,7 +15,7 @@ import {
   authenticateByName,
   logout,
 } from '../runtime/auth.js';
-import { getUserImageUrl } from '../runtime/api.js';
+import { getUserImageUrl, clearCache } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
 
 const OVERLAY_ID = 'jellioAccountSwitcher';
@@ -42,17 +42,44 @@ export function closeAccountSwitcher() {
   document.removeEventListener('keydown', handleKeydown);
 }
 
-// Every other user this device knows about switches by reloading rather
-// than trying to hot-swap every screen's own already-fetched state: a
-// profile switch is not something any screen here was ever built to
-// react to live (runtime/api.js's own cache is keyed off the signed in
-// user for some calls, not all), and logout() already sets the same real
-// precedent for "a session change reloads" elsewhere in this runtime.
+// Real bug, found live: this used to call window.location.reload()
+// here, on the real assumption a full reload was the simplest way to
+// get every screen's own already-fetched state onto the newly signed
+// in user. Real feedback (a real repro): that reload landed straight
+// back on a real sign-in screen instead, every time. runtime/auth.js's
+// own header already documents exactly why: a full reload re-runs
+// native jellyfin-web's own boot sequence, ConnectionManager
+// construction included, and that is the one real path this whole
+// architecture was built to stay off (that file's own words: "the
+// exact mechanism that later got pulled", a bare legacy header a real
+// deployment rejected, wiping the token and bouncing back to the very
+// screen quick sign-in was meant to skip). setSession's own real
+// syncNativeApiClientState call already keeps native's own in-memory
+// ApiClient state correct with no reload at all, screens/login.js's
+// own completeSignIn() already proves that path out live for a fresh
+// sign in, and this now does exactly what that function does instead:
+// a soft real navigation plus the same jellio:session-captured event
+// app.js's own sync() already listens for, no reload anywhere.
+// clearCache() covers the one real gap that path does not: several of
+// runtime/api.js's own cache keys (a plain item lookup chief among
+// them) carry no userId at all, real data that is still fresh, just
+// for the wrong real reader the instant this switches accounts.
+// Rebuilding the sidebar/mobile nav from scratch is the other real
+// gap, both rails' own "build once" real fast path (components/
+// sidebar.js's own header explains why it exists) has no live update
+// path for an entirely different signed in user, only for that same
+// user's own avatar or active link changing.
 function switchToUser(button, promiseFactory, status) {
   button.disabled = true;
   promiseFactory()
     .then(function () {
-      window.location.reload();
+      clearCache();
+      document.querySelectorAll('.jellio-sidebar-mount, .jellio-mobile-nav-mount').forEach(function (mount) {
+        delete mount.dataset.jellioBuilt;
+      });
+      closeAccountSwitcher();
+      navigateTo('#/home');
+      document.dispatchEvent(new CustomEvent('jellio:session-captured'));
     })
     .catch(function (err) {
       console.warn('Jellio: could not switch profile', err);
@@ -61,14 +88,21 @@ function switchToUser(button, promiseFactory, status) {
     });
 }
 
-function buildProfileTile(userId, name, imageTag, onClick) {
+// quick marks a tile whose own onClick actually completes the switch
+// right here (a remembered token, or a real passwordless public user):
+// real feedback asked for a way to tell those apart from a tile that
+// only looks the same but actually just signs the reader out to a
+// full real sign-in screen underneath (a public user Jellyfin itself
+// says needs a real password, this file's own openAccountSwitcher()
+// already treats differently, just invisibly until now).
+function buildProfileTile(userId, name, imageTag, onClick, quick) {
   const wrap = el('div', 'jellio-login-profile');
   const avatarWrap = el('div', 'jellio-login-profile-avatar-wrap');
 
   const avatar = document.createElement('button');
   avatar.type = 'button';
   avatar.className = 'jellio-login-profile-avatar';
-  avatar.setAttribute('aria-label', 'Switch to ' + (name || ''));
+  avatar.setAttribute('aria-label', (quick ? 'Quick sign in as ' : 'Switch to ') + (name || ''));
   if (imageTag) {
     avatar.style.backgroundImage = "url('" + getUserImageUrl(userId, imageTag, { maxWidth: 300 }) + "')";
   } else {
@@ -81,8 +115,16 @@ function buildProfileTile(userId, name, imageTag, onClick) {
   });
 
   avatarWrap.appendChild(avatar);
+
+  if (quick) {
+    const badge = el('span', 'jellio-account-switcher-quick-badge material-icons bolt');
+    badge.setAttribute('aria-hidden', 'true');
+    avatarWrap.appendChild(badge);
+  }
+
   wrap.appendChild(avatarWrap);
   wrap.appendChild(el('span', 'jellio-login-profile-name', name || ''));
+  if (quick) wrap.appendChild(el('span', 'jellio-account-switcher-quick-label', 'Quick sign-in'));
   return wrap;
 }
 
@@ -186,15 +228,21 @@ export async function openAccountSwitcher() {
     if (userId === currentId) return;
     const entry = remembered[userId];
     grid.appendChild(
-      buildProfileTile(userId, entry.name, entry.primaryImageTag, function (button) {
-        switchToUser(
-          button,
-          function () {
-            return quickSignIn(userId);
-          },
-          status,
-        );
-      }),
+      buildProfileTile(
+        userId,
+        entry.name,
+        entry.primaryImageTag,
+        function (button) {
+          switchToUser(
+            button,
+            function () {
+              return quickSignIn(userId);
+            },
+            status,
+          );
+        },
+        true,
+      ),
     );
   });
 
@@ -205,20 +253,26 @@ export async function openAccountSwitcher() {
     .forEach(function (user) {
       const hasPassword = user.HasPassword !== false && user.HasConfiguredPassword !== false;
       grid.appendChild(
-        buildProfileTile(user.Id, user.Name, user.PrimaryImageTag, function (button) {
-          if (hasPassword) {
-            closeAccountSwitcher();
-            logout();
-            return;
-          }
-          switchToUser(
-            button,
-            function () {
-              return authenticateByName(user.Name || '', '');
-            },
-            status,
-          );
-        }),
+        buildProfileTile(
+          user.Id,
+          user.Name,
+          user.PrimaryImageTag,
+          function (button) {
+            if (hasPassword) {
+              closeAccountSwitcher();
+              logout();
+              return;
+            }
+            switchToUser(
+              button,
+              function () {
+                return authenticateByName(user.Name || '', '');
+              },
+              status,
+            );
+          },
+          !hasPassword,
+        ),
       );
     });
 

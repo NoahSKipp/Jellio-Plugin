@@ -20,6 +20,13 @@ import {
 } from '../runtime/api.js';
 import { buildRow } from '../components/row.js';
 import { buildLibraryCoverflow } from '../components/libraryCoverflow.js';
+import { showsEditorial } from '../runtime/editorial.js';
+
+// Only a real anime/anilist catalog collection whose own name actually
+// says "trending" earns the row badge below: the looser /anime|anilist/i
+// test elsewhere on this page is just "does this collection belong on
+// the Anime page at all", answering a much narrower real question.
+const TRENDING_ANIME_NAME = /anilist.*trending|trending.*anilist/i;
 
 const GENRE_ROWS = 6;
 const ROW_LIMIT = 20;
@@ -139,7 +146,12 @@ export async function renderLibrary(root, params) {
   const rows = el('div', 'jellio-rows');
   root.appendChild(rows);
 
-  const destroy = mountCoverflow(root, { parentId, itemTypes: itemType });
+  // Real feedback pointed at Harbor's own Shows tab, a mood-led line
+  // above its carousel that changes with the reader's own time of day:
+  // only the Shows library carries one, Movies has no equivalent real
+  // reference screenshot behind it.
+  const editorial = collectionType === 'tvshows' ? showsEditorial(new Date().getHours()) : null;
+  const destroy = mountCoverflow(root, { parentId, itemTypes: itemType, editorial: editorial });
 
   let mainRow = null;
 
@@ -287,7 +299,9 @@ function renderAnime(root, collectionType) {
       if (result.status !== 'fulfilled') return;
       const items = result.value;
       if (items.length > coverflowSource.length) coverflowSource = items;
-      const row = buildRow(animeCollections[index].Name, items);
+      const name = animeCollections[index].Name || '';
+      const badge = TRENDING_ANIME_NAME.test(name) ? { icon: 'trending_up', text: 'Trending on AniList' } : null;
+      const row = buildRow(name, items, null, badge);
       if (row) rows.appendChild(row);
     });
 

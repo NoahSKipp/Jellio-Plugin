@@ -255,6 +255,14 @@ function topPeople(history) {
     });
 }
 
+// Real feedback: "Your {genre} picks" read as one more per-attribute
+// row sitting right next to the real per title ones ("Because you
+// watched X"), nothing telling the two families apart at a glance. The
+// signal behind this one specifically is the reader's own whole real
+// watch history, not one seed title, "Top Picks for You" is the one
+// real title that says so; MAX_GENRE_ROWS staying at 1 is what keeps
+// that real title from ever needing a second, differently named row to
+// share the page with.
 async function buildTopGenreRows(history, exclude) {
   const genres = topGenres(history).slice(0, MAX_GENRE_ROWS);
   const rows = [];
@@ -262,7 +270,7 @@ async function buildTopGenreRows(history, exclude) {
     const genre = genres[i];
     try {
       const items = dedupe(await getGenreItems(null, 'Movie,Series', genre, ROW_SIZE), exclude);
-      if (items.length) rows.push({ title: 'Your ' + genre + ' picks', items: items });
+      if (items.length) rows.push({ title: 'Top Picks for You', items: items });
     } catch (err) {
       console.warn('Jellio: could not load top genre row', err);
     }

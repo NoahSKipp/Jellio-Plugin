@@ -40,6 +40,12 @@ const MAX_ANIME_CATALOG_ROWS = 1;
 const GENRE_ROWS = 4;
 const GENRE_ROW_LIMIT = 24;
 
+// Same narrower real test screens/library.js's own renderAnime uses for
+// its own row badge: the looser /anime|anilist/i test above this file
+// only decides "is this catalog anime enough to count against
+// MAX_ANIME_CATALOG_ROWS", a much broader real question.
+const TRENDING_ANIME_NAME = /anilist.*trending|trending.*anilist/i;
+
 // Catalogs worth leading with, in this order. Anything unlisted keeps
 // its own alphabetical order behind them.
 const LEAD = ['trending', 'popular', 'top rated', 'new releases'];
@@ -121,7 +127,13 @@ async function fetchCatalogRows(collections) {
     .map(function (result, index) {
       if (result.status !== 'fulfilled') return null;
       const collection = usable[index];
-      return { title: titleFor(collection.Name, collectionKind(collection)), items: result.value };
+      return {
+        title: titleFor(collection.Name, collectionKind(collection)),
+        items: result.value,
+        badge: TRENDING_ANIME_NAME.test(collection.Name || '')
+          ? { icon: 'trending_up', text: 'Trending on AniList' }
+          : null,
+      };
     })
     .filter(Boolean);
 }
@@ -129,7 +141,7 @@ async function fetchCatalogRows(collections) {
 function buildCatalogRows(catalogData, seen) {
   const sections = [];
   catalogData.forEach(function (entry) {
-    const row = buildRow(entry.title, dedupe(entry.items, seen));
+    const row = buildRow(entry.title, dedupe(entry.items, seen), null, entry.badge);
     if (row) sections.push(row);
   });
   return sections;
@@ -410,6 +422,19 @@ export function preloadHomeSectionsWithProgress(onSection) {
   return promise;
 }
 
+// Real feedback: "Welcome back" regardless of what time it actually is
+// read as a placeholder that never got filled in. Local browser clock,
+// not the server's own: a real greeting is about the reader's own real
+// time of day, not wherever the Jellyfin server itself happens to run.
+// 0-4 gets its own real late night text rather than folding into
+// "evening", the one bucket real feedback specifically called out.
+function greetingFor(hour) {
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17 && hour < 22) return 'Good evening';
+  return 'Still up';
+}
+
 export async function renderHome(root, params) {
   root.textContent = '';
   root.className = 'jellio-content jellio-screen-home';
@@ -424,11 +449,12 @@ export async function renderHome(root, params) {
 
   const header = el('header', 'jellio-home-header');
   const [user] = await Promise.allSettled([getCurrentUser()]);
+  const greeting = greetingFor(new Date().getHours());
   header.appendChild(
     el(
       'h1',
       'jellio-home-greeting',
-      user.status === 'fulfilled' && user.value ? 'Welcome back, ' + user.value.Name : 'Welcome back',
+      user.status === 'fulfilled' && user.value ? greeting + ', ' + user.value.Name : greeting,
     ),
   );
   root.appendChild(header);

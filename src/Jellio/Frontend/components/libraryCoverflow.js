@@ -105,8 +105,28 @@ function buildSlide(item) {
   return slide;
 }
 
+// Rendered as the coverflow's own first child, literally above the
+// sliding stage rather than a second block outside this component:
+// real feedback pointed at Harbor's own Shows tab, where this same
+// copy sits above its carousel, not beside or under it.
+function buildEditorial(editorial) {
+  const wrap = el('div', 'jellio-coverflow-editorial');
+  const eyebrow = el('div', 'jellio-coverflow-editorial-eyebrow');
+  const icon = el('span', 'material-icons ' + (editorial.icon || 'schedule'));
+  icon.setAttribute('aria-hidden', 'true');
+  eyebrow.appendChild(icon);
+  eyebrow.appendChild(el('span', 'jellio-coverflow-editorial-label', editorial.label));
+  wrap.appendChild(eyebrow);
+  wrap.appendChild(el('h2', 'jellio-coverflow-editorial-tagline', editorial.tagline));
+  wrap.appendChild(el('p', 'jellio-coverflow-editorial-description', editorial.description));
+  return wrap;
+}
+
 export function buildLibraryCoverflow(options) {
   const root = el('div', 'jellio-coverflow');
+  if (options && options.editorial) {
+    root.appendChild(buildEditorial(options.editorial));
+  }
   const stage = el('div', 'jellio-coverflow-stage');
   const dotsEl = el('div', 'jellio-coverflow-dots');
   root.appendChild(stage);

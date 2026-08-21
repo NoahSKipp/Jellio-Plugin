@@ -144,6 +144,18 @@ function invalidateCache(key) {
   cache.delete(key);
 }
 
+// Every real cache entry keyed off the previously signed in user
+// (views, collections, item lookups, ...) is still real, still fresh
+// data for that user, just the wrong one the moment
+// components/accountSwitcher.js switches to a different real account
+// without a real page reload. Called once, right after that switch
+// actually lands, so the next screen this runtime renders asks the
+// network again under the new real session instead of quietly
+// serving the previous reader's own cached answers.
+export function clearCache() {
+  cache.clear();
+}
+
 export function getSystemInfo() {
   return getJson('/System/Info');
 }
@@ -258,6 +270,28 @@ export function getNextUp(limit) {
     return getJson(path);
   }, SHORT_CACHE_TTL_MS).then(function (result) {
     return (result && result.Items) || [];
+  });
+}
+
+// Same real endpoint as getNextUp above, scoped to one series for the
+// detail screen's own series-level Play button: enableResumable stays
+// at its own real server default here (true), unlike the home row
+// above, that button's whole real point is surfacing a title actually
+// in progress, not only a genuinely unstarted one.
+export function getSeriesNextUp(seriesId) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const params = new URLSearchParams({
+    userId: userId,
+    seriesId: seriesId,
+    Limit: '1',
+    Fields: 'PrimaryImageAspectRatio,RunTimeTicks',
+  });
+  const path = '/Shows/NextUp?' + params.toString();
+  return cached(path, function () {
+    return getJson(path);
+  }, SHORT_CACHE_TTL_MS).then(function (result) {
+    return (result && result.Items && result.Items[0]) || null;
   });
 }
 
