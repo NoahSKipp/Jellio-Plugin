@@ -410,6 +410,19 @@ export function preloadHomeSectionsWithProgress(onSection) {
   return promise;
 }
 
+// Real feedback: "Welcome back" regardless of what time it actually is
+// read as a placeholder that never got filled in. Local browser clock,
+// not the server's own: a real greeting is about the reader's own real
+// time of day, not wherever the Jellyfin server itself happens to run.
+// 0-4 gets its own real late night text rather than folding into
+// "evening", the one bucket real feedback specifically called out.
+function greetingFor(hour) {
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17 && hour < 22) return 'Good evening';
+  return 'Still up';
+}
+
 export async function renderHome(root, params) {
   root.textContent = '';
   root.className = 'jellio-content jellio-screen-home';
@@ -424,11 +437,12 @@ export async function renderHome(root, params) {
 
   const header = el('header', 'jellio-home-header');
   const [user] = await Promise.allSettled([getCurrentUser()]);
+  const greeting = greetingFor(new Date().getHours());
   header.appendChild(
     el(
       'h1',
       'jellio-home-greeting',
-      user.status === 'fulfilled' && user.value ? 'Welcome back, ' + user.value.Name : 'Welcome back',
+      user.status === 'fulfilled' && user.value ? greeting + ', ' + user.value.Name : greeting,
     ),
   );
   root.appendChild(header);
