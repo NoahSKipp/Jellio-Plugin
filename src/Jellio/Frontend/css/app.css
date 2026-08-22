@@ -367,8 +367,10 @@
      scales icons, labels and padding together rather than a dozen
      separate values: real feedback called the whole pill "way too
      small", not any one part of it, once a real tablet's own width
-     started reaching this bar instead of only a phone's. */
-  font-size: 19px;
+     started reaching this bar instead of only a phone's; a second real
+     bump after that (19px to 22px) made the pill and its own icons a
+     little larger again. */
+  font-size: 22px;
   position: fixed;
   left: 50%;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
@@ -457,12 +459,17 @@
 }
 
 /* Collapses smoothly rather than snapping away, real feedback asked
-   for "fast reactive nice": max-height/opacity both animate, so the
-   row beneath settles into the freed space at the same pace the text
-   fades rather than jumping the instant scroll crosses the threshold. */
+   for "fast reactive nice", then reported the transition itself felt
+   sluggish: two separate real layout properties (max-height AND
+   margin-top) were animating together on every one of this row's own
+   real buttons at once, real reflow work competing with the browser's
+   own real scroll-driven paint on the exact same real main thread this
+   whole transition fires on. One real property (height) now does the
+   same real collapse alone, will-change hints the browser to prepare
+   for it rather than discover it cold, and both durations are a touch
+   shorter for a snappier real feel. */
 .jellio-mobile-nav-label {
-  max-height: 1.2em;
-  margin-top: 0;
+  height: 1.2em;
   opacity: 1;
   font-size: 0.66em;
   font-weight: 600;
@@ -471,13 +478,12 @@
   max-width: 4.4em;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: max-height 200ms var(--jellio-ease-out), opacity 160ms ease,
-    margin-top 200ms var(--jellio-ease-out);
+  will-change: height, opacity;
+  transition: height 160ms var(--jellio-ease-out), opacity 130ms ease;
 }
 
 .jellio-mobile-nav-compact .jellio-mobile-nav-label {
-  max-height: 0;
-  margin-top: -0.15em;
+  height: 0;
   opacity: 0;
 }
 

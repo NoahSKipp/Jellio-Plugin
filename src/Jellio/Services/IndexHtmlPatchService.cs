@@ -191,6 +191,7 @@ public class IndexHtmlPatchService(
         "components/avatarPicker.js",
         "components/groupWatch.js",
         "components/navShared.js",
+        "components/libraryPicker.js",
     ];
 
     private static string BuildBlock(string version)
