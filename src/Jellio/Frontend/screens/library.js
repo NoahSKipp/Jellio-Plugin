@@ -292,26 +292,61 @@ function renderAnime(root, collectionType) {
       }),
     );
 
-    // The coverflow features whichever catalog actually has the most
-    // real items behind it, rather than always the first one returned.
+    // Real feedback: the coverflow used to feature whichever catalog
+    // actually had the most real items behind it, which on a real
+    // server left it just as likely to show a Popular or Seasonal
+    // catalog's own items as the Trending one, no real tie to whatever
+    // "Trending on AniList" badge happened to land on a row further
+    // down the same page. The real Trending catalog, when this server
+    // actually has one, gets the coverflow now, exclusively; every
+    // other catalog still falls back to the old "most items" pick
+    // among itself so the coverflow is never left empty on a server
+    // with no Trending catalog configured at all. That same catalog is
+    // skipped as its own row below once it becomes the hero instead,
+    // real feedback's own "two carousels" complaint: the same handful
+    // of trending titles were rendering twice, once as the coverflow's
+    // own pick (whenever it happened to have the most items) and again
+    // as a plain row underneath it.
+    // components/libraryCoverflow.js's own MIN_SLIDES floor: a Trending
+    // catalog with fewer real items than that would never actually
+    // mount as a coverflow anyway, so it stays a normal row instead of
+    // being pulled out from under itself into a hero that never renders.
+    const COVERFLOW_MIN_ITEMS = 3;
     let coverflowSource = [];
+    let coverflowIsTrending = false;
+    let trendingIndex = -1;
     itemLists.forEach(function (result, index) {
       if (result.status !== 'fulfilled') return;
       const items = result.value;
-      if (items.length > coverflowSource.length) coverflowSource = items;
+      const name = animeCollections[index].Name || '';
+      if (TRENDING_ANIME_NAME.test(name) && items.length >= COVERFLOW_MIN_ITEMS) {
+        trendingIndex = index;
+        coverflowSource = items;
+        coverflowIsTrending = true;
+      } else if (!coverflowIsTrending && items.length > coverflowSource.length) {
+        coverflowSource = items;
+      }
+    });
+
+    itemLists.forEach(function (result, index) {
+      if (result.status !== 'fulfilled' || index === trendingIndex) return;
+      const items = result.value;
       const name = animeCollections[index].Name || '';
       const badge = TRENDING_ANIME_NAME.test(name) ? { icon: 'trending_up', text: 'Trending on AniList' } : null;
       const row = buildRow(name, items, null, badge);
       if (row) rows.appendChild(row);
     });
 
-    if (!rows.children.length) {
+    if (!rows.children.length && !coverflowIsTrending) {
       rows.remove();
       root.appendChild(el('p', 'jellio-service-empty', ANIME_EMPTY_MESSAGE));
       return;
     }
 
-    coverflowDestroy = mountCoverflow(root, { items: coverflowSource });
+    coverflowDestroy = mountCoverflow(root, {
+      items: coverflowSource,
+      badge: coverflowIsTrending ? { icon: 'trending_up', text: 'Trending on AniList' } : null,
+    });
   })();
 
   return function () {
