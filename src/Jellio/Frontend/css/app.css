@@ -2746,7 +2746,8 @@
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 82%;
+  width: auto;
+  max-width: 82%;
   height: 54%;
   object-fit: contain;
   filter: brightness(0) invert(1);

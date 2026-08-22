@@ -224,7 +224,7 @@ function buildHubStrip(collections) {
   if (!names.length) return null;
 
   const section = el('section', 'jellio-hub');
-  section.appendChild(el('h2', 'jellio-row-title', 'Your streaming'));
+  section.appendChild(el('h2', 'jellio-row-title', 'Studio Hubs'));
   const tiles = el('div', 'jellio-hub-tiles');
   names.forEach(function (name) {
     tiles.appendChild(buildHubTile(name));
@@ -317,18 +317,17 @@ async function buildHomeSections() {
     getCollections(),
   ]);
 
-  // Up Next, then Continue Watching, then the recommendation rows,
-  // real feedback asked for this exact order: the reader's own actual
-  // watch state first (what a show is up to, what was left mid
-  // playback), then what it suggests, ahead of anything the catalog
-  // itself has to say.
-  if (nextUpResult.status === 'fulfilled') {
-    const row = buildRow('Up Next', nextUpResult.value, { upNext: true });
+  // Continue Watching, then Up Next, then the recommendation rows,
+  // real feedback's own updated order: a title actually left mid
+  // playback is the more immediate real pickup than one only queued up
+  // next, ahead of anything the catalog itself has to say either way.
+  if (resumeResult.status === 'fulfilled') {
+    const row = buildRow('Continue Watching', resumeResult.value, { continueWatching: true });
     if (row) pushAll([row]);
   }
 
-  if (resumeResult.status === 'fulfilled') {
-    const row = buildRow('Continue Watching', resumeResult.value, { continueWatching: true });
+  if (nextUpResult.status === 'fulfilled') {
+    const row = buildRow('Up Next', nextUpResult.value, { upNext: true });
     if (row) pushAll([row]);
   }
 
@@ -450,13 +449,14 @@ export async function renderHome(root, params) {
   const header = el('header', 'jellio-home-header');
   const [user] = await Promise.allSettled([getCurrentUser()]);
   const greeting = greetingFor(new Date().getHours());
-  header.appendChild(
-    el(
-      'h1',
-      'jellio-home-greeting',
-      user.status === 'fulfilled' && user.value ? greeting + ', ' + user.value.Name : greeting,
-    ),
-  );
+  const name = user.status === 'fulfilled' && user.value ? user.value.Name : '';
+  // "Still up" reads as a statement next to a plain name; real feedback
+  // wanted the late night bucket specifically to read as the direct
+  // address it actually is, a question rather than a flat greeting.
+  const greetingText = name
+    ? greeting + ', ' + name + (greeting === 'Still up' ? '?' : '')
+    : greeting + (greeting === 'Still up' ? '?' : '');
+  header.appendChild(el('h1', 'jellio-home-greeting', greetingText));
   root.appendChild(header);
 
   const rows = el('div', 'jellio-rows');
