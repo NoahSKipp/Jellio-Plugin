@@ -19,6 +19,8 @@ export const SERVICES = [
   'AMC+',
   'Starz',
   'Shudder',
+  'Discovery+',
+  'Sky Go',
 ];
 
 // Longest first, so "HBO Max" is not claimed by "Max".
