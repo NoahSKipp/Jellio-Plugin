@@ -841,7 +841,12 @@
 .jellio-card:hover .jellio-card-image,
 .jellio-card:focus-visible .jellio-card-image {
   transform: scale(1.06);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+  /* Harbor's own real hover elevation (pick-card.tsx, confirmed against
+     its real source before writing this): a far bigger, softer blur
+     with a negative spread pulling it back in tight underneath the
+     card instead of a shadow that just reads as a dark smudge behind
+     it, real depth rather than a flat tint. */
+  box-shadow: 0 24px 48px -14px rgb(0 0 0 / 0.65);
 }
 
 /* After the hover rule on purpose: a real press happens while a mouse
@@ -2712,10 +2717,16 @@
   overflow: hidden;
   background: var(--jellio-card-bg);
   cursor: pointer;
+  transition: border-color 160ms ease, transform 120ms var(--jellio-ease-out);
 }
 
 .jellio-avatar-picker-option:hover {
   border-color: var(--jellio-secondary-color);
+  transform: scale(1.05);
+}
+
+.jellio-avatar-picker-option:active {
+  transform: scale(0.96);
 }
 
 .jellio-avatar-picker-option:disabled {
@@ -4534,6 +4545,16 @@ select.jellio-settings-input {
 .jellio-settings-button,
 .jellio-login-submit {
   transition: background-color 160ms ease, transform 120ms var(--jellio-ease-out);
+}
+
+/* Harbor's own real de facto button feel (confirmed across several of
+   its own components before writing this, the one consistent pattern
+   the whole codebase actually shares): hover scales up a touch, active
+   scales back down past 1, real press feedback rather than a colour
+   change alone. */
+.jellio-settings-button:hover,
+.jellio-login-submit:hover {
+  transform: scale(1.03);
 }
 
 .jellio-settings-button:active,
