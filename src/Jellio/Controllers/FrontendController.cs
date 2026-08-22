@@ -66,12 +66,19 @@ public class FrontendController : ControllerBase
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = "Jellio.Frontend." + path.Replace('/', '.');
 
-        // Fonts and the service logos are the exception: the same bytes
-        // every release, and the logos are fetched once per tile on
-        // every home screen, so re-validating each one buys nothing.
-        var cacheable =
-            extension.Equals(".woff2", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".svg", StringComparison.OrdinalIgnoreCase);
+        // Fonts alone are the real exception: genuinely the same bytes
+        // every release. The service logos used to sit here too on the
+        // same "same bytes every release" premise, disproven live: one
+        // of them got its own real content fixed twice over in a single
+        // session, and every reader whose real browser had ever loaded
+        // the old one kept it, immutable and un-revalidated, for up to
+        // a real year regardless of how many times the file itself
+        // changed server side, since these URLs carry no real version
+        // suffix at all. Routed through the same real ETag/no-cache
+        // path everything else below already uses instead: a cheap 304
+        // on every repeat load once a reader's own browser has the
+        // current real bytes, a real fresh fetch the moment it does not.
+        var cacheable = extension.Equals(".woff2", StringComparison.OrdinalIgnoreCase);
 
         if (!cacheable)
         {
