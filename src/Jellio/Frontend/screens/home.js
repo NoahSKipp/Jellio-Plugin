@@ -236,17 +236,45 @@ function buildHubStrip(collections) {
 // #/home?tab=1, the same hash the sidebar's own Watchlist link and the
 // original Jellio codebase's own NAV_LINKS both already point at, rather
 // than a separate #/watchlist route.
+// Real feedback: one flat grid mixed movies and series together with
+// nothing telling the two apart at a glance, on a real watchlist with
+// enough of both a real title could sit anywhere in it. Split into its
+// own section per real kind instead, movies first (the same lead order
+// this app's own sidebar library links already use), each section
+// skipped outright rather than rendered empty when this reader's own
+// watchlist simply has none of that kind on it.
+function buildWatchlistSection(title, items) {
+  if (!items.length) return null;
+  const section = el('section', 'jellio-row');
+  section.appendChild(el('h2', 'jellio-row-title', title));
+  const grid = el('div', 'jellio-library-grid');
+  section.appendChild(grid);
+  appendCardsLazily(grid, items, buildCard);
+  return section;
+}
+
 async function renderWatchlist(root) {
   const header = el('header', 'jellio-home-header');
   header.appendChild(el('h1', 'jellio-home-greeting', 'Watchlist'));
   root.appendChild(header);
 
-  const grid = el('div', 'jellio-library-grid');
-  root.appendChild(grid);
-
   try {
     const items = await getWatchlistItems();
-    appendCardsLazily(grid, items, buildCard);
+    const movies = items.filter(function (item) {
+      return item.Type === 'Movie';
+    });
+    const series = items.filter(function (item) {
+      return item.Type === 'Series';
+    });
+
+    const movieSection = buildWatchlistSection('Movies', movies);
+    if (movieSection) root.appendChild(movieSection);
+    const seriesSection = buildWatchlistSection('Series', series);
+    if (seriesSection) root.appendChild(seriesSection);
+
+    if (!movieSection && !seriesSection) {
+      root.appendChild(el('p', 'jellio-service-empty', 'Nothing on your watchlist yet.'));
+    }
   } catch (err) {
     console.warn('Jellio: could not load watchlist', err);
   }
