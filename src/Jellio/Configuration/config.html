@@ -250,22 +250,41 @@
       // exists as static markup above; this only ever reads or writes
       // values on ids that are already real, upgraded elements by the
       // time either function runs.
+      //
+      // Real defaults, kept in sync by hand with Configuration/PluginConfiguration.cs's
+      // own field initializers: an admin's already-saved config.xml written before
+      // these properties existed comes back from ApiClient.getPluginConfiguration()
+      // with every one of them undefined, real Jellyfin behaviour CodeDevMLH/
+      // Jellyfin-Seasonals' own config page already guards the exact same way for
+      // its own newer properties (config.EnableClientSideToggle !== undefined ? ... : true),
+      // confirmed against that source rather than assumed. Without this same guard
+      // here, undefined reads as false on a checkbox and as an empty, non numeric
+      // value on a number input, an existing install's own real per effect settings
+      // (already true, already the right real dates server side, seasonalEffects.js's
+      // own /Jellio/config endpoint reading that exact same real config object proves
+      // it) showing as every theme disabled and every date blank instead.
       const THEMES = [
-        { key: 'Winter', hasRange: true },
-        { key: 'Spring', hasRange: true },
-        { key: 'Summer', hasRange: true },
-        { key: 'Autumn', hasRange: true },
-        { key: 'Halloween', hasRange: true },
-        { key: 'NewYear', hasRange: true },
-        { key: 'Friday13', hasRange: false },
+        { key: 'Winter', hasRange: true, enabled: true, range: [12, 1, 2, 29] },
+        { key: 'Spring', hasRange: true, enabled: true, range: [3, 1, 5, 31] },
+        { key: 'Summer', hasRange: true, enabled: true, range: [6, 1, 8, 31] },
+        { key: 'Autumn', hasRange: true, enabled: true, range: [9, 1, 11, 30] },
+        { key: 'Halloween', hasRange: true, enabled: true, range: [10, 24, 11, 5] },
+        { key: 'NewYear', hasRange: true, enabled: true, range: [12, 28, 1, 5] },
+        { key: 'Friday13', hasRange: false, enabled: true },
       ];
+
+      function withDefault(value, fallback) {
+        return value !== undefined ? value : fallback;
+      }
 
       function loadThemesFrom(config) {
         THEMES.forEach(function (theme) {
-          document.querySelector('#chkSeasonal' + theme.key + 'Enabled').checked = config['Seasonal' + theme.key + 'Enabled'];
+          document.querySelector('#chkSeasonal' + theme.key + 'Enabled').checked =
+            withDefault(config['Seasonal' + theme.key + 'Enabled'], theme.enabled);
           if (!theme.hasRange) return;
-          ['StartMonth', 'StartDay', 'EndMonth', 'EndDay'].forEach(function (field) {
-            document.querySelector('#numSeasonal' + theme.key + field).value = config['Seasonal' + theme.key + field];
+          ['StartMonth', 'StartDay', 'EndMonth', 'EndDay'].forEach(function (field, index) {
+            document.querySelector('#numSeasonal' + theme.key + field).value =
+              withDefault(config['Seasonal' + theme.key + field], theme.range[index]);
           });
         });
       }
@@ -285,8 +304,8 @@
         .addEventListener('pageshow', function () {
           Dashboard.showLoadingMsg();
           window.ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-            document.querySelector('#chkEnableReskin').checked = config.EnableReskin;
-            document.querySelector('#chkSeasonalEffectsEnabled').checked = config.SeasonalEffectsEnabled;
+            document.querySelector('#chkEnableReskin').checked = withDefault(config.EnableReskin, true);
+            document.querySelector('#chkSeasonalEffectsEnabled').checked = withDefault(config.SeasonalEffectsEnabled, true);
             loadThemesFrom(config);
             Dashboard.hideLoadingMsg();
           });
