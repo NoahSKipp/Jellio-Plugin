@@ -2720,6 +2720,102 @@
   white-space: nowrap;
 }
 
+/* components/groupWatch.js's own real styled panel, reusing the same
+   avatar-picker-overlay/-panel/-title/-status shapes rather than a
+   third real dialog language: real feedback was that native
+   jellyfin-web's own SyncPlay menu rendered tiny and pinned to a real
+   corner nothing visible anchors it to any more, once this shell hides
+   that header, a properly sized, centred panel instead. */
+.jellio-group-watch-panel {
+  width: min(90vw, 34em);
+  position: relative;
+}
+
+.jellio-group-watch-close {
+  position: absolute;
+  top: 1.2em;
+  right: 1.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  height: 2.2em;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--jellio-text-color);
+  cursor: pointer;
+}
+
+.jellio-group-watch-close:hover {
+  background: rgb(255 255 255 / 0.16);
+}
+
+.jellio-group-watch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  margin-bottom: 1.2em;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.jellio-group-watch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+  padding: 0.8em 1em;
+  border-radius: var(--jellio-card-radius);
+  background: rgb(255 255 255 / 0.04);
+}
+
+.jellio-group-watch-row-active {
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px var(--jellio-secondary-color);
+}
+
+.jellio-group-watch-row-info {
+  min-width: 0;
+}
+
+.jellio-group-watch-row-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jellio-group-watch-row-meta {
+  display: flex;
+  gap: 0.6em;
+  margin-top: 0.2em;
+  color: var(--jellio-text-secondary);
+  font-size: 0.82em;
+}
+
+.jellio-group-watch-create {
+  display: flex;
+  gap: 0.6em;
+  align-items: center;
+}
+
+.jellio-group-watch-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.6em 1em;
+  border: 1px solid var(--jellio-border-color);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.05);
+  color: var(--jellio-text-color);
+  font-family: var(--jellio-font-family);
+}
+
+.jellio-group-watch-input:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 2px;
+}
+
 /* components/accountSwitcher.js's own currently-signed-in row, sat
    above the same real .jellio-avatar-picker-grid/.jellio-login-profile
    tiles the picker and login screen already use for every other

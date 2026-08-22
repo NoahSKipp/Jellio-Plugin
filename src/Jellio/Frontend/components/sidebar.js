@@ -8,6 +8,7 @@ import { getPrimaryNavLinks, isActive, buildIconElement, buildAvatarIconMount, S
 import { navigateTo } from '../runtime/router.js';
 import { toggleNowPlayingPanel, nowPlayingCount } from './nowPlaying.js';
 import { openAccountSwitcher } from './accountSwitcher.js';
+import { openGroupWatch } from './groupWatch.js';
 import { getCurrentUser } from '../runtime/api.js';
 
 // Tagged with its own hash so updateActiveLinks() can find it again
@@ -63,21 +64,6 @@ function updateActiveLinks(container) {
   });
 }
 
-// Native jellyfin-web keeps running underneath this runtime's own
-// overlay, unaware (app.js's own getRoot() only ever covers it, never
-// removes it), so its classic-skin header buttons are still real,
-// still bound and still clickable, just painted under display:none.
-// libraryMenu.js's own .headerSyncButton already opens the real
-// groupSelectionMenu (onSyncButtonClicked), so Group Watch is a
-// forwarded click rather than a UI this runtime has to build itself,
-// same technique the original codebase's own persistentSidebar.js
-// uses for the same button.
-function clickNative(selector) {
-  const el = document.querySelector(selector);
-  if (el) el.click();
-  return Boolean(el);
-}
-
 function buildGroupWatchButton() {
   const button = document.createElement('button');
   button.type = 'button';
@@ -97,9 +83,7 @@ function buildGroupWatchButton() {
 
   button.addEventListener('click', function () {
     button.blur();
-    if (!clickNative('.headerSyncButton')) {
-      console.warn('Jellio: .headerSyncButton not found, native SyncPlay menu could not open');
-    }
+    openGroupWatch();
   });
 
   return button;

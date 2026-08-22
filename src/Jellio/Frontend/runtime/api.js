@@ -981,6 +981,36 @@ export function setUserAvatarFromFile(file) {
   return uploadUserAvatarBlob(file);
 }
 
+// Real Jellyfin SyncPlay endpoints (SyncPlayController.cs), the same
+// real group create/join/leave/list calls the stock web client's own
+// SyncPlay menu already drives. components/groupWatch.js's own real
+// modal calls these directly rather than forwarding a click at native
+// jellyfin-web's own hidden header button the way this app's sidebar
+// used to: real feedback was that native's own menu rendered tiny and
+// off in a real corner once its own header was hidden, this app's own
+// styled panel instead, same real backend underneath either way.
+// Keeping playback itself in lockstep across a group once joined is a
+// separate, larger real feature (real Jellyfin drives that over the
+// same WebSocket connection this runtime's own player has never opened
+// at all, see screens/player.js's own header for why it runs a bare
+// <video> element with none of native's own playbackManager wiring):
+// this only covers real group membership, not synced playback.
+export function getSyncPlayGroups() {
+  return getJson('/SyncPlay/List');
+}
+
+export function createSyncPlayGroup(groupName) {
+  return postJson('/SyncPlay/New', { GroupName: groupName });
+}
+
+export function joinSyncPlayGroup(groupId) {
+  return postJson('/SyncPlay/Join', { GroupId: groupId });
+}
+
+export function leaveSyncPlayGroup() {
+  return postJson('/SyncPlay/Leave', {});
+}
+
 // Real endpoint, POST /Users/{id}/Configuration (UserController.cs's
 // own UpdateUserConfiguration): replaces the whole real
 // UserConfiguration object rather than patching one field, so this

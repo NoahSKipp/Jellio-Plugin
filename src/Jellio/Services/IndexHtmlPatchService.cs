@@ -188,6 +188,7 @@ public class IndexHtmlPatchService(
         "components/cardOptionsMenu.js",
         "components/libraryCoverflow.js",
         "components/avatarPicker.js",
+        "components/groupWatch.js",
         "components/navShared.js",
     ];
 
