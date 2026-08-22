@@ -43,11 +43,22 @@ export async function renderSearch(root) {
 
   let timer = null;
   let requestId = 0;
+  // Gelato's own search proxies straight through to AIOStreams live, one
+  // real round trip per addon per request, nothing cached: a reader who
+  // edits their query mid-search used to leave the old one running to its
+  // own full 30s timeout in the background regardless, stacking up
+  // concurrent AIOStreams round trips for a result nothing still wants.
+  // Aborting it outright the moment a newer query fires frees that
+  // connection and backend load immediately instead of waiting it out.
+  let inFlight = null;
 
   function runSearch(term) {
+    if (inFlight) inFlight.abort();
+    const controller = new AbortController();
+    inFlight = controller;
     const thisRequest = ++requestId;
     status.textContent = 'Searching…';
-    searchItems(term)
+    searchItems(term, undefined, controller.signal)
       .then(function (items) {
         if (thisRequest !== requestId) return;
         grid.textContent = '';
@@ -67,6 +78,7 @@ export async function renderSearch(root) {
     const term = input.value.trim();
     if (!term) {
       requestId += 1;
+      if (inFlight) inFlight.abort();
       grid.textContent = '';
       status.textContent = '';
       return;

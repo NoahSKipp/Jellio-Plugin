@@ -41,22 +41,36 @@ const NEGOTIATION_TIMEOUT_MS = 30000;
 // gives it, reported live as search always timing out.
 const SEARCH_TIMEOUT_MS = 30000;
 
-function fetchWithTimeout(url, options, timeoutMs) {
+function fetchWithTimeout(url, options, timeoutMs, externalSignal) {
   const controller = new AbortController();
   const timer = window.setTimeout(function () {
     controller.abort();
   }, timeoutMs);
+  const onExternalAbort = function () {
+    controller.abort();
+  };
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener('abort', onExternalAbort);
+  }
   return fetch(url, Object.assign({}, options, { signal: controller.signal })).finally(function () {
     window.clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
   });
 }
 
-async function requestJson(url, options, path, timeoutMs) {
+async function requestJson(url, options, path, timeoutMs, externalSignal) {
   let response;
   try {
-    response = await fetchWithTimeout(url, options, timeoutMs);
+    response = await fetchWithTimeout(url, options, timeoutMs, externalSignal);
   } catch (err) {
     if (err && err.name === 'AbortError') {
+      // A caller-driven abort (search.js cancelling a superseded query) is
+      // not a real timeout, but nothing downstream tells the two apart
+      // today: every current caller either ignores a stale request's own
+      // rejection outright (search.js's own requestId guard) or has no
+      // caller-driven abort path to begin with, so folding both into the
+      // same timedOut shape is not yet a real bug, only a latent one.
       const timeoutErr = new Error('Request timed out: ' + path);
       timeoutErr.timedOut = true;
       throw timeoutErr;
@@ -71,12 +85,13 @@ async function requestJson(url, options, path, timeoutMs) {
   return response;
 }
 
-async function getJson(path, timeoutMs) {
+async function getJson(path, timeoutMs, signal) {
   const response = await requestJson(
     getServerAddress() + path,
     { headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()) },
     path,
     timeoutMs || DEFAULT_TIMEOUT_MS,
+    signal,
   );
   return response.json();
 }
@@ -487,7 +502,7 @@ export function getEpisodes(seriesId, seasonId) {
 // in this file already uses with a searchTerm added, not the older
 // /Search/Hints endpoint: keeps every item query in this runtime going
 // through one shape rather than two.
-export function searchItems(term, limit) {
+export function searchItems(term, limit, signal) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
   if (!term) return Promise.resolve([]);
@@ -498,7 +513,7 @@ export function searchItems(term, limit) {
     Fields: 'PrimaryImageAspectRatio',
     Limit: String(limit || 50),
   });
-  return getJson('/Users/' + userId + '/Items?' + params.toString(), SEARCH_TIMEOUT_MS).then(function (result) {
+  return getJson('/Users/' + userId + '/Items?' + params.toString(), SEARCH_TIMEOUT_MS, signal).then(function (result) {
     return (result && result.Items) || [];
   });
 }
