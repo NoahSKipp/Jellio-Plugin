@@ -26,7 +26,6 @@ import { logout } from '../runtime/auth.js';
 import { openAvatarPicker } from '../components/avatarPicker.js';
 import { refreshProfileAvatar } from '../components/navShared.js';
 import { isRememberStreamEnabled, setRememberStreamEnabled } from '../components/streamPicker.js';
-import { getSeasonalSettings, setSeasonalSetting } from '../components/seasonalEffects.js';
 import { navigateTo } from '../runtime/router.js';
 import { LANGUAGE_OPTIONS, languageName } from '../runtime/languages.js';
 
@@ -133,69 +132,6 @@ function buildPlaybackSection() {
   );
 
   return section;
-}
-
-// Client only, same as components/streamPicker.js's own remembered
-// stream choice above: no server side concept of this at all, ported
-// in spirit from CodeDevMLH/Jellyfin-Seasonals (components/
-// seasonalEffects.js's own header explains why as an owned component
-// rather than that plugin installed directly), including its own real
-// per-effect toggle grid rather than one all-or-nothing switch.
-const EFFECT_TOGGLES = [
-  { key: 'winter', label: 'Winter snow' },
-  { key: 'spring', label: 'Spring blossoms' },
-  { key: 'summer', label: 'Summer sparkle' },
-  { key: 'autumn', label: 'Autumn leaves' },
-  { key: 'halloween', label: 'Halloween' },
-  { key: 'friday13', label: 'Friday the 13th' },
-  { key: 'newyear', label: "New Year's fireworks" },
-];
-
-function buildEffectsSection() {
-  const section = el('section', 'jellio-settings-section');
-  section.appendChild(el('h2', 'jellio-settings-section-title', 'Seasonal effects'));
-  section.appendChild(
-    el(
-      'p',
-      'jellio-settings-status',
-      'A small themed overlay on whichever of these matches today’s date, one at a time. Never shown during playback.',
-    ),
-  );
-
-  const settings = getSeasonalSettings();
-  const grid = el('div', 'jellio-settings-effects-grid');
-
-  function buildToggle(key, label) {
-    const row = document.createElement('label');
-    row.className = 'jellio-settings-toggle-row';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'jellio-settings-toggle-input';
-    checkbox.checked = Boolean(settings[key]);
-    checkbox.addEventListener('change', function () {
-      setSeasonalSetting(key, checkbox.checked);
-    });
-    row.appendChild(checkbox);
-    row.appendChild(el('span', 'jellio-settings-toggle-track'));
-    row.appendChild(el('span', 'jellio-settings-toggle-label', label));
-    return row;
-  }
-
-  const master = buildToggle('enabled', 'Enable seasonal effects');
-  section.appendChild(master);
-
-  EFFECT_TOGGLES.forEach(function (effect) {
-    grid.appendChild(buildToggle(effect.key, effect.label));
-  });
-  section.appendChild(grid);
-
-  return section;
-}
-
-function buildEffectsCategory() {
-  const wrap = el('div', 'jellio-settings-category');
-  wrap.appendChild(buildEffectsSection());
-  return wrap;
 }
 
 // Real fields, UserDto.Configuration.AudioLanguagePreference/
@@ -493,7 +429,6 @@ const CATEGORY_ICONS = {
   account: 'person',
   playback: 'play_circle',
   sessions: 'devices',
-  effects: 'celebration',
   about: 'info',
 };
 
@@ -528,7 +463,6 @@ export async function renderSettings(root) {
       label: 'Sessions',
       build: function () { return buildSessionsCategory(sleepTimerSection, quickConnectSection); },
     },
-    { id: 'effects', label: 'Effects', build: buildEffectsCategory },
     { id: 'about', label: 'About', build: buildAboutCategory },
   ];
 

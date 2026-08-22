@@ -11,71 +11,43 @@
 // .jellio-root-fullscreen rule), not the native selectors the original
 // plugin depends on.
 //
-// Every falling/rising theme below (winter, autumn, spring, halloween)
-// shares one real particle engine: each particle is a plain span with a
-// CSS animation the browser runs entirely on the compositor, the exact
-// real lesson this session's own mobile nav pill already paid for
-// (css/app.css's own header on .jellio-mobile-nav-label documents the
-// same real hard-cut-under-load failure a JS requestAnimationFrame loop
-// driving per-frame style writes would risk here again). Only New
-// Year's fireworks and Friday the 13th need their own real per-theme
-// code, real canvas particle bursts and a real CSS flicker respectively,
-// neither expressible as a falling span.
+// Server side, admin controlled config, not a client only localStorage
+// toggle this used to carry: Controllers/ConfigController.cs's own
+// GetConfig endpoint is the one real source, applies to every user on
+// this server the same way, confirmed against Moonfin-Client/Plugin's
+// own real server side settings surface before choosing this shape
+// rather than guessed, and the same real shape a future native client
+// (an Android TV app, say) could read from too. Per user overrides may
+// layer on top of this later; nothing here forecloses that.
+//
+// Every falling/rising theme below (winter, autumn, spring, summer,
+// halloween) shares one real particle engine: each particle is a plain
+// span with a CSS animation the browser runs entirely on the
+// compositor, the exact real lesson this session's own mobile nav pill
+// already paid for (css/app.css's own header on .jellio-mobile-nav-label
+// documents the same real hard-cut-under-load failure a JS
+// requestAnimationFrame loop driving per-frame style writes would risk
+// here again). Only New Year's fireworks and Friday the 13th need their
+// own real per-theme code, real canvas particle bursts and a real CSS
+// flicker respectively, neither expressible as a falling span.
+import { getJellioConfig } from '../runtime/api.js';
 
-const STORAGE_KEY = 'jellioSeasonalEffects';
-
-// Every real date range below ported directly from that plugin's own
-// PluginConfiguration.cs (its own real default schedule), not guessed:
-// the one exception is winter, folded from that file's own three
-// separate Snowflakes(December)/Snowfall(January)/Snowfall(February)
-// entries into one real Dec 1 to end of Feb window, and Santa's own
-// real Dec 22 to 27 sub-range layered on top of it, both real reasoning
-// this file's own THEMES entry for winter documents further down.
+// Real priority when more than one real range matches at once (Halloween
+// week sitting inside Autumn's own much wider window, New Year's own
+// week sitting inside winter's): a rare, specific occasion before a
+// wide ambient season, so only one real particle system ever renders
+// at a time rather than stacking unrelated ones over each other.
 const THEME_ORDER = ['friday13', 'newyear', 'halloween', 'winter', 'autumn', 'summer', 'spring'];
 
-const DEFAULT_SETTINGS = {
-  enabled: true,
-  winter: true,
-  spring: true,
-  summer: true,
-  autumn: true,
-  halloween: true,
-  friday13: true,
-  newyear: true,
-};
-
-export function getSeasonalSettings() {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return Object.assign({}, DEFAULT_SETTINGS);
-    const parsed = JSON.parse(raw);
-    return Object.assign({}, DEFAULT_SETTINGS, parsed);
-  } catch (err) {
-    return Object.assign({}, DEFAULT_SETTINGS);
-  }
-}
-
-export function setSeasonalSetting(key, value) {
-  const current = getSeasonalSettings();
-  current[key] = value;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-  } catch (err) {
-    // Client only preference, same as every other localStorage backed
-    // setting in this runtime: a write that fails leaves the in-memory
-    // choice acting for this session, nothing further to recover here.
-  }
-  applyActiveTheme();
-}
-
 // A day-of-year range comparison that wraps New Year's, the same real
-// problem the plugin's own December to January windows (Snowflakes,
-// New Year Fireworks) both have: a plain start <= now <= end fails the
-// moment the range crosses into a new calendar year.
-function inRange(month, day, startMonth, startDay, endMonth, endDay) {
+// problem the server's own December to January windows (winter, New
+// Year) both have: a plain start <= now <= end fails the moment the
+// range crosses into a new calendar year.
+function inRange(month, day, range) {
+  if (!range) return false;
   const now = month * 100 + day;
-  const start = startMonth * 100 + startDay;
-  const end = endMonth * 100 + endDay;
+  const start = range.StartMonth * 100 + range.StartDay;
+  const end = range.EndMonth * 100 + range.EndDay;
   if (start <= end) return now >= start && now <= end;
   return now >= start || now <= end;
 }
@@ -84,31 +56,21 @@ function isFriday13(date) {
   return date.getDate() === 13 && date.getDay() === 5;
 }
 
-// Real, singular "what's active right now" rather than layering every
-// matching range at once: Halloween week sitting inside Autumn's own
-// much wider window, or New Year's own week sitting inside winter's,
-// would otherwise stack unrelated real particle systems over each
-// other. THEME_ORDER's own real priority (a rare, specific occasion
-// before a wide ambient season) picks one.
-export function activeSeasonalTheme(date, settings) {
-  const cfg = settings || getSeasonalSettings();
-  if (!cfg.enabled) return null;
+// Real, singular "what's active right now" against
+// ConfigController.cs's own real response shape
+// ({ SeasonalEffectsEnabled, SeasonalEffects: { <key>: { Enabled, Range } } }).
+export function activeSeasonalTheme(date, config) {
+  if (!config || !config.SeasonalEffectsEnabled) return null;
+  const effects = config.SeasonalEffects || {};
   const month = date.getMonth() + 1;
   const day = date.getDate();
 
-  const checks = {
-    friday13: function () { return isFriday13(date); },
-    newyear: function () { return inRange(month, day, 12, 28, 1, 5); },
-    halloween: function () { return inRange(month, day, 10, 24, 11, 5); },
-    winter: function () { return inRange(month, day, 12, 1, 2, 29); },
-    autumn: function () { return inRange(month, day, 9, 1, 11, 30); },
-    summer: function () { return inRange(month, day, 6, 1, 8, 31); },
-    spring: function () { return inRange(month, day, 3, 1, 5, 31); },
-  };
-
   for (let i = 0; i < THEME_ORDER.length; i++) {
     const key = THEME_ORDER[i];
-    if (cfg[key] && checks[key]()) return key;
+    const effect = effects[key];
+    if (!effect || !effect.Enabled) continue;
+    const active = key === 'friday13' ? isFriday13(date) : inRange(month, day, effect.Range);
+    if (active) return key;
   }
   return null;
 }
@@ -246,9 +208,7 @@ function teardownTheme() {
   activeTheme = null;
 }
 
-function applyActiveTheme() {
-  if (!mountedContainer) return;
-  const theme = activeSeasonalTheme(new Date());
+function applyTheme(theme) {
   if (theme === activeTheme) return;
   teardownTheme();
   if (!theme) return;
@@ -262,6 +222,23 @@ function applyActiveTheme() {
   } else {
     buildDrift(mountedContainer, DRIFT_THEMES[theme]);
   }
+}
+
+// runtime/api.js's own getJellioConfig() caches this for a few minutes
+// (SHORT_CACHE_TTL_MS), so a periodic real refetch here is cheap and
+// picks up whatever an admin just changed in the plugin's own
+// dashboard within a few minutes, no reload required, without this
+// file polling the network on every single one of these ticks.
+async function refresh() {
+  if (!mountedContainer) return;
+  let config;
+  try {
+    config = await getJellioConfig();
+  } catch (err) {
+    console.warn('Jellio: could not load seasonal effects config', err);
+    return;
+  }
+  applyTheme(activeSeasonalTheme(new Date(), config));
 }
 
 // Called once from app.js, right where it already sets up the real
@@ -278,11 +255,10 @@ export function mountSeasonalEffects(root) {
   mountedContainer = document.createElement('div');
   mountedContainer.className = 'jellio-seasonal-effects';
   root.appendChild(mountedContainer);
-  applyActiveTheme();
+  refresh();
   // A reader who leaves this tab open across midnight (New Year's own
-  // real edge case, or any other theme's own boundary) still gets the
-  // right real theme without a full reload: cheap enough to just
-  // recheck every real few minutes rather than compute the exact next
-  // boundary.
-  window.setInterval(applyActiveTheme, 5 * 60 * 1000);
+  // real edge case, or any other theme's own boundary), or across
+  // whatever an admin just changed server side, still gets the right
+  // real theme without a full reload.
+  window.setInterval(refresh, 5 * 60 * 1000);
 }

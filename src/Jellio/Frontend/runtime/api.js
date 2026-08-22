@@ -904,6 +904,19 @@ export function getSleepTimerStatus() {
   return getJson('/Jellio/sleep-timer/status');
 }
 
+// Server side, admin controlled, applies to every user: Controllers/
+// ConfigController.cs's own real GetConfig endpoint, components/
+// seasonalEffects.js's own real client. Cached the same short lived
+// way this file's own getUserViews/getCollections already are: a
+// setting an admin just changed in the dashboard is worth a fresh
+// fetch within a few minutes, not held stale for a whole session the
+// way this runtime's own longer CACHE_TTL_MS would.
+export function getJellioConfig() {
+  return cached('jellio-config', function () {
+    return getJson('/Jellio/config');
+  }, SHORT_CACHE_TTL_MS);
+}
+
 export function getImageUrl(itemId, type, options) {
   const opts = options || {};
   const params = new URLSearchParams();
