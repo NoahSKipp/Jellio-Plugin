@@ -140,7 +140,7 @@ export async function getPrimaryNavLinks() {
     try {
       const collections = await getCollections();
       const hasAnimeCatalogs = collections.some(function (item) {
-        return /anime|anilist/i.test(item.Name || '');
+        return /anime|anilist|kitsu/i.test(item.Name || '');
       });
       if (hasAnimeCatalogs) {
         links.push({ icon: 'anime', label: 'Anime', hash: libraryHash(tvView) + '&jellioKind=anime' });

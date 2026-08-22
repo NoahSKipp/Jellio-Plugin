@@ -4,7 +4,7 @@
 // library page the way the original codebase's own streamingHub.js had
 // to (this runtime owns real routing, no native page to borrow).
 import { getCollections, getCollectionItems, collectionKind } from '../runtime/api.js';
-import { groupByService, logoSlug, rowTitle } from '../components/services.js';
+import { groupByService, logoUrl, rowTitle } from '../components/services.js';
 import { buildCard } from '../components/card.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
 import { navigateTo } from '../runtime/router.js';
@@ -31,7 +31,7 @@ function buildHeader(service, rowCount) {
   logo.className = 'jellio-service-logo';
   logo.alt = service;
   logo.loading = 'lazy';
-  logo.src = '/Jellio/frontend/img/services/' + logoSlug(service) + '.svg';
+  logo.src = logoUrl(service);
   logo.addEventListener('load', function () {
     heading.classList.add('jellio-has-logo');
   });
