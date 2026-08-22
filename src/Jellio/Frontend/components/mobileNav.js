@@ -21,9 +21,20 @@ const FIXED_LINK_COUNT = 3;
 
 // Hysteresis rather than one shared threshold: a single cutoff flickers
 // compact/expanded back and forth for a scroll position sitting right
-// on it, real feedback wanted this "fast reactive", not jittery.
-const COMPACT_SCROLL_TOP = 48;
-const EXPAND_SCROLL_TOP = 12;
+// on it. Real feedback, twice over: every earlier real fix here
+// touched how the transition itself renders (backdrop-filter, which
+// layout property animates), never why it read as delayed in the
+// first place. The actual real cause was these two numbers: 48px/12px
+// is real scroll distance a reader has to travel before either state
+// change fires at all, the code reacts instantly the moment it does,
+// but that same real gap in between reads as "a noticeable delay
+// before the label appears/disappears" regardless of how fast
+// whatever finally plays after it is. Small enough now that either
+// direction fires almost as soon as real scrolling starts, the
+// hysteresis gap between them kept just wide enough to still stop a
+// scroll position sitting right on the line from flickering.
+const COMPACT_SCROLL_TOP = 16;
+const EXPAND_SCROLL_TOP = 4;
 
 function buildLink(link) {
   const button = document.createElement('button');
