@@ -299,33 +299,59 @@
         });
       }
 
-      document
-        .querySelector('#jellioConfigurationPage')
-        .addEventListener('pageshow', function () {
-          Dashboard.showLoadingMsg();
-          window.ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-            document.querySelector('#chkEnableReskin').checked = withDefault(config.EnableReskin, true);
-            document.querySelector('#chkSeasonalEffectsEnabled').checked = withDefault(config.SeasonalEffectsEnabled, true);
-            loadThemesFrom(config);
-            Dashboard.hideLoadingMsg();
-          });
+      function loadConfig() {
+        Dashboard.showLoadingMsg();
+        window.ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+          document.querySelector('#chkEnableReskin').checked = withDefault(config.EnableReskin, true);
+          document.querySelector('#chkSeasonalEffectsEnabled').checked = withDefault(config.SeasonalEffectsEnabled, true);
+          loadThemesFrom(config);
+          Dashboard.hideLoadingMsg();
         });
+      }
 
-      document
-        .querySelector('#jellioForm')
-        .addEventListener('submit', function (e) {
-          e.preventDefault();
-          Dashboard.showLoadingMsg();
-          window.ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-            config.EnableReskin = document.querySelector('#chkEnableReskin').checked;
-            config.SeasonalEffectsEnabled = document.querySelector('#chkSeasonalEffectsEnabled').checked;
-            saveThemesTo(config);
-            window.ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
-              Dashboard.processPluginConfigurationUpdateResult(result);
-            });
+      function saveConfig(e) {
+        e.preventDefault();
+        Dashboard.showLoadingMsg();
+        window.ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+          config.EnableReskin = document.querySelector('#chkEnableReskin').checked;
+          config.SeasonalEffectsEnabled = document.querySelector('#chkSeasonalEffectsEnabled').checked;
+          saveThemesTo(config);
+          window.ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+            Dashboard.processPluginConfigurationUpdateResult(result);
           });
-          return false;
         });
+        return false;
+      }
+
+      // Real dashboard behaviour, confirmed against CodeDevMLH/Jellyfin-Seasonals'
+      // own config page rather than assumed: pageshow is a real, native browser
+      // event tied to actual navigation/history, not something the dashboard's own
+      // fetch-this-page-and-inject-it-into-the-SPA-shell loader necessarily ever
+      // fires. That real plugin's own config page calls its load function once,
+      // immediately and unconditionally, right where this same script sits, and
+      // only ALSO wires pageshow for a later real re-show of the same page without
+      // a full reload, never relying on pageshow alone for the first real load,
+      // real bug once an actual server ran this rather than only a stubbed
+      // pageshow dispatch in a headless test, config values never actually loading
+      // at all despite reading correctly in isolation. The retry loop below
+      // matches that same real plugin's own guard for a real, once seen case
+      // there: this whole inline script executing before its own page container
+      // has actually landed in the live document yet.
+      function bindJellioPageEvents() {
+        var page = document.querySelector('#jellioConfigurationPage');
+        if (!page) {
+          window.setTimeout(bindJellioPageEvents, 50);
+          return;
+        }
+        if (!page.dataset.jellioEventsBound) {
+          page.dataset.jellioEventsBound = 'true';
+          page.addEventListener('pageshow', loadConfig);
+          document.querySelector('#jellioForm').addEventListener('submit', saveConfig);
+        }
+        loadConfig();
+      }
+
+      bindJellioPageEvents();
     })();
   </script>
 </body>
