@@ -23,6 +23,7 @@ import { renderSettings } from './screens/settings.js';
 import { renderPerson } from './screens/person.js';
 import { renderSidebar } from './components/sidebar.js';
 import { renderMobileNav } from './components/mobileNav.js';
+import { mountSeasonalEffects } from './components/seasonalEffects.js';
 import { startNowPlaying } from './components/nowPlaying.js';
 import { showSplash, hideSplash, setSplashTotal, reportSplashStep } from './components/splash.js';
 import { buildLibraryCoverflow } from './components/libraryCoverflow.js';
@@ -547,6 +548,7 @@ async function runSync() {
     const root = getRoot();
     root.classList.add('jellio-root-visible');
     root.classList.toggle('jellio-root-fullscreen', FULLSCREEN_ROUTES.has(route.path));
+    mountSeasonalEffects(root);
     applyResponsiveNav();
 
     const sidebarMount = root.querySelector('.jellio-sidebar-mount');
