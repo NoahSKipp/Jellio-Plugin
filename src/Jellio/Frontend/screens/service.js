@@ -9,6 +9,8 @@ import { buildCard } from '../components/card.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
 import { navigateTo } from '../runtime/router.js';
 import { describeNetworkFailure } from '../runtime/network.js';
+import { attachScrollArrows } from '../components/scrollArrows.js';
+import { makeRowTitleClickable } from '../components/rowListModal.js';
 
 const ROW_LIMIT = 24;
 
@@ -121,14 +123,26 @@ function buildRowSection(row, index) {
   const section = el('section', 'jellio-row jellio-service-row jellio-row-enter');
   section.style.setProperty('--jellio-row-enter-delay', Math.min(index, 6) * 60 + 'ms');
   section.dataset.jellioRowKind = row.kind;
-  section.appendChild(el('h2', 'jellio-row-title', row.title));
+  const titleEl = el('h2', 'jellio-row-title', row.title);
+  section.appendChild(titleEl);
+  makeRowTitleClickable(titleEl, row.title, row.items);
+
+  const trackWrap = el('div', 'jellio-row-track-wrap');
   const track = el('div', 'jellio-row-track');
   row.items.forEach(function (item) {
     const card = buildCard(item);
     card.dataset.jellioGenres = (item.Genres || []).join('|');
     track.appendChild(card);
   });
-  section.appendChild(track);
+  trackWrap.appendChild(track);
+  section.appendChild(trackWrap);
+  // Stashed on the section itself rather than a separate map keyed by
+  // it: applyFilter() below already has this exact section in hand
+  // every time it needs to re-check whether either arrow still has
+  // anywhere left to go, a genre/type filter hiding enough cards to
+  // change that real answer without ever touching scrollLeft itself
+  // (attachScrollArrows()'s own scroll listener never fires for that).
+  section._jellioRefreshArrows = attachScrollArrows(trackWrap, track);
   return section;
 }
 
@@ -147,6 +161,7 @@ function applyFilter(rowsMount, filter) {
     });
     // A row filtered down to nothing is noise, not an empty state.
     section.style.display = shown ? '' : 'none';
+    if (shown && section._jellioRefreshArrows) section._jellioRefreshArrows();
   });
 }
 

@@ -103,6 +103,7 @@ function buildTrailersRow(trailers) {
 
   const section = el('section', 'jellio-detail-trailers');
   section.appendChild(el('h2', 'jellio-row-title', 'Trailers'));
+  const trackWrap = el('div', 'jellio-row-track-wrap');
   const track = el('div', 'jellio-row-track');
 
   usable.forEach(function (trailer) {
@@ -130,7 +131,9 @@ function buildTrailersRow(trailers) {
     track.appendChild(card);
   });
 
-  section.appendChild(track);
+  trackWrap.appendChild(track);
+  section.appendChild(trackWrap);
+  attachScrollArrows(trackWrap, track);
   return section;
 }
 
@@ -522,6 +525,7 @@ function buildCastRow(people) {
 
   const section = el('section', 'jellio-detail-cast');
   section.appendChild(el('h2', 'jellio-row-title', 'Cast'));
+  const trackWrap = el('div', 'jellio-row-track-wrap');
   const track = el('div', 'jellio-row-track');
   cast.slice(0, 20).forEach(function (person) {
     const card = el('div', 'jellio-cast-card');
@@ -550,7 +554,9 @@ function buildCastRow(people) {
     });
     track.appendChild(card);
   });
-  section.appendChild(track);
+  trackWrap.appendChild(track);
+  section.appendChild(trackWrap);
+  attachScrollArrows(trackWrap, track);
   return section;
 }
 

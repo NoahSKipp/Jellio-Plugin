@@ -9,6 +9,7 @@
 // gap this file solved once already.
 import { buildCard } from './card.js';
 import { attachScrollArrows } from './scrollArrows.js';
+import { makeRowTitleClickable } from './rowListModal.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -21,7 +22,9 @@ export function buildRow(title, items, cardOptions) {
   if (!items || !items.length) return null;
 
   const section = el('section', 'jellio-row');
-  section.appendChild(el('h2', 'jellio-row-title', title));
+  const titleEl = el('h2', 'jellio-row-title', title);
+  section.appendChild(titleEl);
+  makeRowTitleClickable(titleEl, title, items);
 
   const trackWrap = el('div', 'jellio-row-track-wrap');
   const track = el('div', 'jellio-row-track');

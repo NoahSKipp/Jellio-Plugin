@@ -194,6 +194,7 @@ public class IndexHtmlPatchService(
         "components/libraryPicker.js",
         "components/seasonalEffects.js",
         "components/homeCustomizer.js",
+        "components/rowListModal.js",
     ];
 
     private static string BuildBlock(string version)
