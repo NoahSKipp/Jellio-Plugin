@@ -3219,15 +3219,83 @@
   white-space: nowrap;
 }
 
-.jellio-service-header {
-  padding: clamp(18px, 2vw, 44px) var(--jellio-safe-gutter) clamp(10px, 1vw, 20px);
+/* Nuvio/Harbor flavor: a real hero, not a flat text block. Same real
+   shape screens/detail.js's own .jellio-detail-hero already uses
+   (a cover backdrop, a bottom-anchored gradient fading into the page's
+   own real background, real content sitting in the faded-in corner)
+   rather than a second, different hero pattern invented for this one
+   screen. A service with nothing in its own catalogs to pull a real
+   backdrop from (screens/service.js's own pickHeroItem returning
+   nothing) still gets this same real gradient over a flat elevated
+   panel, same real fallback that screen already uses elsewhere. */
+.jellio-service-hero {
+  position: relative;
+  min-height: clamp(220px, 30vw, 380px);
+  padding: clamp(18px, 2vw, 44px) var(--jellio-safe-gutter) clamp(20px, 2.4vw, 40px);
+  display: flex;
+  align-items: flex-end;
+  background-color: var(--jellio-bg-elevated);
+  background-size: cover;
+  background-position: center 20%;
+  overflow: hidden;
+}
+
+.jellio-service-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(13 13 13 / 0.1) 0%,
+    rgb(13 13 13 / 0.3) 40%,
+    rgb(13 13 13 / 0.65) 70%,
+    var(--jellio-bg-color) 98%
+  );
+}
+
+/* The one real bit of "zing" this screen asked for: a soft glow tucked
+   behind the wordmark/logo. A plain white glow rather than tinting it
+   off --jellio-secondary-color: that token defaults to a near white
+   itself, and CSS's own relative color syntax to safely derive a
+   translucent version of whatever an admin (or a future theme) sets
+   it to has real, still patchy browser support this runtime cannot
+   assume, an embedded TV/mobile client webview among its own real
+   readers. */
+.jellio-service-hero::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--jellio-safe-gutter) - 4em);
+  bottom: -6em;
+  width: 22em;
+  height: 22em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.14) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.jellio-service-hero-content {
+  position: relative;
+  z-index: 1;
+  animation: jellio-service-hero-in 520ms var(--jellio-ease-out) both;
+}
+
+@keyframes jellio-service-hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .jellio-service-eyebrow {
   color: var(--jellio-text-tertiary);
-  font-size: clamp(0.58em, 0.66vw, 0.72em);
+  font-size: clamp(0.6em, 0.7vw, 0.76em);
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
@@ -3236,25 +3304,20 @@
   display: flex;
   align-items: center;
   gap: 0.4em;
-  margin: 0.15em 0 0;
-  font-size: clamp(1.9em, 3.4vw, 3.6em);
+  margin: 0.2em 0 0;
+  font-size: clamp(2.1em, 4vw, 4.4em);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.01em;
+  text-shadow: 0 2px 24px rgb(0 0 0 / 0.4);
 }
 
 .jellio-service-logo {
-  height: clamp(30px, 3.2vw, 62px);
-  max-width: min(60vw, 420px);
+  height: clamp(34px, 3.8vw, 76px);
+  max-width: min(60vw, 480px);
   object-fit: contain;
   object-position: left center;
-  filter: brightness(0) invert(1);
-}
-
-.jellio-service-blurb {
-  margin: 0.7em 0 0;
-  color: var(--jellio-text-secondary);
-  font-size: clamp(0.76em, 0.85vw, 0.92em);
+  filter: brightness(0) invert(1) drop-shadow(0 2px 18px rgb(0 0 0 / 0.35));
 }
 
 .jellio-service-empty {
@@ -3311,6 +3374,27 @@
 .jellio-service-chip:focus-visible {
   outline: 2px solid var(--jellio-secondary-color);
   outline-offset: 2px;
+}
+
+/* A light real cascade down the page rather than every row popping in
+   at once, screens/service.js's own real per-row --jellio-row-enter-delay
+   (capped at 6 rows deep, a reader scrolled past that has already seen
+   the page settle) driving how late each one starts. */
+.jellio-row-enter {
+  animation: jellio-service-row-in 460ms var(--jellio-ease-out) both;
+  animation-delay: var(--jellio-row-enter-delay, 0ms);
+}
+
+@keyframes jellio-service-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .jellio-settings-header {

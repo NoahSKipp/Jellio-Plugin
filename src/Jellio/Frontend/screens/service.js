@@ -3,7 +3,7 @@
 // filter chips. Own route (#/service?name=X), not borrowed off a
 // library page the way the original codebase's own streamingHub.js had
 // to (this runtime owns real routing, no native page to borrow).
-import { getCollections, getCollectionItems, collectionKind } from '../runtime/api.js';
+import { getCollections, getCollectionItems, collectionKind, getImageUrl } from '../runtime/api.js';
 import { groupByService, logoUrl, rowTitle } from '../components/services.js';
 import { buildCard } from '../components/card.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
@@ -19,10 +19,33 @@ function el(tag, className, text) {
   return node;
 }
 
-function buildHeader(service, rowCount) {
-  const header = el('div', 'jellio-service-header');
+// The hero's own real backdrop: whichever item this service's real
+// catalogs actually turned up rates highest, the same "let the real
+// data pick it" spirit components/heroCarousel.js's own real candidate
+// list already follows, rather than always just row zero's own first
+// card. No backdrop of its own anywhere in the whole catalog (a bare
+// service with nothing but posters) falls back to a flat elevated
+// panel, same real fallback screens/detail.js's own hero already uses.
+function pickHeroItem(rows) {
+  let best = null;
+  rows.forEach(function (row) {
+    row.items.forEach(function (item) {
+      if (!item.BackdropImageTags || !item.BackdropImageTags[0]) return;
+      if (!best || (item.CommunityRating || 0) > (best.CommunityRating || 0)) best = item;
+    });
+  });
+  return best;
+}
+
+function buildHeader(service, heroItem) {
+  const hero = el('div', 'jellio-service-hero');
+  if (heroItem) {
+    hero.style.backgroundImage = 'url(' + getImageUrl(heroItem.Id, 'Backdrop', { tag: heroItem.BackdropImageTags[0], maxWidth: 1920 }) + ')';
+  }
+
+  const content = el('div', 'jellio-service-hero-content');
   const eyebrow = el('div', 'jellio-service-eyebrow', 'Popular on');
-  header.appendChild(eyebrow);
+  content.appendChild(eyebrow);
 
   const heading = el('h1', 'jellio-service-name');
   const word = el('span', 'jellio-service-word', service);
@@ -39,17 +62,10 @@ function buildHeader(service, rowCount) {
     logo.remove();
   });
   heading.appendChild(logo);
-  header.appendChild(heading);
+  content.appendChild(heading);
 
-  if (rowCount) {
-    const blurb = el(
-      'p',
-      'jellio-service-blurb',
-      rowCount === 1 ? 'One catalog imported from ' + service + '.' : rowCount + ' catalogs imported from ' + service + '.',
-    );
-    header.appendChild(blurb);
-  }
-  return header;
+  hero.appendChild(content);
+  return hero;
 }
 
 // Genres discovered from what actually came back, never a fixed list: a
@@ -101,8 +117,9 @@ function buildChips(genres, onFilter) {
   return bar;
 }
 
-function buildRowSection(row) {
-  const section = el('section', 'jellio-row jellio-service-row');
+function buildRowSection(row, index) {
+  const section = el('section', 'jellio-row jellio-service-row jellio-row-enter');
+  section.style.setProperty('--jellio-row-enter-delay', Math.min(index, 6) * 60 + 'ms');
   section.dataset.jellioRowKind = row.kind;
   section.appendChild(el('h2', 'jellio-row-title', row.title));
   const track = el('div', 'jellio-row-track');
@@ -161,7 +178,7 @@ export async function renderService(root, params) {
   });
 
   if (!matching.length) {
-    root.appendChild(buildHeader(service, 0));
+    root.appendChild(buildHeader(service, null));
     root.appendChild(el('p', 'jellio-service-empty', 'Nothing imported for ' + service + ' yet.'));
     return;
   }
@@ -207,7 +224,7 @@ export async function renderService(root, params) {
     // it to find, so this is a real state a server sits in, not a bug to
     // paper over with a blank page.
     if (!filled.length) {
-      root.appendChild(buildHeader(service, 0));
+      root.appendChild(buildHeader(service, null));
       root.appendChild(
         el(
           'p',
@@ -220,13 +237,13 @@ export async function renderService(root, params) {
       return;
     }
 
-    root.appendChild(buildHeader(service, filled.length));
+    root.appendChild(buildHeader(service, pickHeroItem(filled)));
     const rowsMount = el('div', 'jellio-rows');
     root.appendChild(buildChips(topGenres(filled, 10), function (filter) {
       applyFilter(rowsMount, filter);
     }));
-    filled.forEach(function (row) {
-      rowsMount.appendChild(buildRowSection(row));
+    filled.forEach(function (row, index) {
+      rowsMount.appendChild(buildRowSection(row, index));
     });
     root.appendChild(rowsMount);
   });
