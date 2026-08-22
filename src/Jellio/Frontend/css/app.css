@@ -910,6 +910,20 @@
   border-radius: var(--jellio-card-radius);
   overflow: hidden;
   background: var(--jellio-card-bg);
+  /* Real feedback: this used to sit on .jellio-card-landscape-image
+     alone, scaling the picture behind a static size text overlay (a
+     real Ken Burns effect), not the whole real card the way every
+     plain poster card's own hover already reads. Moved to this real
+     rounded box itself, image/scrim/title/progress all its own real
+     children, so hovering scales the same one real unit every other
+     card already does; this element's own border-radius/overflow:hidden
+     still clip that unit's own real edges correctly once transformed,
+     the same as any other scaled, rounded box, and .jellio-card-
+     landscape itself carries no clip of its own for the now larger
+     real box to bleed past, same real overflow this file's own plain
+     .jellio-card-image-wrap already relies on.
+  */
+  transition: transform 200ms var(--jellio-ease-out);
 }
 
 .jellio-card-landscape-image {
@@ -917,15 +931,14 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 200ms var(--jellio-ease-out);
 }
 
-.jellio-card-landscape:hover .jellio-card-landscape-image,
-.jellio-card-landscape:focus-visible .jellio-card-landscape-image {
+.jellio-card-landscape:hover .jellio-card-landscape-image-wrap,
+.jellio-card-landscape:focus-visible .jellio-card-landscape-image-wrap {
   transform: scale(1.04);
 }
 
-.jellio-card-landscape:active .jellio-card-landscape-image {
+.jellio-card-landscape:active .jellio-card-landscape-image-wrap {
   transform: scale(1.01);
 }
 
