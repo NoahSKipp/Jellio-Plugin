@@ -16,7 +16,7 @@ import { buildRecommendationRows, titleKey } from '../runtime/recommend.js';
 import { buildCard } from '../components/card.js';
 import { appendCardsLazily } from '../components/lazyGrid.js';
 import { buildRow } from '../components/row.js';
-import { groupByService, logoSlug, serviceOf } from '../components/services.js';
+import { groupByService, logoUrl, serviceOf } from '../components/services.js';
 import { buildHeroCarousel } from '../components/heroCarousel.js';
 import { buildHomeSkeleton } from '../components/homeSkeleton.js';
 import { navigateTo } from '../runtime/router.js';
@@ -194,7 +194,7 @@ function buildHubTile(name) {
   logo.className = 'jellio-hub-tile-logo';
   logo.alt = name;
   logo.loading = 'lazy';
-  logo.src = '/Jellio/frontend/img/services/' + logoSlug(name) + '.svg';
+  logo.src = logoUrl(name);
   logo.addEventListener('load', function () {
     tile.classList.add('jellio-has-logo');
   });
