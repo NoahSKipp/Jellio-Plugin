@@ -1233,7 +1233,17 @@
   align-items: flex-end;
   background-color: var(--jellio-bg-elevated);
   background-size: cover;
-  background-position: center;
+  /* Real feedback: dead centre crops evenly off both edges, which on a
+     backdrop taller (relative to its own width) than this hero's own
+     box cut real subject matter off the top just as often as the
+     bottom, reported live against a real screenshot. Key art almost
+     always composes its own real subject in the upper half already
+     (this hero's own bottom third is exactly where the gradient scrim
+     and title card sit, real dead space in the source image itself on
+     purpose), so biasing toward the top here loses far less real
+     content than staying centred ever did.
+  */
+  background-position: center 20%;
 }
 
 /* A plain two-stop fade (near-transparent at the top straight to fully
@@ -3064,9 +3074,19 @@
 }
 
 .jellio-settings-status {
-  margin: 0;
+  margin: 0 0 1em;
   color: var(--jellio-text-secondary);
   font-size: clamp(0.85em, 1vw, 1em);
+}
+
+/* screens/settings.js's own Profile section: Open admin dashboard and
+   Change avatar, a real row rather than two plain section children
+   with nothing between them. */
+.jellio-settings-profile-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8em;
 }
 
 /* Remember my stream choice, screens/settings.js's own Playback
