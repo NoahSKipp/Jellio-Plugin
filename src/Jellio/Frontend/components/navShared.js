@@ -17,39 +17,19 @@ export const SVG_ICONS = {
   movies: {
     viewBox: '0 0 24 24',
     stroke: true,
-    // Real Harbor animation (checked against its own actual source, not
-    // guessed): a clapperboard, its lid hinged at the body's own top-left
-    // corner, swings open then re-settles (0deg -> -32deg -> -28deg),
-    // not a reel "teeth" draw-in, that was this file's own first,
-    // now-wrong guess. jellio-nav-icon-clapper-lid groups the lid rect
-    // and its own three stripe marks so css/app.css's own keyframe can
-    // rotate all of it together around that one real hinge point.
     markup:
-      '<rect x="3" y="11" width="18" height="10" rx="1.6"/><path d="M7 16L17 16" opacity="0.4"/><g class="jellio-nav-icon-clapper-lid"><rect x="3" y="6" width="18" height="5" rx="0.9" style="fill:currentColor;fill-opacity:.14"/><path d="M5.5 11L8.5 6"/><path d="M11 11L14 6"/><path d="M16.5 11L19.5 6"/></g>',
+      '<rect x="3" y="11" width="18" height="10" rx="1.6"/><path d="M7 16L17 16" opacity="0.4"/><rect x="3" y="6" width="18" height="5" rx="0.9" style="fill:currentColor;fill-opacity:.14"/><path d="M5.5 11L8.5 6M11 11L14 6M16.5 11L19.5 6"/>',
   },
   shows: {
     viewBox: '0 0 24 24',
     stroke: true,
-    // Real Harbor animation: a scanline sweeping down the screen,
-    // fading in then out as it goes, looping. jellio-nav-icon-scanline
-    // is the swept line, css/app.css's own keyframe moves and fades it;
-    // the antenna and screen outline stay static same as Harbor's own.
-    markup:
-      '<path d="M8.5 3L11.5 8M15.5 3L12.5 8"/><rect x="3" y="8" width="18" height="13" rx="2"/><line class="jellio-nav-icon-scanline" x1="4.5" y1="10.5" x2="19.5" y2="10.5"/>',
+    markup: '<path d="M8.5 3L11.5 8M15.5 3L12.5 8"/><rect x="3" y="8" width="18" height="13" rx="2"/>',
   },
   anime: {
     viewBox: '0 0 24 24',
     stroke: true,
-    // Real feedback, twice over: not glowing eyes (this file's own
-    // first, wrong guess), an agitated orange spark at the head's own
-    // top right instead, same real position Harbor's own anger-mark
-    // uses on its anime rows (top right, -end-1 -top-1), recoloured
-    // orange rather than Harbor's own red since this is a sidebar icon
-    // accent, not a content badge. jellio-nav-icon-spark is a plain
-    // four-line asterisk, css/app.css's own keyframe pops and rotates
-    // it in place, no eye dots left anywhere on this icon.
     markup:
-      '<path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 11 0 5.5-2.5 10-10 10S0 19.5 0 14c0-4 1.82-10.42 3.42-11 1.39-.58 4.64.26 6.42 2.26C10.65 5.09 11.33 5 12 5z"/><g class="jellio-nav-icon-spark"><path d="M19 1.1L19 5.5"/><path d="M16.8 3.3L21.2 3.3"/><path d="M17.4 1.7L20.6 4.9"/><path d="M20.6 1.7L17.4 4.9"/></g>',
+      '<path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 11 0 5.5-2.5 10-10 10S0 19.5 0 14c0-4 1.82-10.42 3.42-11 1.39-.58 4.64.26 6.42 2.26C10.65 5.09 11.33 5 12 5z"/><path d="M8 14v.5M16 14v.5"/>',
   },
   search: {
     viewBox: '0 0 20 20',
