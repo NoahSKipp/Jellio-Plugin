@@ -1258,17 +1258,15 @@
   align-items: flex-end;
   background-color: var(--jellio-bg-elevated);
   background-size: cover;
-  /* Real feedback: dead centre crops evenly off both edges, which on a
-     backdrop taller (relative to its own width) than this hero's own
-     box cut real subject matter off the top just as often as the
-     bottom, reported live against a real screenshot. Key art almost
-     always composes its own real subject in the upper half already
-     (this hero's own bottom third is exactly where the gradient scrim
-     and title card sit, real dead space in the source image itself on
-     purpose), so biasing toward the top here loses far less real
-     content than staying centred ever did.
-  */
-  background-position: center 20%;
+  /* Real feedback, twice over: a 20% bias here still cropped real
+     content off the top on a backdrop meaningfully taller (relative to
+     its own width) than this hero's own wide, short box, just less of
+     it than dead centre did. Anchored to the real top edge outright
+     now, cropping only ever comes off the bottom instead, exactly
+     where this hero's own gradient scrim and title card already sit
+     over it, real dead space for anything real underneath it either
+     way. */
+  background-position: center top;
 }
 
 /* A plain two-stop fade (near-transparent at the top straight to fully
@@ -3733,7 +3731,11 @@ select.jellio-settings-input {
   inset: 0;
   background-repeat: no-repeat;
   background-size: cover;
-  background-position: center 20%;
+  /* Same real reasoning .jellio-detail-hero's own header documents:
+     anchored to the real top edge rather than a partial bias, cropping
+     only ever comes off the bottom, where this hero's own gradient and
+     title card already sit regardless. */
+  background-position: center top;
   opacity: 0;
   transition: opacity 800ms ease-in-out;
 }
