@@ -494,6 +494,11 @@
 }
 
 .jellio-home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  flex-wrap: wrap;
   padding: clamp(24px, 4vw, 56px) var(--jellio-safe-gutter) clamp(12px, 2vw, 24px);
 }
 
@@ -503,11 +508,159 @@
   font-weight: 700;
 }
 
+/* Ported in spirit from Harbor's own real customize-bar.tsx:
+   components/homeCustomizer.js's own header explains why this is a
+   Jellio owned rebuild rather than that component itself. */
+.jellio-home-customize-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.jellio-home-customize-toggle,
+.jellio-home-customize-reset {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.5em 1em;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  color: var(--jellio-text-secondary);
+  font-family: var(--jellio-font-family);
+  font-weight: 600;
+  font-size: 0.85em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms var(--jellio-ease-out), color 160ms var(--jellio-ease-out);
+}
+
+.jellio-home-customize-toggle:hover,
+.jellio-home-customize-reset:hover {
+  background: rgb(255 255 255 / 0.12);
+  color: var(--jellio-text-color);
+}
+
+.jellio-home-customize-toggle .material-icons,
+.jellio-home-customize-reset .material-icons {
+  font-size: 1.1em;
+}
+
+.jellio-home-customize-toggle-active {
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+}
+
+.jellio-home-customize-toggle-active:hover {
+  background: var(--jellio-secondary-color);
+  color: var(--jellio-on-secondary);
+  opacity: 0.9;
+}
+
 .jellio-rows {
   display: flex;
   flex-direction: column;
   gap: clamp(16px, 2vw, 32px);
   padding-bottom: clamp(32px, 4vw, 64px);
+}
+
+/* Ported in spirit from Harbor's own real row-controls.tsx: move up/
+   down, hide/show, one real bar per row rather than real drag and
+   drop, the one real reason this same design also works untouched on
+   a phone (a button tap needs no pointer-drag gesture at all).
+   Hidden by default, .jellio-home-editing below is what actually
+   shows it: components/homeCustomizer.js's own real
+   applyHomeCustomization() toggles that one real class on .jellio-rows
+   itself rather than looping over every bar in JS. */
+.jellio-row-editor-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+  margin-bottom: 0.6em;
+  padding: 0.5em 0.9em;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.04);
+}
+
+.jellio-home-editing .jellio-row-editor-bar {
+  display: flex;
+}
+
+.jellio-row-editor-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--jellio-text-secondary);
+}
+
+.jellio-row-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  flex: 0 0 auto;
+}
+
+.jellio-row-editor-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2em;
+  height: 2em;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jellio-text-secondary);
+  cursor: pointer;
+  transition: background-color 160ms var(--jellio-ease-out), color 160ms var(--jellio-ease-out);
+}
+
+.jellio-row-editor-button .material-icons {
+  font-size: 1.1em;
+}
+
+.jellio-row-editor-button:hover {
+  background: rgb(255 255 255 / 0.1);
+  color: var(--jellio-text-color);
+}
+
+.jellio-row-editor-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.jellio-row-editor-button:disabled:hover {
+  background: transparent;
+  color: var(--jellio-text-secondary);
+}
+
+.jellio-row-editor-button-active {
+  color: var(--jellio-trending-color);
+}
+
+.jellio-row-editor-button-active:hover {
+  color: var(--jellio-trending-color);
+  background: rgb(255 255 255 / 0.1);
+}
+
+/* A hidden row's own content never renders at all, real feedback's own
+   "remove" asked for exactly that rather than a dimmed preview; this
+   row's own bar (name plus a Show toggle) is the one thing that keeps
+   it findable again, and that bar only shows at all in edit mode
+   (rule above), so a hidden row is genuinely invisible the rest of the
+   time, no stray gap left behind either: the whole wrapper drops out
+   of .jellio-rows' own flex layout outside edit mode, not just its
+   content. */
+.jellio-row-editor[data-hidden='true'] .jellio-row-editor-content {
+  display: none;
+}
+
+.jellio-rows:not(.jellio-home-editing) .jellio-row-editor[data-hidden='true'] {
+  display: none;
 }
 
 /* Real Nuvio reference (screenshot checked before writing this): a

@@ -193,6 +193,7 @@ public class IndexHtmlPatchService(
         "components/navShared.js",
         "components/libraryPicker.js",
         "components/seasonalEffects.js",
+        "components/homeCustomizer.js",
     ];
 
     private static string BuildBlock(string version)
