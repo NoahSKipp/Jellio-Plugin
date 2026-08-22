@@ -61,6 +61,82 @@ public class ConfigController : ControllerBase
                 new SeasonalRange(cfg.SeasonalNewYearStartMonth, cfg.SeasonalNewYearStartDay, cfg.SeasonalNewYearEndMonth, cfg.SeasonalNewYearEndDay)
             ),
             ["friday13"] = new(cfg.SeasonalFriday13Enabled, null),
+            ["hearts"] = new(
+                cfg.SeasonalHeartsEnabled,
+                new SeasonalRange(cfg.SeasonalHeartsStartMonth, cfg.SeasonalHeartsStartDay, cfg.SeasonalHeartsEndMonth, cfg.SeasonalHeartsEndDay)
+            ),
+            ["carnival"] = new(
+                cfg.SeasonalCarnivalEnabled,
+                new SeasonalRange(cfg.SeasonalCarnivalStartMonth, cfg.SeasonalCarnivalStartDay, cfg.SeasonalCarnivalEndMonth, cfg.SeasonalCarnivalEndDay)
+            ),
+            ["oscar"] = new(
+                cfg.SeasonalOscarEnabled,
+                new SeasonalRange(cfg.SeasonalOscarStartMonth, cfg.SeasonalOscarStartDay, cfg.SeasonalOscarEndMonth, cfg.SeasonalOscarEndDay)
+            ),
+            ["filmnoir"] = new(
+                cfg.SeasonalFilmNoirEnabled,
+                new SeasonalRange(cfg.SeasonalFilmNoirStartMonth, cfg.SeasonalFilmNoirStartDay, cfg.SeasonalFilmNoirEndMonth, cfg.SeasonalFilmNoirEndDay)
+            ),
+            ["earthday"] = new(
+                cfg.SeasonalEarthDayEnabled,
+                new SeasonalRange(cfg.SeasonalEarthDayStartMonth, cfg.SeasonalEarthDayStartDay, cfg.SeasonalEarthDayEndMonth, cfg.SeasonalEarthDayEndDay)
+            ),
+            ["cherryblossom"] = new(
+                cfg.SeasonalCherryBlossomEnabled,
+                new SeasonalRange(cfg.SeasonalCherryBlossomStartMonth, cfg.SeasonalCherryBlossomStartDay, cfg.SeasonalCherryBlossomEndMonth, cfg.SeasonalCherryBlossomEndDay)
+            ),
+            ["starwars"] = new(
+                cfg.SeasonalStarWarsEnabled,
+                new SeasonalRange(cfg.SeasonalStarWarsStartMonth, cfg.SeasonalStarWarsStartDay, cfg.SeasonalStarWarsEndMonth, cfg.SeasonalStarWarsEndDay)
+            ),
+            ["eurovision"] = new(
+                cfg.SeasonalEurovisionEnabled,
+                new SeasonalRange(cfg.SeasonalEurovisionStartMonth, cfg.SeasonalEurovisionStartDay, cfg.SeasonalEurovisionEndMonth, cfg.SeasonalEurovisionEndDay)
+            ),
+            ["pride"] = new(
+                cfg.SeasonalPrideEnabled,
+                new SeasonalRange(cfg.SeasonalPrideStartMonth, cfg.SeasonalPrideStartDay, cfg.SeasonalPrideEndMonth, cfg.SeasonalPrideEndDay)
+            ),
+            ["oktoberfest"] = new(
+                cfg.SeasonalOktoberfestEnabled,
+                new SeasonalRange(cfg.SeasonalOktoberfestStartMonth, cfg.SeasonalOktoberfestStartDay, cfg.SeasonalOktoberfestEndMonth, cfg.SeasonalOktoberfestEndDay)
+            ),
+            ["spooky"] = new(
+                cfg.SeasonalSpookyEnabled,
+                new SeasonalRange(cfg.SeasonalSpookyStartMonth, cfg.SeasonalSpookyStartDay, cfg.SeasonalSpookyEndMonth, cfg.SeasonalSpookyEndDay)
+            ),
+            ["christmas"] = new(
+                cfg.SeasonalChristmasEnabled,
+                new SeasonalRange(cfg.SeasonalChristmasStartMonth, cfg.SeasonalChristmasStartDay, cfg.SeasonalChristmasEndMonth, cfg.SeasonalChristmasEndDay)
+            ),
+            ["snowflakes"] = new(
+                cfg.SeasonalSnowflakesEnabled,
+                new SeasonalRange(cfg.SeasonalSnowflakesStartMonth, cfg.SeasonalSnowflakesStartDay, cfg.SeasonalSnowflakesEndMonth, cfg.SeasonalSnowflakesEndDay)
+            ),
+            ["birthday"] = new(
+                cfg.SeasonalBirthdayEnabled,
+                new SeasonalRange(cfg.SeasonalBirthdayStartMonth, cfg.SeasonalBirthdayStartDay, cfg.SeasonalBirthdayEndMonth, cfg.SeasonalBirthdayEndDay)
+            ),
+            ["eid"] = new(
+                cfg.SeasonalEidEnabled,
+                new SeasonalRange(cfg.SeasonalEidStartMonth, cfg.SeasonalEidStartDay, cfg.SeasonalEidEndMonth, cfg.SeasonalEidEndDay)
+            ),
+            ["resurrection"] = new(
+                cfg.SeasonalResurrectionEnabled,
+                new SeasonalRange(cfg.SeasonalResurrectionStartMonth, cfg.SeasonalResurrectionStartDay, cfg.SeasonalResurrectionEndMonth, cfg.SeasonalResurrectionEndDay)
+            ),
+            ["nightsky"] = new(
+                cfg.SeasonalNightSkyEnabled,
+                new SeasonalRange(cfg.SeasonalNightSkyStartMonth, cfg.SeasonalNightSkyStartDay, cfg.SeasonalNightSkyEndMonth, cfg.SeasonalNightSkyEndDay)
+            ),
+            ["matrix"] = new(
+                cfg.SeasonalMatrixEnabled,
+                new SeasonalRange(cfg.SeasonalMatrixStartMonth, cfg.SeasonalMatrixStartDay, cfg.SeasonalMatrixEndMonth, cfg.SeasonalMatrixEndDay)
+            ),
+            ["frost"] = new(
+                cfg.SeasonalFrostEnabled,
+                new SeasonalRange(cfg.SeasonalFrostStartMonth, cfg.SeasonalFrostStartDay, cfg.SeasonalFrostEndMonth, cfg.SeasonalFrostEndDay)
+            ),
         };
 
         return Ok(new ClientConfig(cfg.SeasonalEffectsEnabled, effects));
