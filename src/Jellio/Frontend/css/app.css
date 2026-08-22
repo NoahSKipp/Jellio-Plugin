@@ -367,8 +367,10 @@
      scales icons, labels and padding together rather than a dozen
      separate values: real feedback called the whole pill "way too
      small", not any one part of it, once a real tablet's own width
-     started reaching this bar instead of only a phone's. */
-  font-size: 19px;
+     started reaching this bar instead of only a phone's; a second real
+     bump after that (19px to 22px) made the pill and its own icons a
+     little larger again. */
+  font-size: 22px;
   position: fixed;
   left: 50%;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
