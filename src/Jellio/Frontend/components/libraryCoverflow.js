@@ -90,15 +90,15 @@ function buildSlide(item) {
 
   info.appendChild(el('div', 'jellio-coverflow-meta', metaLine(item)));
 
+  // Real feedback: Play skipped straight into playback with no chance
+  // to see anything about the title first, not the real Nuvio
+  // reference (components/heroCarousel.js's own header already carries
+  // the same real finding for home's own hero, checked directly
+  // against screenshots there, this is the exact same real component
+  // shape one tier down); View Details is one tap further to
+  // screens/detail.js's own real Play button, not gone.
   const actions = el('div', 'jellio-coverflow-actions');
-  actions.appendChild(buildButton('Play', 'jellio-coverflow-button', item));
-  actions.appendChild(
-    buildButton(
-      item.Type === 'Series' ? 'Episodes' : 'More info',
-      'jellio-coverflow-button jellio-coverflow-button-secondary',
-      item,
-    ),
-  );
+  actions.appendChild(buildButton('View Details', 'jellio-coverflow-button', item));
   info.appendChild(actions);
 
   slide.appendChild(info);

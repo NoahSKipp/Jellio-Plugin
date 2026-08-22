@@ -4118,11 +4118,6 @@ select.jellio-settings-input {
     background-color 160ms var(--jellio-ease-out);
 }
 
-.jellio-coverflow-button-secondary {
-  background: rgb(255 255 255 / 0.14);
-  color: var(--jellio-text-color);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
-}
 
 .jellio-coverflow-button:hover {
   transform: translateY(-1px);
