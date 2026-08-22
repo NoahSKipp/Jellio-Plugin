@@ -394,25 +394,8 @@
   background: rgb(var(--jellio-bg-elevated-rgb) / 0.96);
   border: 1px solid rgb(255 255 255 / 0.1);
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
-  /* Real feedback, checked against an actual real screen recording:
-     animating padding (a real layout property) rendered as a hard cut
-     between expanded and compact with nothing in between, not a real
-     glide, on a real device under real scroll load. transform is the
-     one real property whose transition genuinely stays on the
-     compositor regardless of whatever the main thread is busy doing
-     during active scroll, the only way to actually guarantee smooth
-     here rather than hope reflow finishes fast enough to look that
-     way. translateX(-50%) still does this pill's own real centering,
-     scale() rides along on the exact same real transform property. */
   transition: transform 180ms var(--jellio-ease-out);
   animation: jellio-mobile-nav-enter 360ms var(--jellio-ease-out) both;
-}
-
-/* "Slightly more compact", real feedback's own words: a small uniform
-   real scale down instead of animating padding, same real reasoning
-   this rule's own real transition above documents. */
-.jellio-mobile-nav-compact {
-  transform: translateX(-50%) scale(0.9);
 }
 
 .jellio-mobile-nav-scroll {
@@ -477,28 +460,21 @@
   height: 1.5em;
 }
 
-/* Collapses smoothly rather than snapping away, real feedback asked
-   for "fast reactive nice", then reported the transition itself felt
-   sluggish, then reported it again after a first real attempt (max-
-   height/margin-top down to one property, height, plus a real
-   will-change hint) made no real difference. will-change on a real
-   layout property buys nothing: height can never run on the
-   compositor regardless of any hint, the hint only pushes the browser
-   to promote a real extra layer for it anyway, real overhead with no
-   real upside, dropped here outright. The real fix lived one level up
-   instead: this pill's own real backdrop-filter (see .jellio-mobile-nav
-   above) was the one real per-frame cost actually competing with
-   scroll, not this element's own comparatively tiny reflow. */
-/* height stays a real constant now, never animated, never toggled to
-   0: real feedback found the real hard-cut-not-a-glide problem lived
-   in animating a real layout property under real scroll load (this
-   file's own header up on .jellio-mobile-nav says the same real thing
-   about that element's own padding), same real fix here, opacity
-   alone carries the whole real fade, compositor only, immune to
-   whatever the main thread is doing. This label's own real reserved
-   space stays constant; .jellio-mobile-nav-compact's own real uniform
-   scale on the whole pill is what actually reads as "more compact"
-   now, not this element collapsing out from under it. */
+/* Collapsing this height is what actually reshapes the pill: each
+   link lays out icon over label in a column (.jellio-mobile-nav-link
+   above), so the pill's own real height is just whatever its tallest
+   child needs, no separate rule on the pill itself required. Real
+   feedback wanted that reshape back after an earlier attempt dropped
+   it in favour of a pill-wide scale(0.9): that traded the real shrink
+   for a guaranteed-compositor-only animation, and read as "the text
+   disappears but the pill itself doesn't change" once feedback saw it
+   on a real device. height is a real layout property and can hitch
+   under heavy main thread contention the same way padding did
+   earlier; a longer, gentler duration here than that first attempt
+   gives any such hitch less room to read as a hard cut, and opacity
+   still carries the text's own fade on a separate, shorter timing so
+   the label is already invisible well before the row beneath it
+   finishes collapsing. */
 .jellio-mobile-nav-label {
   height: 1.2em;
   opacity: 1;
@@ -509,10 +485,11 @@
   max-width: 4.4em;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: opacity 130ms ease;
+  transition: height 260ms var(--jellio-ease-out), opacity 140ms ease;
 }
 
 .jellio-mobile-nav-compact .jellio-mobile-nav-label {
+  height: 0;
   opacity: 0;
 }
 
