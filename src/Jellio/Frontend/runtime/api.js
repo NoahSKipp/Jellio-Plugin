@@ -3,6 +3,7 @@
 // point of this runtime is that a screen's data never depends on native
 // jellyfin-web's own request/cache state, only on a real HTTP response.
 import { getServerAddress, getAuthHeaders, getCurrentUserId, getAccessToken, getDeviceId } from './auth.js';
+import { languageName } from './languages.js';
 
 // Nuvio's own real AddonPlatform HTTP clients (OkHttp on Android, Ktor's
 // own HttpTimeout plugin on iOS, both confirmed against real source
@@ -757,6 +758,31 @@ export function getAudioStreams(mediaSource) {
   return (mediaSource.MediaStreams || []).filter(function (stream) {
     return stream.Type === 'Audio';
   });
+}
+
+// Real feedback: the profile's own saved default audio language
+// (screens/settings.js's own Language section, UserDto.Configuration.
+// AudioLanguagePreference) only actually reaches a Gelato resolved
+// MediaSource if the server's own PlaybackInfo negotiation already
+// computed the right DefaultAudioStreamIndex for it, and there is no
+// real guarantee a debrid scraped release's own embedded tracks give
+// it enough to go on the way a real local file's own indexed
+// MediaStreams already would. screens/player.js's own first real
+// negotiation checks this directly instead of assuming: languageName()
+// normalizes both sides (a stream's own real Language code and a
+// saved preference can each land in either the bibliographic or
+// terminology ISO 639-2 form, "ger" vs "deu", the same real mismatch
+// screens/settings.js's own buildSelect already has to account for)
+// rather than a raw code comparison that would silently miss a real
+// match half the time.
+export function matchAudioStreamIndex(mediaSource, languagePreference) {
+  if (!languagePreference) return null;
+  const wanted = languageName(languagePreference);
+  const streams = getAudioStreams(mediaSource);
+  const match = streams.find(function (stream) {
+    return stream.Language && languageName(stream.Language) === wanted;
+  });
+  return match ? match.Index : null;
 }
 
 // audioStreamIndex, when given, asks for a specific embedded audio
