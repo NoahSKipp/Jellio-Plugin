@@ -12,6 +12,7 @@ import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
 import { describeNetworkFailure } from '../runtime/network.js';
 import { toggleWatched, toggleWatchlist } from '../components/cardOptionsMenu.js';
+import { attachScrollArrows } from '../components/scrollArrows.js';
 
 // A failed item lookup used to just console.warn and return, leaving
 // root exactly as blank as root.textContent = '' left it: a series's
@@ -428,11 +429,27 @@ async function buildSeasonsSection(seriesId) {
   const section = el('section', 'jellio-detail-seasons');
   section.appendChild(el('h2', 'jellio-row-title', 'Episodes'));
 
+  // Real feedback: neither row had any visible way to reach anything
+  // scrolled past its own edge except a mouse drag or a trackpad swipe,
+  // real gap on a series with enough seasons or one season with enough
+  // episodes. components/scrollArrows.js's own attachScrollArrows(),
+  // the same hover revealed prev/next control components/row.js's own
+  // rows already use, needs its own position: relative wrap around each
+  // real track to anchor against, same real shape that file's own
+  // trackWrap already is.
+  const tabsWrap = el('div', 'jellio-season-tabs-wrap');
   const tabs = el('div', 'jellio-season-tabs');
   tabs.setAttribute('role', 'tablist');
+  tabsWrap.appendChild(tabs);
+
+  const trackWrap = el('div', 'jellio-episode-track-wrap');
   const track = el('div', 'jellio-episode-track');
-  section.appendChild(tabs);
-  section.appendChild(track);
+  trackWrap.appendChild(track);
+
+  section.appendChild(tabsWrap);
+  section.appendChild(trackWrap);
+  attachScrollArrows(tabsWrap, tabs);
+  const refreshTrackArrows = attachScrollArrows(trackWrap, track);
 
   // The exact array each episode card's own context menu mutates in
   // place (screens/detail.js's own openEpisodeOptionsMenu, above),
@@ -451,6 +468,13 @@ async function buildSeasonsSection(seriesId) {
         }),
       );
     });
+    // A season switch swaps in a real different episode count, well
+    // after attachScrollArrows()'s own one time initial check already
+    // ran and found nothing here yet: this real season might cross the
+    // "does this even need arrows" line the last one did not either
+    // way, requestAnimationFrame so the track's own real scrollWidth
+    // reflects what was just appended before this checks it.
+    window.requestAnimationFrame(refreshTrackArrows);
   }
 
   function selectSeason(season, tabButton) {

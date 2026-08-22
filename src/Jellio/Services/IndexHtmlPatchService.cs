@@ -182,6 +182,7 @@ public class IndexHtmlPatchService(
         "components/splash.js",
         "components/card.js",
         "components/row.js",
+        "components/scrollArrows.js",
         "components/services.js",
         "components/heroCarousel.js",
         "components/streamPicker.js",

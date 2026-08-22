@@ -1656,6 +1656,13 @@
   white-space: nowrap;
 }
 
+/* components/scrollArrows.js's own attachScrollArrows() anchors its
+   prev/next buttons against this, same real position: relative shape
+   components/row.js's own .jellio-row-track-wrap already is. */
+.jellio-season-tabs-wrap {
+  position: relative;
+}
+
 .jellio-season-tabs {
   display: flex;
   gap: 0.5em;
@@ -1700,6 +1707,10 @@
 
 .jellio-season-tab-selected:hover {
   color: var(--jellio-text-color);
+}
+
+.jellio-episode-track-wrap {
+  position: relative;
 }
 
 .jellio-episode-track {
