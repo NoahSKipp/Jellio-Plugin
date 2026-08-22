@@ -28,11 +28,13 @@ import {
   getImageUrl,
   getSubtitleStreams,
   getAudioStreams,
+  matchAudioStreamIndex,
   buildSubtitleUrl,
   getNextEpisode,
   getIntroSkipperSegments,
   getSeasons,
   getEpisodes,
+  getCurrentUser,
   TICKS_PER_SECOND,
 } from '../runtime/api.js';
 import { navigateTo } from '../runtime/router.js';
@@ -311,6 +313,41 @@ export async function renderPlayer(root, params) {
   }
 
   root.textContent = '';
+
+  // Real feedback: a saved default audio language preference
+  // (screens/settings.js's own Language section) only actually reaches
+  // this MediaSource if Jellyfin's own PlaybackInfo negotiation
+  // happened to compute the right DefaultAudioStreamIndex for it, not
+  // guaranteed for a debrid resolved release the way it would be for a
+  // real local file with its own already indexed MediaStreams.
+  // runtime/api.js's own matchAudioStreamIndex() checks this directly
+  // against the MediaSource negotiation already returned; a real match
+  // that differs from what the server defaulted to triggers one more
+  // real negotiation with that index explicit, the same real mechanism
+  // a manual audio track switch further down already uses (a bare
+  // stream URL query param change alone never starts a new real
+  // transcode job server side, confirmed against a real server log
+  // before that code was written, same real constraint here). Declared
+  // here rather than down by the audio track popover below so this
+  // same real variable carries the match forward into that popover's
+  // own "what's active" check too, not just this file's first request.
+  let currentAudioStreamIndex = null;
+  try {
+    const user = await getCurrentUser();
+    const preferredLanguage = user && user.Configuration && user.Configuration.AudioLanguagePreference;
+    const matchedIndex = preferredLanguage ? matchAudioStreamIndex(mediaSource, preferredLanguage) : null;
+    if (matchedIndex != null && matchedIndex !== mediaSource.DefaultAudioStreamIndex) {
+      const rematched = await getPlaybackInfo(itemId, startTicks, mediaSource.Id, matchedIndex);
+      const rematchedSource = rematched && rematched.MediaSources && rematched.MediaSources[0];
+      if (rematchedSource) {
+        mediaSource = rematchedSource;
+        playSessionId = rematched.PlaySessionId;
+        currentAudioStreamIndex = matchedIndex;
+      }
+    }
+  } catch (err) {
+    console.warn('Jellio: could not match preferred audio language', err);
+  }
 
   // Real feedback found the same real gap this pass fixed for
   // mid-playback seeking already applies to a saved resume position
@@ -810,8 +847,13 @@ export async function renderPlayer(root, params) {
   );
 
   // === Audio track popover ===
+  // currentAudioStreamIndex is declared much further up now, right
+  // after this title's own first real negotiation resolves a
+  // MediaSource: a real preferred-language match found there needs to
+  // already be in this same real variable by the time this popover's
+  // own rebuildAudioMenu() below asks "what's active", not reset back
+  // to null here and silently overridden.
   const audioMenu = el('div', 'jellio-player-popover jellio-player-popover-large jellio-player-popover-hidden');
-  let currentAudioStreamIndex = null;
 
   function audioStreamLabel(stream) {
     const language = stream.Language ? stream.Language.toUpperCase() : stream.DisplayTitle || 'Unknown';

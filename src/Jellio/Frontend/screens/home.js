@@ -20,6 +20,13 @@ import { buildRow } from '../components/row.js';
 import { groupByService, logoUrl, serviceOf } from '../components/services.js';
 import { buildHeroCarousel } from '../components/heroCarousel.js';
 import { buildHomeSkeleton } from '../components/homeSkeleton.js';
+import {
+  wrapRowForCustomization,
+  applyHomeCustomization,
+  buildHomeCustomizeBar,
+  updateHomeCustomizeBar,
+  resetHomeCustomization,
+} from '../components/homeCustomizer.js';
 import { navigateTo } from '../runtime/router.js';
 
 // Real Gelato catalog collections (Trending, Popular, Top Rated, a
@@ -123,6 +130,7 @@ async function fetchCatalogRows(collections) {
       if (result.status !== 'fulfilled') return null;
       const collection = usable[index];
       return {
+        id: collection.Id,
         title: titleFor(collection.Name, collectionKind(collection)),
         items: result.value,
       };
@@ -134,7 +142,7 @@ function buildCatalogRows(catalogData, seen) {
   const sections = [];
   catalogData.forEach(function (entry) {
     const row = buildRow(entry.title, dedupe(entry.items, seen));
-    if (row) sections.push(row);
+    if (row) sections.push(wrapRowForCustomization(row, 'catalog:' + entry.id));
   });
   return sections;
 }
@@ -163,7 +171,7 @@ function buildGenreRows(genreData, seen) {
   const sections = [];
   genreData.forEach(function (entry) {
     const row = buildRow(entry.title, dedupe(entry.items, seen));
-    if (row) sections.push(row);
+    if (row) sections.push(wrapRowForCustomization(row, 'genre:' + entry.title));
   });
   return sections;
 }
@@ -343,18 +351,18 @@ async function buildHomeSections() {
   // next, ahead of anything the catalog itself has to say either way.
   if (resumeResult.status === 'fulfilled') {
     const row = buildRow('Continue Watching', resumeResult.value, { continueWatching: true });
-    if (row) pushAll([row]);
+    if (row) pushAll([wrapRowForCustomization(row, 'continue-watching')]);
   }
 
   if (nextUpResult.status === 'fulfilled') {
     const row = buildRow('Up Next', nextUpResult.value, { upNext: true });
-    if (row) pushAll([row]);
+    if (row) pushAll([wrapRowForCustomization(row, 'up-next')]);
   }
 
   const collections = collectionsResult.status === 'fulfilled' ? collectionsResult.value : null;
   if (collections) {
     const hub = buildHubStrip(collections);
-    if (hub) pushAll([hub]);
+    if (hub) pushAll([wrapRowForCustomization(hub, 'studio-hubs')]);
   }
 
   // Shared with buildCatalogRows/buildGenreRows below via dedupe(): a
@@ -385,7 +393,8 @@ async function buildHomeSections() {
   pushAll(
     recommendationRows
       .map(function (spec) {
-        return buildRow(spec.title, spec.items);
+        const row = buildRow(spec.title, spec.items);
+        return row ? wrapRowForCustomization(row, 'rec:' + spec.title) : null;
       })
       .filter(Boolean),
   );
@@ -477,6 +486,26 @@ export async function renderHome(root, params) {
     ? greeting + ', ' + name + (greeting === 'Still up' ? '?' : '')
     : greeting + (greeting === 'Still up' ? '?' : '');
   header.appendChild(el('h1', 'jellio-home-greeting', greetingText));
+
+  // Harbor-style row editor (components/homeCustomizer.js's own header
+  // explains the real reasoning): editMode lives only in this real
+  // closure, reset to off on every fresh visit to this screen the same
+  // way Harbor's own real editMode local state already resets on every
+  // real remount, not something worth persisting across navigations.
+  let editMode = false;
+  const customizeBar = buildHomeCustomizeBar(
+    function onToggleEdit() {
+      editMode = !editMode;
+      updateHomeCustomizeBar(customizeBar, editMode);
+      applyHomeCustomization(rows, editMode);
+    },
+    function onReset() {
+      resetHomeCustomization();
+      applyHomeCustomization(rows, editMode);
+    },
+  );
+  updateHomeCustomizeBar(customizeBar, editMode);
+  header.appendChild(customizeBar.bar);
   root.appendChild(header);
 
   const rows = el('div', 'jellio-rows');
@@ -529,11 +558,13 @@ export async function renderHome(root, params) {
   preloadHomeSectionsWithProgress(function (section) {
     removeSkeleton();
     rows.appendChild(section);
+    applyHomeCustomization(rows, editMode);
   }).then(function (sections) {
     removeSkeleton();
     sections.forEach(function (section) {
       rows.appendChild(section);
     });
+    applyHomeCustomization(rows, editMode);
   });
 
   return hero.destroy;
