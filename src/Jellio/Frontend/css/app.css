@@ -5273,6 +5273,427 @@ select.jellio-settings-input {
   }
 }
 
+/* earthday's own real coloured petals: a plain circle, no glyph, no
+   font-size, real width/height set directly in components/
+   seasonalEffects.js's own buildDrift() instead. */
+.jellio-seasonal-particle-dot {
+  position: fixed;
+  top: -5vh;
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+
+/* eurovision's/spooky's own real per-theme glow (EurovisionGlowSize/
+   SpookyGlowSize), one shared text-shadow rather than a second real
+   engine for what both those themes already build the same way. */
+.jellio-seasonal-particle-glow {
+  text-shadow: 0 0 6px currentcolor, 0 0 12px currentcolor;
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   nightsky.css: a real nebula glow plus a three layer parallax
+   starfield (box-shadow dots, the one real CSS trick that keeps
+   hundreds of stars to a single real paint layer) and real shooting
+   stars driven entirely by CSS custom properties JS sets once per
+   launch. */
+.jellio-seasonal-nightsky-glow {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 70% 30%, rgb(138 43 226 / 0.15), transparent 60%),
+    radial-gradient(circle at 20% 80%, rgb(65 105 225 / 0.15), transparent 50%);
+  animation: jellio-seasonal-nightsky-pulse 10s ease-in-out infinite alternate;
+}
+
+@keyframes jellio-seasonal-nightsky-pulse {
+  0% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.jellio-seasonal-nightsky-starfield {
+  position: fixed;
+  inset: 0;
+}
+
+@keyframes jellio-seasonal-nightsky-drift {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(-100vh);
+  }
+}
+
+.jellio-seasonal-nightsky-shooting-star {
+  position: fixed;
+  width: 200px;
+  height: 2px;
+  background: linear-gradient(90deg, rgb(255 255 255 / 0) 0%, rgb(255 255 255 / 1) 100%);
+  border-radius: 50%;
+  opacity: 0;
+  transform-origin: right center;
+}
+
+@keyframes jellio-seasonal-nightsky-shoot {
+  0% {
+    transform: rotate(var(--jellio-shoot-angle)) translateX(0) scaleX(0);
+    opacity: 0;
+  }
+
+  25% {
+    transform: rotate(var(--jellio-shoot-angle)) translateX(calc(var(--jellio-shoot-distance) * 0.25)) scaleX(1);
+    opacity: 1;
+  }
+
+  75% {
+    transform: rotate(var(--jellio-shoot-angle)) translateX(calc(var(--jellio-shoot-distance) * 0.75)) scaleX(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(var(--jellio-shoot-angle)) translateX(var(--jellio-shoot-distance)) scaleX(0);
+    opacity: 0;
+  }
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   filmnoir.css: a sepia mix-blend tint plus a grain/scratch/vignette
+   stack, no particles at all, purely a CSS overlay already fully
+   real without any JS driving a single frame of it. */
+.jellio-seasonal-filmnoir-tint {
+  position: fixed;
+  inset: 0;
+  background-color: #8c7355;
+  mix-blend-mode: color;
+}
+
+.jellio-seasonal-filmnoir-effects {
+  position: fixed;
+  inset: 0;
+}
+
+.jellio-seasonal-filmnoir-grain {
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/></filter><rect width="200" height="200" filter="url(%23n)" opacity="0.4"/></svg>');
+  animation: jellio-seasonal-filmnoir-grain-dance 0.2s steps(4) infinite;
+  mix-blend-mode: overlay;
+  opacity: 0.3;
+}
+
+@keyframes jellio-seasonal-filmnoir-grain-dance {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  25% {
+    transform: translate(-5%, -5%);
+  }
+
+  50% {
+    transform: translate(-10%, 5%);
+  }
+
+  75% {
+    transform: translate(5%, -10%);
+  }
+
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.jellio-seasonal-filmnoir-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 50%, rgb(0 0 0 / 0.8) 120%);
+  box-shadow: inset 0 0 100px rgb(0 0 0 / 0.6);
+}
+
+.jellio-seasonal-filmnoir-scratches {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, transparent 50%, rgb(255 255 255 / 0.2) 51%, transparent 52%);
+  background-size: 200% 100%;
+  animation: jellio-seasonal-filmnoir-scratch 4s infinite linear, jellio-seasonal-filmnoir-flicker 6s infinite alternate;
+  opacity: 0.2;
+  mix-blend-mode: screen;
+}
+
+@keyframes jellio-seasonal-filmnoir-scratch {
+  0% {
+    background-position: -200% 0;
+  }
+
+  10%,
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes jellio-seasonal-filmnoir-flicker {
+  0%,
+  15%,
+  100% {
+    opacity: 0.2;
+  }
+
+  5% {
+    opacity: 0.1;
+  }
+
+  10% {
+    opacity: 0.3;
+  }
+
+  50% {
+    opacity: 0.15;
+  }
+
+  55% {
+    opacity: 0.25;
+  }
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   starwars.css: hyperspace streaks radiating outward from one fixed
+   center point, each one's own real ::after doing the actual drawing
+   so the parent span only ever needs a rotate(). */
+.jellio-seasonal-starwars-center {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  translate: 0 50vh;
+}
+
+.jellio-seasonal-starwars-streak {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100vh;
+  transform-origin: top center;
+  display: block;
+}
+
+.jellio-seasonal-starwars-streak::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 15vh;
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0%, rgb(200 230 255 / 0.8) 70%, rgb(255 255 255 / 1) 100%);
+  box-shadow: 0 0 8px #88ccff;
+  border-radius: 2px;
+  animation: jellio-seasonal-starwars-warp cubic-bezier(0.7, 0, 1, 1) infinite;
+  animation-duration: inherit;
+  animation-delay: inherit;
+  animation-fill-mode: both;
+}
+
+@keyframes jellio-seasonal-starwars-warp {
+  0% {
+    transform: translateY(2vh) scaleY(0.1);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(150vh) scaleY(3);
+    opacity: 0;
+  }
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   oscar.css: a red carpet strip along the bottom edge, three sweeping
+   spotlights, and randomised camera flash pops (each one a plain
+   span with a real, short-lived CSS animation, appended and removed
+   by components/seasonalEffects.js's own real flash loop). */
+.jellio-seasonal-oscar-carpet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 15vh;
+  background: linear-gradient(to top, rgb(139 0 0 / 0.8) 0%, transparent 100%);
+  opacity: 0.9;
+}
+
+.jellio-seasonal-oscar-spotlights {
+  position: fixed;
+  inset: 0;
+}
+
+.jellio-seasonal-oscar-spotlight {
+  position: absolute;
+  top: 0;
+  width: 30vw;
+  height: 120vh;
+  background: linear-gradient(to bottom, rgb(255 215 0 / 0.4) 0%, transparent 80%);
+  clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%);
+  transform-origin: top center;
+  animation: jellio-seasonal-oscar-sweep 12s infinite alternate ease-in-out;
+  mix-blend-mode: screen;
+  translate: 0 -10vh;
+  display: block;
+}
+
+@keyframes jellio-seasonal-oscar-sweep {
+  0% {
+    transform: rotate(-30deg);
+  }
+
+  100% {
+    transform: rotate(30deg);
+  }
+}
+
+.jellio-seasonal-oscar-flash {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 50px 30px rgb(255 255 255 / 0.8), 0 0 100px 50px rgb(255 255 255 / 0.5);
+  animation: jellio-seasonal-oscar-flash-pop 0.2s cubic-bezier(0.1, 0.8, 0.1, 1);
+  mix-blend-mode: screen;
+}
+
+@keyframes jellio-seasonal-oscar-flash-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(2);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   frost.css: simplified down to a real animated radial vignette plus
+   shimmer, that real plugin's own SVG feTurbulence displacement
+   filter (an injected <svg><filter> id it references via
+   filter: url(#id)) left out, real extra complexity this corner
+   effect isn't taking on. */
+.jellio-seasonal-frost-layer {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 60%, rgb(180 220 255 / 0.4) 100%);
+  box-shadow: inset 0 0 60px rgb(200 230 255 / 0.5), inset 0 0 120px rgb(255 255 255 / 0.3);
+  animation: jellio-seasonal-frost-shimmer 6s infinite alternate ease-in-out;
+}
+
+@keyframes jellio-seasonal-frost-shimmer {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   carnival.css: shaped, coloured confetti falling AND swaying AND
+   tumbling in 3D at once, three nested real elements (fall wrapper,
+   sway wrapper, flutter piece) since that's three independent real
+   transforms no single shared keyframe below can combine into one. */
+.jellio-seasonal-carnival-wrapper {
+  position: fixed;
+  top: -10vh;
+  animation-name: jellio-seasonal-carnival-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+  will-change: transform;
+}
+
+@keyframes jellio-seasonal-carnival-fall {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(0, 120vh, 0);
+  }
+}
+
+.jellio-seasonal-carnival-sway {
+  animation-name: jellio-seasonal-carnival-sway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  will-change: transform;
+}
+
+@keyframes jellio-seasonal-carnival-sway {
+  0% {
+    transform: translateX(calc(var(--jellio-carnival-sway, 50px) * -1));
+  }
+
+  100% {
+    transform: translateX(var(--jellio-carnival-sway, 50px));
+  }
+}
+
+.jellio-seasonal-carnival-piece {
+  width: 8px;
+  height: 16px;
+  animation-name: jellio-seasonal-carnival-flutter;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.jellio-seasonal-carnival-circle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.jellio-seasonal-carnival-square {
+  width: 8px;
+  height: 8px;
+}
+
+.jellio-seasonal-carnival-triangle {
+  width: 10px;
+  height: 10px;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+@keyframes jellio-seasonal-carnival-flutter {
+  0% {
+    transform: rotate3d(1, 1, 0, 0deg);
+  }
+
+  100% {
+    transform: rotate3d(1, 1, 0, var(--jellio-carnival-rot, 360deg));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.001ms !important;
