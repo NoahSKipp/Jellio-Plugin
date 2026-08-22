@@ -236,9 +236,22 @@
         </form>
       </div>
     </div>
-  </div>
 
-  <script type="text/javascript">
+    <!-- Jellyfin's own dashboard page loader (viewContainer.js's own real
+         parseHtml/loadView) fetches this whole file as plain text and keeps
+         only wrapper.querySelector('div[data-role="page"]') from it, real
+         source read to find this out rather than assumed after three
+         earlier fixes here all landed on a real server and changed nothing:
+         anything outside that one div, a script included, is silently
+         dropped before it ever reaches the live document, so this script
+         was never executing at all up to now, every value this page's own
+         form ever showed was just its own raw, empty HTML default, entirely
+         disconnected from the real saved config the whole time. Has to sit
+         inside this real div for that same reason, confirmed against
+         CodeDevMLH/Jellyfin-Seasonals' own config page's real structure
+         (its own script closes right before its own page div does) rather
+         than guessed. -->
+    <script type="text/javascript">
     (function () {
       const pluginId = 'f2937f08-0595-40d1-a74b-a44656cbc6de';
 
@@ -353,7 +366,8 @@
 
       bindJellioPageEvents();
     })();
-  </script>
+    </script>
+  </div>
 </body>
 
 </html>
