@@ -23,7 +23,7 @@ import { buildLibraryCoverflow } from '../components/libraryCoverflow.js';
 import { showsEditorial } from '../runtime/editorial.js';
 
 // Only a real anime/anilist catalog collection whose own name actually
-// says "trending" earns the row badge below: the looser /anime|anilist/i
+// says "trending" earns the row badge below: the looser /anime|anilist|kitsu/i
 // test elsewhere on this page is just "does this collection belong on
 // the Anime page at all", answering a much narrower real question.
 const TRENDING_ANIME_NAME = /anilist.*trending|trending.*anilist/i;
@@ -53,7 +53,7 @@ function getAnimeItemIds() {
   return getCollections()
     .then(function (collections) {
       const animeCollections = collections.filter(function (item) {
-        return /anime|anilist/i.test(item.Name || '');
+        return /anime|anilist|kitsu/i.test(item.Name || '');
       });
       if (!animeCollections.length) return new Set();
       return Promise.allSettled(
@@ -366,7 +366,7 @@ function renderAnime(root, collectionType) {
       const collections = await getCollections();
       if (cancelled) return;
       animeCollections = collections.filter(function (item) {
-        return /anime|anilist/i.test(item.Name || '');
+        return /anime|anilist|kitsu/i.test(item.Name || '');
       });
     } catch (err) {
       console.warn('Jellio: could not load anime catalogs', err);

@@ -1111,7 +1111,7 @@ export function getCollections() {
 // tell the two apart. Same ordering bug the original codebase's own
 // kindOfCollection already found and fixed, ported rather than re-derived.
 export function collectionKind(collection) {
-  if (/anime|anilist/i.test(collection.Name || '')) return 'tvshows';
+  if (/anime|anilist|kitsu/i.test(collection.Name || '')) return 'tvshows';
   const ids = collection.ProviderIds || {};
   const stremio = ids.Stremio || ids.stremio;
   if (stremio) {

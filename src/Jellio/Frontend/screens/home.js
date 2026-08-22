@@ -104,7 +104,7 @@ async function fetchCatalogRows(collections) {
 
   let animeSeen = 0;
   usable = usable.filter(function (collection) {
-    if (!/anime|anilist/i.test(collection.Name || '')) return true;
+    if (!/anime|anilist|kitsu/i.test(collection.Name || '')) return true;
     animeSeen++;
     return animeSeen <= MAX_ANIME_CATALOG_ROWS;
   });
