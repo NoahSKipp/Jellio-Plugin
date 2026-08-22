@@ -15,6 +15,13 @@
   --jellio-text-secondary: #b3b3b3;
   --jellio-text-tertiary: #808080;
   --jellio-border-color: #333333;
+  /* Real bug, found live: components/row.js's own trending badge and
+     components/libraryCoverflow.js's own coverflow badge both
+     referenced this real token already, real feedback caught it never
+     actually rendering orange because nothing here ever defined it,
+     an unresolved var() just falling back to this property's own
+     inherited colour instead of failing loudly. */
+  --jellio-trending-color: #ff9800;
   --jellio-font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   --jellio-card-radius: clamp(14px, 1.1vw, 22px);
   --jellio-card-gap: clamp(12px, 1vw, 18px);
