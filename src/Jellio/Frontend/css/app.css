@@ -1575,6 +1575,48 @@
   opacity: 1;
 }
 
+/* Real bug, found live against a real screenshot: More's own real
+   position: absolute (this file's own header a little above explains
+   why, a desktop hover-jitter fix with nothing to do with mobile at
+   all) sat directly on top of whichever collapsible button landed
+   underneath it once expanded on a narrow phone, and Change Stream/
+   whatever else ran past the row's own available width overflowed
+   straight off the real screen edge with no way to reach it, real
+   feedback found both. Touch has no hover to jitter against in the
+   first place, so this breakpoint rejoins More to the row's own real
+   flex flow and lets the whole row wrap onto a second real line
+   instead of overflowing past the viewport, Play claiming its own
+   real full width row above it. */
+@media (max-width: 47.99em) {
+  .jellio-detail-actions {
+    flex-wrap: wrap;
+    row-gap: 0.6em;
+  }
+
+  .jellio-detail-play {
+    flex: 1 1 100%;
+  }
+
+  .jellio-detail-actions-has-more {
+    padding-right: 0;
+  }
+
+  .jellio-detail-icon-action-more {
+    position: static;
+    top: auto;
+    right: auto;
+    transform: none;
+  }
+
+  .jellio-detail-icon-action-more:hover {
+    transform: scale(1.08);
+  }
+
+  .jellio-detail-icon-action-more:active {
+    transform: scale(0.94);
+  }
+}
+
 .jellio-detail-overview {
   max-width: 48em;
   margin: clamp(16px, 2vw, 28px) var(--jellio-safe-gutter);
@@ -2980,21 +3022,20 @@
    to white here rather than trusting whatever the file declares.
    brightness(0) flattens any colour to black first, invert lifts it to
    white, holding for a mark of any original colour. */
-/* height alone, with width left to auto, let each logo's own aspect
-   ratio decide its rendered size: a wide wordmark (Prime Video's own
-   SVG is far wider than it is tall next to Disney+'s or Apple TV's
-   squarer marks) hit max-width and got constrained down in both
-   dimensions to stay inside it, rendering visibly smaller than every
-   other tile. Setting both width and height turns this into a real
-   fixed box for object-fit: contain to fit each logo into, so a wide
-   mark uses the full width and a tall one the full height, the same
-   apparent scale across every service regardless of its own shape. */
+/* width: auto here (height fixed, width only capped by max-width) is
+   not a real fixed box: object-fit only genuinely does its own job
+   once both dimensions are concrete, auto just falls back to sizing
+   from the image's own real intrinsic ratio directly, with max-width
+   as a ceiling that may never actually bind depending on that ratio.
+   A real concrete width here instead makes this an actual fixed box,
+   object-fit: contain then genuinely maximises each real logo inside
+   it regardless of its own real shape, the more robust real rule
+   either way. */
 .jellio-hub-tile-logo {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: auto;
-  max-width: 82%;
+  width: 82%;
   height: 54%;
   object-fit: contain;
   filter: brightness(0) invert(1);
