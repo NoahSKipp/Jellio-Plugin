@@ -1137,15 +1137,25 @@ export async function authorizeQuickConnect(code) {
 // and provider ids, nothing about where a title streams), confirmed
 // against the original Jellio codebase's own streamingHub.js before
 // porting this.
-export function getCollections() {
-  const userId = getCurrentUserId();
-  if (!userId) return Promise.reject(new Error('Not signed in'));
-  return cached('collections:' + userId, function () {
+// A real Gelato import server side runs one catalog per service per
+// kind (movies/series/anime), several services deep: real count seen
+// live comfortably clears 100 once genre and per-service catalogs are
+// both counted. A single Limit: 100 page, sorted by SortName, silently
+// dropped every collection alphabetically past the 100th, no error, no
+// empty state, just that service's own catalog never in the array
+// groupByService works from at all, real bug behind studio hubs and
+// home tiles both missing entire services with nothing wrong on the
+// server. Pages through the real total instead, same StartIndex
+// pattern getLibraryItems already uses for its own paging.
+function getAllCollections(userId) {
+  const pageSize = 100;
+  function fetchFrom(startIndex, collected) {
     const params = new URLSearchParams({
       IncludeItemTypes: 'BoxSet',
       Recursive: 'true',
       SortBy: 'SortName',
-      Limit: '100',
+      Limit: String(pageSize),
+      StartIndex: String(startIndex),
       // ChildCount is not part of a BoxSet's default field set, and
       // screens/home.js's own catalog rows filter on it (a catalog
       // with fewer than three real items is not worth a row): without
@@ -1154,8 +1164,21 @@ export function getCollections() {
       Fields: 'ProviderIds,ChildCount',
     });
     return getJson('/Users/' + userId + '/Items?' + params.toString()).then(function (result) {
-      return (result && result.Items) || [];
+      const items = (result && result.Items) || [];
+      const total = (result && result.TotalRecordCount) || items.length;
+      const all = collected.concat(items);
+      if (items.length < pageSize || all.length >= total) return all;
+      return fetchFrom(startIndex + pageSize, all);
     });
+  }
+  return fetchFrom(0, []);
+}
+
+export function getCollections() {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  return cached('collections:' + userId, function () {
+    return getAllCollections(userId);
   });
 }
 
