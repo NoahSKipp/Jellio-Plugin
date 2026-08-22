@@ -1542,6 +1542,22 @@
   margin-left: 0;
 }
 
+/* Real bug, found live: .jellio-detail-icon-action:hover's own
+   transform: scale(...) carries a real higher specificity than this
+   button's own plain transform: translateY(-50%) above (a class plus
+   :hover beats a lone class), winning the cascade and replacing that
+   real centering outright on hover instead of adding to it, the real
+   button visibly dropping down the instant a reader's own cursor
+   reached it. Both real transforms named together here instead, at a
+   real specificity nothing else here can still beat. */
+.jellio-detail-icon-action-more:hover {
+  transform: translateY(-50%) scale(1.08);
+}
+
+.jellio-detail-icon-action-more:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
 .jellio-detail-icon-action-more.jellio-detail-icon-action-active {
   background: var(--jellio-secondary-color);
   color: var(--jellio-on-secondary);

@@ -436,13 +436,20 @@ async function buildSeasonsSection(seriesId) {
   // the same hover revealed prev/next control components/row.js's own
   // rows already use, needs its own position: relative wrap around each
   // real track to anchor against, same real shape that file's own
-  // trackWrap already is.
-  const tabsWrap = el('div', 'jellio-season-tabs-wrap');
+  // trackWrap already is. Real bug, found live: an arrow only actually
+  // turns visible on hover through css/app.css's own real
+  // .jellio-row-track-wrap:hover selector, scoped to that one real
+  // class name; without it here too the arrows still built and still
+  // worked, just sitting at a real permanent opacity: 0 no hover ever
+  // reached. jellio-row-track-wrap joins each wrap's own real class
+  // rather than replacing it, this section's own real CSS still needs
+  // its own two real class names for width/overflow.
+  const tabsWrap = el('div', 'jellio-season-tabs-wrap jellio-row-track-wrap');
   const tabs = el('div', 'jellio-season-tabs');
   tabs.setAttribute('role', 'tablist');
   tabsWrap.appendChild(tabs);
 
-  const trackWrap = el('div', 'jellio-episode-track-wrap');
+  const trackWrap = el('div', 'jellio-episode-track-wrap jellio-row-track-wrap');
   const track = el('div', 'jellio-episode-track');
   trackWrap.appendChild(track);
 
