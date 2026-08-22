@@ -3314,16 +3314,6 @@
   gap: 0.8em;
 }
 
-/* screens/settings.js's own Seasonal effects section: seven per
-   effect toggles in a real grid rather than one long column, same
-   real .jellio-settings-toggle-row children as everywhere else in
-   this screen. */
-.jellio-settings-effects-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
-  gap: 0.4em 1.2em;
-}
-
 /* Remember my stream choice, screens/settings.js's own Playback
    section: this codebase's first real toggle switch, a plain hidden
    checkbox driving a styled sibling track/thumb, the standard

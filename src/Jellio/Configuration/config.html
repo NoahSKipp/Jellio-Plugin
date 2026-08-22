@@ -29,6 +29,26 @@
             </div>
           </div>
 
+          <div class="verticalSection">
+            <div class="sectionTitleContainer flex align-items-center">
+              <h2 class="sectionTitle">Seasonal Effects</h2>
+            </div>
+            <div class="fieldDescription">
+              Applies to every user on this server. A small themed overlay on whichever of these
+              matches today's date, one at a time. Never shown during playback. Per user
+              overrides may come later; for now this is the one shared, server wide switch.
+            </div>
+          </div>
+
+          <div class="checkboxContainer checkboxContainer-withDescription">
+            <label>
+              <input is="emby-checkbox" type="checkbox" id="chkSeasonalEffectsEnabled" />
+              <span>Enable seasonal effects</span>
+            </label>
+          </div>
+
+          <div id="seasonalEffectsThemes"></div>
+
           <div>
             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
               <span>Save</span>
@@ -43,12 +63,105 @@
     (function () {
       const pluginId = 'f2937f08-0595-40d1-a74b-a44656cbc6de';
 
+      // One entry per Frontend/components/seasonalEffects.js theme key:
+      // range is null for Friday the 13th, the one theme there with no
+      // real fixed window at all (a day of week check instead), same
+      // real shape ConfigController's own real GetConfig endpoint
+      // already returns to every client.
+      const THEMES = [
+        { key: 'Winter', label: 'Winter snow', hasRange: true },
+        { key: 'Spring', label: 'Spring blossoms', hasRange: true },
+        { key: 'Summer', label: 'Summer sparkle', hasRange: true },
+        { key: 'Autumn', label: 'Autumn leaves', hasRange: true },
+        { key: 'Halloween', label: 'Halloween', hasRange: true },
+        { key: 'NewYear', label: "New Year's fireworks", hasRange: true },
+        { key: 'Friday13', label: 'Friday the 13th', hasRange: false },
+      ];
+
+      function buildThemeRow(theme) {
+        const row = document.createElement('div');
+        row.className = 'verticalSection-extrabottompadding';
+
+        const checkboxContainer = document.createElement('div');
+        checkboxContainer.className = 'checkboxContainer';
+        const label = document.createElement('label');
+        // is has to be passed to createElement itself, not assigned as
+        // a plain property afterward: that is how a customized built-in
+        // element (emby-checkbox/emby-input, both real custom elements
+        // this dashboard's own webcomponents.js already registers)
+        // actually upgrades, confirmed against how every other real
+        // dashboard plugin page already does this rather than guessed.
+        const checkbox = document.createElement('input', { is: 'emby-checkbox' });
+        checkbox.type = 'checkbox';
+        checkbox.id = 'chkSeasonal' + theme.key + 'Enabled';
+        label.appendChild(checkbox);
+        const span = document.createElement('span');
+        span.textContent = theme.label;
+        label.appendChild(span);
+        checkboxContainer.appendChild(label);
+        row.appendChild(checkboxContainer);
+
+        if (theme.hasRange) {
+          const fields = document.createElement('div');
+          fields.className = 'inputContainer flex align-items-center';
+          fields.style.gap = '0.6em';
+          fields.style.flexWrap = 'wrap';
+
+          ['StartMonth', 'StartDay', 'EndMonth', 'EndDay'].forEach(function (field) {
+            const wrap = document.createElement('div');
+            const inputLabel = document.createElement('label');
+            inputLabel.textContent = field.replace('Start', 'Start ').replace('End', 'End ');
+            inputLabel.style.display = 'block';
+            const input = document.createElement('input', { is: 'emby-input' });
+            input.type = 'number';
+            input.min = field.indexOf('Month') !== -1 ? '1' : '1';
+            input.max = field.indexOf('Month') !== -1 ? '12' : '31';
+            input.id = 'numSeasonal' + theme.key + field;
+            input.style.width = '5em';
+            wrap.appendChild(inputLabel);
+            wrap.appendChild(input);
+            fields.appendChild(wrap);
+          });
+
+          row.appendChild(fields);
+        }
+
+        return row;
+      }
+
+      const themesContainer = document.querySelector('#seasonalEffectsThemes');
+      THEMES.forEach(function (theme) {
+        themesContainer.appendChild(buildThemeRow(theme));
+      });
+
+      function loadThemesFrom(config) {
+        THEMES.forEach(function (theme) {
+          document.querySelector('#chkSeasonal' + theme.key + 'Enabled').checked = config['Seasonal' + theme.key + 'Enabled'];
+          if (!theme.hasRange) return;
+          ['StartMonth', 'StartDay', 'EndMonth', 'EndDay'].forEach(function (field) {
+            document.querySelector('#numSeasonal' + theme.key + field).value = config['Seasonal' + theme.key + field];
+          });
+        });
+      }
+
+      function saveThemesTo(config) {
+        THEMES.forEach(function (theme) {
+          config['Seasonal' + theme.key + 'Enabled'] = document.querySelector('#chkSeasonal' + theme.key + 'Enabled').checked;
+          if (!theme.hasRange) return;
+          ['StartMonth', 'StartDay', 'EndMonth', 'EndDay'].forEach(function (field) {
+            config['Seasonal' + theme.key + field] = parseInt(document.querySelector('#numSeasonal' + theme.key + field).value, 10) || 1;
+          });
+        });
+      }
+
       document
         .querySelector('#jellioConfigurationPage')
         .addEventListener('pageshow', function () {
           Dashboard.showLoadingMsg();
           window.ApiClient.getPluginConfiguration(pluginId).then(function (config) {
             document.querySelector('#chkEnableReskin').checked = config.EnableReskin;
+            document.querySelector('#chkSeasonalEffectsEnabled').checked = config.SeasonalEffectsEnabled;
+            loadThemesFrom(config);
             Dashboard.hideLoadingMsg();
           });
         });
@@ -60,6 +173,8 @@
           Dashboard.showLoadingMsg();
           window.ApiClient.getPluginConfiguration(pluginId).then(function (config) {
             config.EnableReskin = document.querySelector('#chkEnableReskin').checked;
+            config.SeasonalEffectsEnabled = document.querySelector('#chkSeasonalEffectsEnabled').checked;
+            saveThemesTo(config);
             window.ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
               Dashboard.processPluginConfigurationUpdateResult(result);
             });
