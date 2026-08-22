@@ -53,21 +53,30 @@ const THEME_ORDER = [
   'hearts',
   'carnival',
   'oscar',
+  'marioday',
   'filmnoir',
+  'space',
+  'cherryblossom',
+  'earthday',
   'starwars',
   'eurovision',
-  'earthday',
-  'cherryblossom',
   'pride',
+  'underwater',
   'oktoberfest',
   'spooky',
   'halloween',
+  'santa',
   'newyear',
   'christmas',
   'snowflakes',
+  'snowfall',
   'nightsky',
   'matrix',
   'frost',
+  'storm',
+  'rain',
+  'sports',
+  'snowstorm',
   'winter',
   'autumn',
   'summer',
@@ -340,11 +349,13 @@ function buildMatrix(container) {
 }
 
 // Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
-// nightsky.js: a parallax starfield built from plain CSS box-shadow
-// dots (three depth layers, each its own slow drift), plus a handful
-// of real shooting stars that relaunch themselves on their own
-// 'animationend', not a fixed loop.
-function buildNightSky(container) {
+// nightsky.js AND space.js: both of those real plugin files build this
+// exact same parallax starfield (three depth layer CSS box-shadow dot
+// clusters, each its own slow drift) and the same self-relaunching
+// shooting stars, confirmed identical against both real sources rather
+// than assumed, one real shared builder here instead of copying it
+// twice the way that plugin's own two separate files do.
+function buildStarfield(container, shootingStarCount) {
   const glow = document.createElement('div');
   glow.className = 'jellio-seasonal-nightsky-glow';
   container.appendChild(glow);
@@ -394,7 +405,6 @@ function buildNightSky(container) {
     cleanupTimers.push(timer);
   }
 
-  const shootingStarCount = window.matchMedia('(max-width: 768px)').matches ? 3 : 6;
   for (let i = 0; i < shootingStarCount; i++) {
     const streak = document.createElement('span');
     streak.className = 'jellio-seasonal-nightsky-shooting-star';
@@ -408,6 +418,52 @@ function buildNightSky(container) {
   return function cleanup() {
     cleanupTimers.forEach(window.clearTimeout);
   };
+}
+
+function buildNightSky(container) {
+  return buildStarfield(container, window.matchMedia('(max-width: 768px)').matches ? 3 : 6);
+}
+
+// Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+// space.js: that same real starfield above plus horizontally drifting
+// objects (planets, an astronaut, satellites, the ISS, a rocket), each
+// scattered at its own real depth (a random scale/blur/duration/z-index)
+// and slowly self-rotating, real emoji standing in for that plugin's
+// own bespoke image/GIF sprite sheet the same way batch 1 already did
+// for Resurrection/Olympia-adjacent themes.
+const SPACE_OBJECTS = [
+  { glyphs: ['🪐', '🌍', '🌕', '🌑'], count: 6 },
+  { glyphs: ['🧑‍🚀'], count: 1 },
+  { glyphs: ['🛰️'], count: 4 },
+  { glyphs: ['🚀'], count: 1 },
+];
+
+function buildSpace(container) {
+  const cleanupStarfield = buildStarfield(container, window.matchMedia('(max-width: 768px)').matches ? 2 : 4);
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  const divisor = isMobile ? 2 : 1;
+
+  SPACE_OBJECTS.forEach(function (group) {
+    const count = Math.max(1, Math.round(group.count / divisor));
+    for (let i = 0; i < count; i++) {
+      const depth = Math.random();
+      const symbol = document.createElement('span');
+      symbol.className = 'jellio-seasonal-space-object';
+      symbol.textContent = group.glyphs[Math.floor(Math.random() * group.glyphs.length)];
+      symbol.style.top = rand(0, 90) + 'vh';
+      symbol.style.zIndex = String(Math.floor(depth * 30) + 20);
+      symbol.style.fontSize = (0.6 + depth * 1.6) + 'rem';
+      const duration = (1 - depth) * 40 + 30 + rand(-5, 5);
+      const goRight = Math.random() > 0.5;
+      symbol.classList.add(goRight ? 'jellio-seasonal-space-drift-right' : 'jellio-seasonal-space-drift-left');
+      symbol.style.animationDuration = duration + 's';
+      symbol.style.animationDelay = '-' + rand(0, duration) + 's';
+      if (goRight) symbol.style.transform = 'scaleX(-1)';
+      container.appendChild(symbol);
+    }
+  });
+
+  return cleanupStarfield;
 }
 
 // Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
@@ -503,7 +559,8 @@ function buildFrost(container) {
 const CARNIVAL_COLORS = ['#fce18a', '#ff726d', '#b48def', '#f4306d', '#36c5f0', '#2ccc5d', '#e9b31d', '#9b59b6', '#3498db', '#e74c3c', '#1abc9c', '#f1c40f'];
 const CARNIVAL_SHAPES = ['circle', 'square', 'triangle', 'rect'];
 
-function spawnCarnivalPiece(container) {
+function spawnCarnivalPiece(container, colors) {
+  const palette = colors || CARNIVAL_COLORS;
   const wrapper = document.createElement('div');
   wrapper.className = 'jellio-seasonal-carnival-wrapper';
   const sway = document.createElement('div');
@@ -511,7 +568,7 @@ function spawnCarnivalPiece(container) {
   const piece = document.createElement('div');
   const shape = CARNIVAL_SHAPES[Math.floor(Math.random() * CARNIVAL_SHAPES.length)];
   piece.className = 'jellio-seasonal-carnival-piece jellio-seasonal-carnival-' + shape;
-  piece.style.backgroundColor = CARNIVAL_COLORS[Math.floor(Math.random() * CARNIVAL_COLORS.length)];
+  piece.style.backgroundColor = palette[Math.floor(Math.random() * palette.length)];
 
   wrapper.style.left = rand(0, 100) + '%';
   const duration = rand(5, 10);
@@ -531,13 +588,385 @@ function spawnCarnivalPiece(container) {
   wrapper.addEventListener('animationend', function (event) {
     if (event.animationName !== 'jellio-seasonal-carnival-fall') return;
     wrapper.remove();
-    if (container.isConnected) spawnCarnivalPiece(container);
+    if (container.isConnected) spawnCarnivalPiece(container, colors);
   });
   container.appendChild(wrapper);
 }
 
 function buildCarnival(container) {
   for (let i = 0; i < 60; i++) spawnCarnivalPiece(container);
+}
+
+// Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+// underwater.js: a deep blue overlay with light rays, swaying seaweed
+// along the bottom, static bottom dwellers (crab/starfish/shell) and
+// real swimmers (fish moving left/right, turtles the same but slower,
+// jellyfish drifting up/down instead), each with its own real depth
+// (blur/opacity/z-index) and a real inner sway div so the body sways
+// independently of the direction it travels in, plus rising bubbles.
+// Real emoji stand in for that plugin's own bespoke GIF sprites.
+function buildUnderwater(container) {
+  container.appendChild(document.createElement('div')).className = 'jellio-seasonal-underwater-bg';
+  container.appendChild(document.createElement('div')).className = 'jellio-seasonal-underwater-rays';
+
+  for (let i = 0; i < 14; i++) {
+    const seaweed = document.createElement('span');
+    seaweed.className = 'jellio-seasonal-underwater-seaweed';
+    seaweed.textContent = '🌿';
+    seaweed.style.left = rand(0, 95) + 'vw';
+    seaweed.style.animationDelay = '-' + rand(0, 5) + 's';
+    seaweed.style.fontSize = rand(1.6, 2.6) + 'rem';
+    container.appendChild(seaweed);
+  }
+
+  [
+    { glyph: '🦀', count: 2 },
+    { glyph: '⭐', count: 2 },
+    { glyph: '🐚', count: 2 },
+  ].forEach(function (item) {
+    for (let i = 0; i < item.count; i++) {
+      const creature = document.createElement('span');
+      creature.className = 'jellio-seasonal-underwater-bottom';
+      creature.textContent = item.glyph;
+      creature.style.left = rand(0, 95) + 'vw';
+      creature.style.fontSize = rand(1.2, 1.8) + 'rem';
+      container.appendChild(creature);
+    }
+  });
+
+  function spawnSwimmer(glyph, baseSize, kind) {
+    const depth = Math.random();
+    const wrapper = document.createElement('span');
+    wrapper.className = 'jellio-seasonal-underwater-swimmer';
+    wrapper.style.opacity = String(0.4 + depth * 0.5);
+    wrapper.style.zIndex = String(Math.floor(depth * 30) + 10);
+    wrapper.style.fontSize = baseSize * (0.5 + depth) + 'rem';
+    const duration = (1 - depth) * 20 + 15 + rand(0, 5);
+
+    const inner = document.createElement('span');
+    inner.className = 'jellio-seasonal-underwater-sway';
+    inner.textContent = glyph;
+    wrapper.appendChild(inner);
+
+    if (kind === 'jellyfish') {
+      wrapper.classList.add(Math.random() > 0.5 ? 'jellio-seasonal-underwater-up' : 'jellio-seasonal-underwater-down');
+      wrapper.style.left = rand(0, 90) + 'vw';
+    } else {
+      wrapper.classList.add(Math.random() > 0.5 ? 'jellio-seasonal-underwater-right' : 'jellio-seasonal-underwater-left');
+      wrapper.style.top = rand(5, 85) + 'vh';
+    }
+    wrapper.style.animationDuration = duration + 's';
+    wrapper.style.animationDelay = '-' + rand(0, duration) + 's';
+    container.appendChild(wrapper);
+  }
+
+  [
+    { glyph: '🐟', size: 1.4, count: 10, kind: 'fish' },
+    { glyph: '🐢', size: 2.2, count: 1, kind: 'turtle' },
+    { glyph: '🪼', size: 1.8, count: 3, kind: 'jellyfish' },
+  ].forEach(function (group) {
+    for (let i = 0; i < group.count; i++) spawnSwimmer(group.glyph, group.size, group.kind);
+  });
+
+  for (let i = 0; i < 24; i++) {
+    const bubble = document.createElement('span');
+    bubble.className = 'jellio-seasonal-underwater-bubble';
+    const size = rand(5, 18);
+    bubble.style.width = size + 'px';
+    bubble.style.height = size + 'px';
+    bubble.style.left = rand(0, 100) + 'vw';
+    bubble.style.animationDuration = rand(4, 8) + 's';
+    bubble.style.animationDelay = rand(0, 8) + 's';
+    container.appendChild(bubble);
+  }
+}
+
+// Shared by Santa/Snowfall/Snowstorm below: CodeDevMLH/Jellyfin-Seasonals'
+// own real snowfall.js/snowstorm.js/santa.js each build this exact same
+// canvas dot snowfall (only the wind and vertical variance differ),
+// confirmed identical against all three real sources, one shared real
+// canvas loop here instead of copying it three times.
+function buildCanvasSnow(container, opts) {
+  const canvas = document.createElement('canvas');
+  canvas.className = 'jellio-seasonal-fireworks-canvas';
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  let width = 0;
+  let height = 0;
+  let frameId = null;
+
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const count = window.matchMedia('(max-width: 768px)').matches ? Math.round(opts.count / 2) : opts.count;
+  const flakes = [];
+  for (let i = 0; i < count; i++) {
+    flakes.push({
+      x: rand(0, width),
+      y: rand(0, height),
+      radius: rand(1, 1.6),
+      speed: rand(1, 1 + opts.speed),
+      horizontal: rand(-opts.wind, opts.wind),
+      vertical: rand(-opts.verticalVariation, opts.verticalVariation),
+    });
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'white';
+    flakes.forEach(function (flake) {
+      flake.y += flake.speed + flake.vertical;
+      flake.x += flake.horizontal;
+      if (flake.y > height) {
+        flake.y = 0;
+        flake.x = rand(0, width);
+      }
+      if (flake.x > width) flake.x = 0;
+      if (flake.x < 0) flake.x = width;
+      ctx.beginPath();
+      ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    frameId = window.requestAnimationFrame(tick);
+  }
+  tick();
+
+  return function cleanup() {
+    if (frameId) window.cancelAnimationFrame(frameId);
+    window.removeEventListener('resize', resize);
+  };
+}
+
+function buildSnowfall(container) {
+  return buildCanvasSnow(container, { count: 350, speed: 2, wind: 0.3, verticalVariation: 0 });
+}
+
+function buildSnowstorm(container) {
+  return buildCanvasSnow(container, { count: 350, speed: 4, wind: 4, verticalVariation: 2 });
+}
+
+// Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+// santa.js: that same shared canvas snowfall, plus a real Santa
+// element flying a parabolic arc from one side of the screen to the
+// other (a sine-curve lift added to the straight-line vertical
+// interpolation, exactly matching that real plugin's own
+// currentY = startY + deltaY * progress - 50 * Math.sin(progress * PI)),
+// occasionally dropping a present that falls straight down and removes
+// itself, then resting before flying again from a random side.
+function buildSanta(container) {
+  const cleanupSnow = buildCanvasSnow(container, { count: 300, speed: 1.5, wind: 0, verticalVariation: 0 });
+
+  const santa = document.createElement('span');
+  santa.className = 'jellio-seasonal-santa';
+  santa.textContent = '🎅';
+  container.appendChild(santa);
+
+  let frameId = null;
+  let restTimer = null;
+  const presentTimers = [];
+  const gifts = ['🎁', '🎀'];
+
+  function dropPresent(x, y) {
+    const present = document.createElement('span');
+    present.className = 'jellio-seasonal-santa-present';
+    present.textContent = gifts[Math.floor(Math.random() * gifts.length)];
+    present.style.left = x + 'px';
+    present.style.top = y + 'px';
+    const duration = rand(2, 5);
+    present.style.transition = 'top ' + duration + 's linear';
+    container.appendChild(present);
+    window.requestAnimationFrame(function () {
+      present.style.top = window.innerHeight + 'px';
+    });
+    const timer = window.setTimeout(function () {
+      present.remove();
+    }, duration * 1000 + 100);
+    presentTimers.push(timer);
+  }
+
+  function flyOnce() {
+    if (!container.isConnected) return;
+    const fromLeft = Math.random() < 0.5;
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const startX = fromLeft ? -140 : screenWidth + 140;
+    const endX = fromLeft ? screenWidth + 140 : -140;
+    const startY = rand(20, screenHeight / 5);
+    const endY = rand(20, screenHeight / 5);
+    const angle = rand(-8, 8);
+    santa.style.transform = 'rotate(' + angle + 'deg)' + (fromLeft ? ' scaleX(-1)' : '');
+
+    const duration = window.matchMedia('(max-width: 768px)').matches ? 8000 : 10000;
+    const deltaX = endX - startX;
+    const deltaY = endY - startY;
+    const startTime = performance.now();
+
+    function move() {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const currentY = startY + deltaY * progress - 50 * Math.sin(progress * Math.PI);
+      const currentX = startX + deltaX * progress;
+      santa.style.left = currentX + 'px';
+      santa.style.top = currentY + 'px';
+      if (Math.random() < 0.05) dropPresent(currentX, currentY + 30);
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(move);
+      } else {
+        restTimer = window.setTimeout(flyOnce, rand(3000, 8000));
+      }
+    }
+    frameId = window.requestAnimationFrame(move);
+  }
+  flyOnce();
+
+  return function cleanup() {
+    if (frameId) window.cancelAnimationFrame(frameId);
+    if (restTimer) window.clearTimeout(restTimer);
+    presentTimers.forEach(window.clearTimeout);
+    cleanupSnow();
+  };
+}
+
+// Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+// marioday.js: a runner crossing the screen on a fixed real loop,
+// occasionally jumping (a CSS class toggled on and off) and dropping a
+// coin near its own current position, that real plugin's own
+// getBoundingClientRect() read used the same way here to place the
+// coin exactly where the runner actually is rather than a guess.
+function buildMarioDay(container) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'jellio-seasonal-mario-wrapper';
+  const runner = document.createElement('span');
+  runner.className = 'jellio-seasonal-mario-runner';
+  runner.textContent = '🍄';
+  wrapper.appendChild(runner);
+  container.appendChild(wrapper);
+
+  let jumpCount = 0;
+  let maxJumps = Math.floor(rand(0, 3));
+  const resetInterval = window.setInterval(function () {
+    jumpCount = 0;
+    maxJumps = Math.floor(rand(0, 3));
+  }, 9000);
+
+  const coinInterval = window.setInterval(function () {
+    if (!container.isConnected) return;
+    const rect = wrapper.getBoundingClientRect();
+    if (rect.left < 0 || rect.right > window.innerWidth) return;
+    if (!runner.classList.contains('jellio-seasonal-mario-jump') && jumpCount < maxJumps) {
+      runner.classList.add('jellio-seasonal-mario-jump');
+      jumpCount++;
+      window.setTimeout(function () {
+        runner.classList.remove('jellio-seasonal-mario-jump');
+      }, 800);
+    }
+    const coin = document.createElement('span');
+    coin.className = 'jellio-seasonal-mario-coin';
+    coin.textContent = '🪙';
+    coin.style.left = rect.left + 16 + 'px';
+    container.appendChild(coin);
+    window.setTimeout(function () {
+      coin.remove();
+    }, 2000);
+  }, 4000);
+
+  return function cleanup() {
+    window.clearInterval(resetInterval);
+    window.clearInterval(coinInterval);
+  };
+}
+
+// Shared by Storm/Rain below: CodeDevMLH/Jellyfin-Seasonals' own real
+// storm.js and rain.js build this exact same falling raindrop streak,
+// storm.js's own only addition being the lightning flash, confirmed
+// against both real sources, one real shared builder for the drops.
+function buildRainDrops(container, count) {
+  for (let i = 0; i < count; i++) {
+    const drop = document.createElement('span');
+    drop.className = 'jellio-seasonal-raindrop';
+    drop.style.left = rand(0, 140) + 'vw';
+    drop.style.top = -20 - rand(0, 50) + 'vh';
+    drop.style.animationDuration = rand(0.5, 1) + 's';
+    drop.style.animationDelay = rand(0, 2) + 's';
+    drop.style.opacity = String(rand(0.3, 0.8));
+    container.appendChild(drop);
+  }
+}
+
+function buildRain(container) {
+  buildRainDrops(container, window.matchMedia('(max-width: 768px)').matches ? 150 : 300);
+}
+
+function buildStorm(container) {
+  buildRainDrops(container, window.matchMedia('(max-width: 768px)').matches ? 150 : 300);
+  const flash = document.createElement('div');
+  flash.className = 'jellio-seasonal-lightning-flash';
+  container.appendChild(flash);
+
+  let timer = null;
+  function triggerFlash() {
+    const nextDelay = rand(5000, 15000);
+    timer = window.setTimeout(function () {
+      flash.style.opacity = '0.8';
+      window.setTimeout(function () {
+        flash.style.opacity = '0';
+      }, 50);
+      window.setTimeout(function () {
+        flash.style.opacity = '0.5';
+      }, 100);
+      window.setTimeout(function () {
+        flash.style.opacity = '0';
+      }, 150);
+      triggerFlash();
+    }, nextDelay);
+  }
+  triggerFlash();
+
+  return function cleanup() {
+    if (timer) window.clearTimeout(timer);
+  };
+}
+
+// Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+// sports.js: a turf gradient along the bottom, bouncing/spinning balls
+// (one outer element bouncing, one inner element spinning, exactly
+// that real plugin's own two-element split so the bounce and the spin
+// never fight over the same transform) and falling confetti reusing
+// carnival's own real shaped-confetti markup. The real trophy arc and
+// per-category ball art aren't ported (real emoji standing in for a
+// generic ball set instead), a corner of this theme left simplified.
+function buildSports(container) {
+  const turf = document.createElement('div');
+  turf.className = 'jellio-seasonal-sports-turf';
+  container.appendChild(turf);
+
+  const balls = ['⚽', '🏀', '🎾', '🏐'];
+  const count = window.matchMedia('(max-width: 768px)').matches ? 3 : 5;
+  balls.forEach(function (glyph) {
+    for (let i = 0; i < count; i++) {
+      const outer = document.createElement('span');
+      outer.className = 'jellio-seasonal-sports-ball';
+      const inner = document.createElement('span');
+      inner.className = 'jellio-seasonal-sports-ball-spin';
+      inner.textContent = glyph;
+      outer.appendChild(inner);
+      outer.style.left = rand(0, 95) + 'vw';
+      outer.style.animationDuration = rand(6, 10) + 's';
+      outer.style.animationDelay = rand(0, 10) + 's';
+      inner.style.animationDuration = rand(2, 4) + 's';
+      inner.style.setProperty('--jellio-sports-spin', (Math.random() > 0.5 ? 360 : -360) + 'deg');
+      container.appendChild(outer);
+    }
+  });
+
+  const confettiColors = ['#000000', '#ff0000', '#ffcc00'];
+  for (let i = 0; i < (window.matchMedia('(max-width: 768px)').matches ? 30 : 60); i++) {
+    spawnCarnivalPiece(container, confettiColors);
+  }
 }
 
 let mountedContainer = null;
@@ -578,6 +1007,24 @@ function applyTheme(theme) {
     buildFrost(mountedContainer);
   } else if (theme === 'carnival') {
     buildCarnival(mountedContainer);
+  } else if (theme === 'space') {
+    activeCleanup = buildSpace(mountedContainer);
+  } else if (theme === 'underwater') {
+    buildUnderwater(mountedContainer);
+  } else if (theme === 'santa') {
+    activeCleanup = buildSanta(mountedContainer);
+  } else if (theme === 'marioday') {
+    activeCleanup = buildMarioDay(mountedContainer);
+  } else if (theme === 'storm') {
+    activeCleanup = buildStorm(mountedContainer);
+  } else if (theme === 'rain') {
+    buildRain(mountedContainer);
+  } else if (theme === 'sports') {
+    buildSports(mountedContainer);
+  } else if (theme === 'snowfall') {
+    activeCleanup = buildSnowfall(mountedContainer);
+  } else if (theme === 'snowstorm') {
+    activeCleanup = buildSnowstorm(mountedContainer);
   } else {
     buildDrift(mountedContainer, DRIFT_THEMES[theme]);
   }

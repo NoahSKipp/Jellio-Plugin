@@ -5694,6 +5694,366 @@ select.jellio-settings-input {
   }
 }
 
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   space.js: real objects drifting horizontally at their own real
+   depth, a slow independent spin layered on top via a real nested
+   span so the drift and the spin never fight over the same
+   transform (the same real two-transform split this file's own
+   Carnival wrapper/sway/piece nesting above already relies on). */
+.jellio-seasonal-space-object {
+  position: fixed;
+  will-change: transform;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.jellio-seasonal-space-drift-right {
+  left: -10vw;
+  animation-name: jellio-seasonal-space-right;
+}
+
+.jellio-seasonal-space-drift-left {
+  right: -10vw;
+  animation-name: jellio-seasonal-space-left;
+}
+
+@keyframes jellio-seasonal-space-right {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(120vw);
+  }
+}
+
+@keyframes jellio-seasonal-space-left {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-120vw);
+  }
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   underwater.js: a deep blue tint plus light rays, seaweed swaying at
+   the bottom, static bottom dwellers, and real swimmers, each one a
+   two element split (an outer wrapper doing the real cross-screen
+   traverse, an inner span doing its own independent sway) the same
+   real reason space's own drift/spin split above exists. */
+.jellio-seasonal-underwater-bg {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(0 60 90 / 0.35) 0%, rgb(0 30 60 / 0.55) 100%);
+}
+
+.jellio-seasonal-underwater-rays {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 0%, rgb(180 230 255 / 0.2), transparent 60%), radial-gradient(ellipse at 70% 0%, rgb(180 230 255 / 0.15), transparent 55%);
+}
+
+.jellio-seasonal-underwater-seaweed {
+  position: fixed;
+  bottom: -1vh;
+  transform-origin: bottom center;
+  animation: jellio-seasonal-underwater-seaweed-sway 4s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes jellio-seasonal-underwater-seaweed-sway {
+  0% {
+    transform: rotate(-8deg);
+  }
+
+  100% {
+    transform: rotate(8deg);
+  }
+}
+
+.jellio-seasonal-underwater-bottom {
+  position: fixed;
+  bottom: 0.5vh;
+}
+
+.jellio-seasonal-underwater-swimmer {
+  position: fixed;
+  will-change: transform;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.jellio-seasonal-underwater-sway {
+  display: inline-block;
+  animation: jellio-seasonal-underwater-body-sway 3s ease-in-out infinite alternate;
+}
+
+@keyframes jellio-seasonal-underwater-body-sway {
+  0% {
+    transform: translateY(-6px);
+  }
+
+  100% {
+    transform: translateY(6px);
+  }
+}
+
+.jellio-seasonal-underwater-right {
+  left: -10vw;
+  animation-name: jellio-seasonal-underwater-swim-right;
+}
+
+.jellio-seasonal-underwater-left {
+  right: -10vw;
+  animation-name: jellio-seasonal-underwater-swim-left;
+}
+
+.jellio-seasonal-underwater-up {
+  animation-name: jellio-seasonal-underwater-swim-up;
+}
+
+.jellio-seasonal-underwater-down {
+  animation-name: jellio-seasonal-underwater-swim-down;
+}
+
+@keyframes jellio-seasonal-underwater-swim-right {
+  from {
+    transform: translateX(0) scaleX(-1);
+  }
+
+  to {
+    transform: translateX(120vw) scaleX(-1);
+  }
+}
+
+@keyframes jellio-seasonal-underwater-swim-left {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-120vw);
+  }
+}
+
+@keyframes jellio-seasonal-underwater-swim-up {
+  from {
+    top: 105vh;
+  }
+
+  to {
+    top: -10vh;
+  }
+}
+
+@keyframes jellio-seasonal-underwater-swim-down {
+  from {
+    top: -10vh;
+  }
+
+  to {
+    top: 105vh;
+  }
+}
+
+.jellio-seasonal-underwater-bubble {
+  position: fixed;
+  bottom: -5vh;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.25);
+  border: 1px solid rgb(255 255 255 / 0.4);
+  animation: jellio-seasonal-underwater-rise linear infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes jellio-seasonal-underwater-rise {
+  0% {
+    transform: translateY(0);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translateY(-110vh);
+    opacity: 0;
+  }
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   santa.js: a flying Santa (the parabolic arc itself computed frame
+   by frame in components/seasonalEffects.js's own buildSanta(), CSS
+   only owning the rotation/flip already set inline there) and
+   presents that fall straight down via a real top transition,
+   removing themselves on 'transitionend'. */
+.jellio-seasonal-santa {
+  position: fixed;
+  font-size: 3rem;
+  will-change: transform, top, left;
+}
+
+.jellio-seasonal-santa-present {
+  position: fixed;
+  font-size: 1.6rem;
+  will-change: top;
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   marioday.js: a runner crossing the screen on a fixed real loop, a
+   jump toggled by adding/removing one real class rather than a
+   second animation, and coins that pop up briefly near wherever the
+   runner currently really is. */
+.jellio-seasonal-mario-wrapper {
+  position: fixed;
+  bottom: 4vh;
+  left: -15vw;
+  font-size: 2.4rem;
+  animation: jellio-seasonal-mario-run 18s linear infinite;
+  will-change: transform;
+}
+
+@keyframes jellio-seasonal-mario-run {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(130vw);
+  }
+}
+
+.jellio-seasonal-mario-runner {
+  display: inline-block;
+}
+
+.jellio-seasonal-mario-jump {
+  animation: jellio-seasonal-mario-jump 0.8s ease-out;
+}
+
+@keyframes jellio-seasonal-mario-jump {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-2.2rem);
+  }
+}
+
+.jellio-seasonal-mario-coin {
+  position: fixed;
+  bottom: 8vh;
+  font-size: 1.4rem;
+  animation: jellio-seasonal-mario-coin-pop 2s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes jellio-seasonal-mario-coin-pop {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  60% {
+    transform: translateY(-3em);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(-3em);
+    opacity: 0;
+  }
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   storm.js/rain.js: falling raindrop streaks (a plain gradient bar,
+   not a glyph), storm's own extra lightning flash a single fixed div
+   whose opacity components/seasonalEffects.js's own real flash loop
+   pokes directly rather than a CSS animation, since a real flash has
+   no fixed period to loop on. */
+.jellio-seasonal-raindrop {
+  position: fixed;
+  width: 1px;
+  height: 2vh;
+  background: linear-gradient(to bottom, transparent, rgb(174 200 255 / 0.6));
+  animation-name: jellio-seasonal-rain-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes jellio-seasonal-rain-fall {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(120vh);
+  }
+}
+
+.jellio-seasonal-lightning-flash {
+  position: fixed;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  mix-blend-mode: overlay;
+}
+
+/* Ported in spirit from CodeDevMLH/Jellyfin-Seasonals' own real
+   sports.js: a turf gradient along the bottom edge and balls that
+   bounce (outer span) while spinning (inner span) independently, the
+   same real two element split used throughout this file for exactly
+   that reason. */
+.jellio-seasonal-sports-turf {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 12vh;
+  background: linear-gradient(180deg, transparent 0%, rgb(34 139 34 / 0.3) 30%, rgb(34 139 34 / 0.8) 100%);
+}
+
+.jellio-seasonal-sports-ball {
+  position: fixed;
+  bottom: 6vh;
+  font-size: 1.8rem;
+  animation-name: jellio-seasonal-sports-bounce;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.jellio-seasonal-sports-ball-spin {
+  display: inline-block;
+  animation-name: jellio-seasonal-sports-spin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes jellio-seasonal-sports-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8vh);
+  }
+}
+
+@keyframes jellio-seasonal-sports-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(var(--jellio-sports-spin, 360deg));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.001ms !important;
