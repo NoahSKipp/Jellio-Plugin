@@ -11,7 +11,7 @@ import { navigateTo } from '../runtime/router.js';
 import { openStreamPicker } from '../components/streamPicker.js';
 import { renderLoading, renderRetry } from '../components/networkState.js';
 import { describeNetworkFailure } from '../runtime/network.js';
-import { toggleWatched, toggleWatchlist } from '../components/cardOptionsMenu.js';
+import { toggleWatched, toggleWatchlist, toggleRating } from '../components/cardOptionsMenu.js';
 import { attachScrollArrows } from '../components/scrollArrows.js';
 
 // A failed item lookup used to just console.warn and return, leaving
@@ -767,6 +767,82 @@ export async function renderDetail(root, params) {
       });
   });
   actions.appendChild(watchedButton);
+
+  // Real Jellyfin's own native like/dislike (UserData.Likes, POST/DELETE
+  // /Users/{id}/Items/{id}/Rating), not a second real system this
+  // runtime invented: real feedback asked for a personal rating that
+  // could also feed runtime/recommend.js's own scorer, and this is the
+  // one Jellyfin already has. jellio-detail-icon-action-pop below plays
+  // a quick real bounce on whichever thumb the reader just actually
+  // set, css/app.css's own jellio-thumb-pop keyframe, removed again on
+  // its own animationend so the same thumb can replay it next time
+  // rather than only ever once.
+  function playPop(button) {
+    button.classList.remove('jellio-detail-icon-action-pop');
+    // Forces a real reflow: re-adding the same real class in the same
+    // real tick would not restart a still-matching CSS animation at
+    // all otherwise, the same real trick every other one-shot class
+    // toggle in this codebase already needs.
+    void button.offsetWidth;
+    button.classList.add('jellio-detail-icon-action-pop');
+    button.addEventListener('animationend', function handler() {
+      button.classList.remove('jellio-detail-icon-action-pop');
+      button.removeEventListener('animationend', handler);
+    });
+  }
+
+  const thumbsUpButton = el('button', iconActionClass);
+  thumbsUpButton.type = 'button';
+  const thumbsDownButton = el('button', iconActionClass);
+  thumbsDownButton.type = 'button';
+
+  function paintThumbs() {
+    const likes = item.UserData && item.UserData.Likes;
+    thumbsUpButton.classList.toggle('jellio-detail-icon-action-active', likes === true);
+    thumbsUpButton.setAttribute('aria-label', likes === true ? 'Remove like' : 'Like');
+    thumbsUpButton.textContent = '';
+    thumbsUpButton.appendChild(el('span', 'material-icons ' + (likes === true ? 'thumb_up' : 'thumb_up_alt')));
+
+    thumbsDownButton.classList.toggle('jellio-detail-icon-action-active', likes === false);
+    thumbsDownButton.setAttribute('aria-label', likes === false ? 'Remove dislike' : 'Dislike');
+    thumbsDownButton.textContent = '';
+    thumbsDownButton.appendChild(el('span', 'material-icons ' + (likes === false ? 'thumb_down' : 'thumb_down_alt')));
+  }
+  paintThumbs();
+
+  thumbsUpButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    thumbsUpButton.disabled = true;
+    toggleRating(item, true)
+      .then(function () {
+        paintThumbs();
+        playPop(thumbsUpButton);
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not update rating', err);
+      })
+      .finally(function () {
+        thumbsUpButton.disabled = false;
+      });
+  });
+  actions.appendChild(thumbsUpButton);
+
+  thumbsDownButton.addEventListener('click', function (event) {
+    event.stopPropagation();
+    thumbsDownButton.disabled = true;
+    toggleRating(item, false)
+      .then(function () {
+        paintThumbs();
+        playPop(thumbsDownButton);
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not update rating', err);
+      })
+      .finally(function () {
+        thumbsDownButton.disabled = false;
+      });
+  });
+  actions.appendChild(thumbsDownButton);
 
   // Play alone already reopens components/streamPicker.js's own picker
   // whenever there is real more than one source and "remember my

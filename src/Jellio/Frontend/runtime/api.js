@@ -591,6 +591,29 @@ export async function setWatchlist(itemId, isWatchlisted) {
   return response.json();
 }
 
+// Real endpoint pair, POST/DELETE /Users/{id}/Items/{itemId}/Rating
+// (UserLibraryController.cs's own real UpdateItemRating/DeleteItemRating):
+// a plain real like/dislike, UserData.Likes (true/false/absent), not a
+// 1-10 star scale, same real shape the stock UI's own thumbs already
+// use. Clearing sends the DELETE with no real likes query param at
+// all, the one way this endpoint returns UserData.Likes to real
+// undefined rather than toggling it to the opposite real value.
+export async function setItemRating(itemId, likes) {
+  const userId = getCurrentUserId();
+  if (!userId) return Promise.reject(new Error('Not signed in'));
+  const path = '/Users/' + userId + '/Items/' + itemId + '/Rating' + (likes == null ? '' : '?likes=' + likes);
+  const response = await fetch(getServerAddress() + path, {
+    method: likes == null ? 'DELETE' : 'POST',
+    headers: Object.assign({ Accept: 'application/json' }, getAuthHeaders()),
+  });
+  if (!response.ok) {
+    const err = new Error('Request failed: Rating');
+    err.status = response.status;
+    throw err;
+  }
+  return response.json();
+}
+
 // Real mechanism, confirmed against JMSFusion's own source
 // (RuntimeModules/api.js's own getVideoStreamUrl) before writing any of
 // this, not guessed at: POST /Items/{id}/PlaybackInfo negotiates a real

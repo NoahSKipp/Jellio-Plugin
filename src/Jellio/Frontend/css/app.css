@@ -1446,11 +1446,16 @@
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: width 220ms var(--jellio-ease-out);
+  transition: width 220ms var(--jellio-ease-out), transform 120ms var(--jellio-ease-out);
 }
 
 .jellio-detail-play:hover {
   background: var(--jellio-secondary-variant);
+  transform: scale(1.03);
+}
+
+.jellio-detail-play:active {
+  transform: scale(0.97);
 }
 
 .jellio-detail-icon-action {
@@ -1469,10 +1474,20 @@
   font-size: 1em;
   line-height: 1;
   cursor: pointer;
+  /* Harbor's own real de facto button feel (confirmed across several
+     of its own components before writing this): hover scales up a
+     touch, active scales back down past 1, applied here consistently
+     with every other real button in this codebase now carrying it. */
+  transition: background-color 160ms ease, transform 120ms var(--jellio-ease-out);
 }
 
 .jellio-detail-icon-action:hover {
   background: rgb(255 255 255 / 0.08);
+  transform: scale(1.08);
+}
+
+.jellio-detail-icon-action:active {
+  transform: scale(0.94);
 }
 
 .jellio-detail-icon-action:disabled {
@@ -1483,6 +1498,35 @@
 .jellio-detail-icon-action-active {
   border-color: var(--jellio-secondary-color);
   color: var(--jellio-secondary-color);
+}
+
+/* screens/detail.js's own playPop(): plays on whichever thumb the
+   reader just actually set, real feedback asked directly for an
+   animation here rather than a plain colour swap alone. Harbor's own
+   real "pop" (confirmed against its real source, src/index.css,
+   before writing this): a genuine spring overshoot, scale past 1
+   before settling rather than a plain ease back down, the one real
+   animation in that whole codebase that actually reads as springy.
+   Reused verbatim (its own real timing/curve, not a guess) for a
+   stronger real tell than the plain colour swap Harbor's own thumbs
+   button itself settles for. Removed again on its own animationend,
+   so the same thumb can replay it the next real time rather than only
+   once. */
+@keyframes jellio-thumb-pop {
+  0% {
+    transform: scale(0.5);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.jellio-detail-icon-action-pop .material-icons {
+  display: inline-block;
+  animation: jellio-thumb-pop 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .jellio-detail-icon-action-more {

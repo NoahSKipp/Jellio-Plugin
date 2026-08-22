@@ -40,6 +40,16 @@ const WEIGHT = {
   runtime: 0.3,
 };
 
+// Real Jellyfin's own UserData.Likes (POST/DELETE /Users/{id}/Items/
+// {id}/Rating, a plain like/dislike, not a 1-10 scale), fed into this
+// scorer on real feedback's own direct ask: a title the reader
+// explicitly liked should pull its own "because you watched" row (and
+// the aggregate genre signal below) harder toward the same genre,
+// explicit signal outweighing whatever a title's own community rating
+// or recency alone would have said. A disliked title is excluded as a
+// seed entirely further down, never even reaching score() with it.
+const LIKED_SEED_BOOST = 1.35;
+
 // Diversity is enforced here, at selection, and not by lowering the
 // weights above. Lowering them does not work: one dominant signal
 // still wins repeatedly and a row fills with titles sharing a lead
@@ -86,7 +96,12 @@ function score(seed, entry) {
   const overlap = jaccard(seed.Genres || [], item.Genres || []);
   if (!overlap) return 0;
 
-  let total = WEIGHT.genre * overlap;
+  // The genre term specifically, not the whole real score: a liked
+  // seed should pull harder toward the same genre, not toward a
+  // stronger era/rating/runtime coincidence that has nothing to do
+  // with why the reader actually liked it.
+  const likedBoost = seed.UserData && seed.UserData.Likes === true ? LIKED_SEED_BOOST : 1;
+  let total = WEIGHT.genre * overlap * likedBoost;
   if (entry.viaPerson) total += WEIGHT.person;
 
   if (seed.ProductionYear && item.ProductionYear) {
@@ -218,11 +233,25 @@ async function buildSeedRows(seeds, titleFor, exclude) {
 // watch history sample rather than one seed at a time: a broader "you
 // generally like X" signal, alongside the per title "because you
 // watched" rows above, not a replacement for them.
+// A liked title counts double toward its own genres here, a disliked
+// one not at all: the same real UserData.Likes signal score() above
+// already leans on, applied to the aggregate "Top Picks for You" count
+// instead of one seed's own row. Neither changes MIN_GENRE_COUNT's own
+// real floor, a liked title just clears it faster.
+function genreWeight(item) {
+  const likes = item.UserData && item.UserData.Likes;
+  if (likes === true) return 2;
+  if (likes === false) return 0;
+  return 1;
+}
+
 function topGenres(history) {
   const counts = {};
   history.forEach(function (item) {
+    const weight = genreWeight(item);
+    if (!weight) return;
     (item.Genres || []).forEach(function (genre) {
-      counts[genre] = (counts[genre] || 0) + 1;
+      counts[genre] = (counts[genre] || 0) + weight;
     });
   });
   return Object.keys(counts)
@@ -311,12 +340,19 @@ export async function buildRecommendationRows(exclude) {
     }),
   ]);
 
-  const completedSeeds = history.slice(0, SEED_LIMIT);
+  // A title the reader explicitly disliked has no business leading its
+  // own "because you watched" row at all, real feedback's own signal
+  // used to exclude a seed here rather than only ever down-weight one.
+  function notDisliked(seed) {
+    return !(seed.UserData && seed.UserData.Likes === false);
+  }
+
+  const completedSeeds = history.filter(notDisliked).slice(0, SEED_LIMIT);
   const completedRows = await buildSeedRows(completedSeeds, function (seed) {
     return 'Because you watched ' + seed.Name;
   }, exclude);
 
-  const nextUpRows = await buildSeedRows(nextUp, function (seed) {
+  const nextUpRows = await buildSeedRows(nextUp.filter(notDisliked), function (seed) {
     return "Because you're watching " + (seed.SeriesName || seed.Name);
   }, exclude);
 
