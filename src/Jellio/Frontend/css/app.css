@@ -381,12 +381,20 @@
   max-width: calc(100vw - 2 * var(--jellio-safe-gutter));
   padding: 0.6em 0.7em;
   border-radius: 999px;
-  background: rgb(var(--jellio-bg-elevated-rgb) / 0.82);
+  /* Real feedback, twice over: this pill still felt sluggish on
+     scroll, worse once it got bigger. backdrop-filter has to resample
+     whatever real content is scrolling underneath a fixed element
+     every single real frame, real cost that scales with the blurred
+     area itself, not something any transition timing or will-change
+     hint on the labels further down could ever touch: a bigger pill
+     made that same real per-frame cost bigger too, not smaller. A
+     plain, more opaque solid background reads as the same real glass
+     pill without asking the GPU to re-blur live scrolling content
+     underneath it dozens of times a second. */
+  background: rgb(var(--jellio-bg-elevated-rgb) / 0.96);
   border: 1px solid rgb(255 255 255 / 0.1);
-  backdrop-filter: blur(20px) saturate(1.1);
-  -webkit-backdrop-filter: blur(20px) saturate(1.1);
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
-  transition: padding 220ms var(--jellio-ease-out);
+  transition: padding 160ms var(--jellio-ease-out);
   animation: jellio-mobile-nav-enter 360ms var(--jellio-ease-out) both;
 }
 
@@ -460,14 +468,16 @@
 
 /* Collapses smoothly rather than snapping away, real feedback asked
    for "fast reactive nice", then reported the transition itself felt
-   sluggish: two separate real layout properties (max-height AND
-   margin-top) were animating together on every one of this row's own
-   real buttons at once, real reflow work competing with the browser's
-   own real scroll-driven paint on the exact same real main thread this
-   whole transition fires on. One real property (height) now does the
-   same real collapse alone, will-change hints the browser to prepare
-   for it rather than discover it cold, and both durations are a touch
-   shorter for a snappier real feel. */
+   sluggish, then reported it again after a first real attempt (max-
+   height/margin-top down to one property, height, plus a real
+   will-change hint) made no real difference. will-change on a real
+   layout property buys nothing: height can never run on the
+   compositor regardless of any hint, the hint only pushes the browser
+   to promote a real extra layer for it anyway, real overhead with no
+   real upside, dropped here outright. The real fix lived one level up
+   instead: this pill's own real backdrop-filter (see .jellio-mobile-nav
+   above) was the one real per-frame cost actually competing with
+   scroll, not this element's own comparatively tiny reflow. */
 .jellio-mobile-nav-label {
   height: 1.2em;
   opacity: 1;
@@ -478,7 +488,6 @@
   max-width: 4.4em;
   overflow: hidden;
   text-overflow: ellipsis;
-  will-change: height, opacity;
   transition: height 160ms var(--jellio-ease-out), opacity 130ms ease;
 }
 
