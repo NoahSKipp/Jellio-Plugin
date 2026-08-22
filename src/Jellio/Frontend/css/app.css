@@ -703,7 +703,6 @@
   border: 0;
   cursor: pointer;
   color: inherit;
-  font: inherit;
   transition: color 160ms ease;
 }
 
