@@ -922,22 +922,19 @@ export function getAvatarPresetUrl(id) {
   return getServerAddress() + '/Jellio/avatars/' + encodeURIComponent(id);
 }
 
-// Setting the chosen preset as a user's own avatar is not Jellio's job,
-// real mechanism confirmed against jellyfin-apiclient-javascript's own
-// uploadUserImage before writing this: fetch the preset's own bytes,
-// base64 encode them, POST to the same real POST /Users/{id}/Images/
-// Primary endpoint the stock profile page's own file upload already
-// uses, body is the base64 payload itself with Content-Type set to the
-// image's real mime type, not JSON.
-export async function setUserAvatar(presetId) {
+// Shared real mechanism confirmed against jellyfin-apiclient-javascript's
+// own uploadUserImage before writing this: base64 encode whatever real
+// image bytes the caller already has (a preset's own fetched blob, or a
+// real file the reader picked off their own device), POST to the same
+// real POST /Users/{id}/Images/Primary endpoint the stock profile page's
+// own file upload already uses, body is the base64 payload itself with
+// Content-Type set to the image's real mime type, not JSON. Real
+// Jellyfin accepts an animated gif here same as any other real image
+// type, nothing this call needs to special case either way.
+async function uploadUserAvatarBlob(blob) {
   const userId = getCurrentUserId();
   if (!userId) return Promise.reject(new Error('Not signed in'));
 
-  const imageResponse = await fetch(getAvatarPresetUrl(presetId));
-  if (!imageResponse.ok) {
-    throw new Error('Could not load preset avatar');
-  }
-  const blob = await imageResponse.blob();
   const contentType = blob.type || 'image/png';
 
   const base64 = await new Promise(function (resolve, reject) {
@@ -960,6 +957,28 @@ export async function setUserAvatar(presetId) {
     throw err;
   }
   invalidateCurrentUser();
+}
+
+// Setting a chosen preset as a user's own avatar is not Jellio's job:
+// fetch that preset's own bytes off Jellio's own AvatarsController and
+// hand them to the same real upload path a real device file already
+// goes through below.
+export async function setUserAvatar(presetId) {
+  const imageResponse = await fetch(getAvatarPresetUrl(presetId));
+  if (!imageResponse.ok) {
+    throw new Error('Could not load preset avatar');
+  }
+  const blob = await imageResponse.blob();
+  return uploadUserAvatarBlob(blob);
+}
+
+// A real file the reader picked off their own device (components/
+// avatarPicker.js's own upload tile): real Jellyfin already supports
+// this natively (an animated gif included) for a user's own avatar,
+// this runtime just never had a way to reach it, presets only, until
+// real feedback asked directly for one.
+export function setUserAvatarFromFile(file) {
+  return uploadUserAvatarBlob(file);
 }
 
 // Real endpoint, POST /Users/{id}/Configuration (UserController.cs's

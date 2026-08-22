@@ -2658,6 +2658,45 @@
   font-size: 0.85em;
 }
 
+/* components/avatarPicker.js's own upload tile: real Jellyfin already
+   accepts a reader's own uploaded picture or gif natively for their own
+   avatar, presets were the only real way this runtime ever reached that
+   endpoint until real feedback asked for this. Dashed rather than the
+   solid ring every preset tile gets on hover, same real "add" affordance
+   components/accountSwitcher.js's own add-account tile already uses. */
+.jellio-avatar-picker-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2em;
+  border: 2px dashed rgb(255 255 255 / 0.24);
+  background: rgb(255 255 255 / 0.06);
+  color: var(--jellio-text-secondary);
+}
+
+.jellio-avatar-picker-upload:hover {
+  color: var(--jellio-text-color);
+}
+
+.jellio-avatar-picker-upload .material-icons {
+  font-size: 1.6em;
+}
+
+.jellio-avatar-picker-upload-label {
+  font-size: 0.68em;
+  font-weight: 600;
+}
+
+.jellio-avatar-picker-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* components/accountSwitcher.js's own currently-signed-in row, sat
    above the same real .jellio-avatar-picker-grid/.jellio-login-profile
    tiles the picker and login screen already use for every other

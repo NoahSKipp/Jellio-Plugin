@@ -4,7 +4,7 @@
 // and sets the chosen one as the signed in user's real avatar via the
 // same POST /Users/{id}/Images/Primary flow the stock profile page's own
 // file upload already uses.
-import { getAvatarPresets, getAvatarPresetUrl, setUserAvatar } from '../runtime/api.js';
+import { getAvatarPresets, getAvatarPresetUrl, setUserAvatar, setUserAvatarFromFile } from '../runtime/api.js';
 
 const OVERLAY_ID = 'jellioAvatarPicker';
 
@@ -45,10 +45,65 @@ export async function openAvatarPicker(onChanged) {
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 
+  // Real Jellyfin already accepts an uploaded user image natively (a
+  // picture or an animated gif, the same real POST /Users/{id}/Images/
+  // Primary preset picking already goes through), real feedback asked
+  // directly for a way to reach it rather than presets only. A plain
+  // hidden file input rather than a second real overlay: this same
+  // tile shape (a button wrapping an img) already reads as "pick this
+  // option" for every preset in this grid, the upload tile just opens
+  // a native file picker instead of setting a preset id directly.
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.className = 'jellio-avatar-picker-file-input';
+  fileInput.setAttribute('aria-hidden', 'true');
+  fileInput.tabIndex = -1;
+  panel.appendChild(fileInput);
+
+  const uploadOption = document.createElement('button');
+  uploadOption.type = 'button';
+  uploadOption.className = 'jellio-avatar-picker-option jellio-avatar-picker-upload';
+  uploadOption.setAttribute('aria-label', 'Upload your own picture or gif');
+  const uploadIcon = document.createElement('span');
+  uploadIcon.className = 'material-icons add_a_photo';
+  uploadIcon.setAttribute('aria-hidden', 'true');
+  uploadOption.appendChild(uploadIcon);
+  const uploadLabel = document.createElement('span');
+  uploadLabel.className = 'jellio-avatar-picker-upload-label';
+  uploadLabel.textContent = 'Upload';
+  uploadOption.appendChild(uploadLabel);
+  uploadOption.addEventListener('click', function () {
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', function () {
+    const file = fileInput.files && fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    uploadOption.disabled = true;
+    status.textContent = 'Setting avatar…';
+    setUserAvatarFromFile(file)
+      .then(function () {
+        status.textContent = 'Avatar updated.';
+        if (onChanged) onChanged();
+        closeAvatarPicker();
+      })
+      .catch(function (err) {
+        console.warn('Jellio: could not upload avatar', err);
+        status.textContent = 'Could not upload that picture.';
+        uploadOption.disabled = false;
+      });
+  });
+  // Appended unconditionally, ahead of the real preset fetch below:
+  // uploading a real device file has no real dependency on that fetch
+  // ever succeeding at all, a server error loading presets should not
+  // also take the one option that never needed them down with it.
+  grid.appendChild(uploadOption);
+
   try {
     const presets = await getAvatarPresets();
     if (!presets.length) {
-      status.textContent = 'No preset avatars are available on this server.';
+      status.textContent = 'No preset avatars are available on this server, upload your own instead.';
       return;
     }
     presets.forEach(function (preset) {
