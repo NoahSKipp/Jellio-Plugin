@@ -19,7 +19,7 @@
           </div>
 
           <div class="checkboxContainer checkboxContainer-withDescription">
-            <label>
+            <label class="emby-checkbox-label">
               <input is="emby-checkbox" type="checkbox" id="chkEnableReskin" />
               <span>Enable reskin</span>
             </label>
@@ -41,13 +41,192 @@
           </div>
 
           <div class="checkboxContainer checkboxContainer-withDescription">
-            <label>
+            <label class="emby-checkbox-label">
               <input is="emby-checkbox" type="checkbox" id="chkSeasonalEffectsEnabled" />
               <span>Enable seasonal effects</span>
             </label>
           </div>
 
-          <div id="seasonalEffectsThemes"></div>
+          <!-- Static per theme, same real convention CodeDevMLH/Jellyfin-Seasonals'
+               own configPage.html already uses for every one of its own theme
+               sections, confirmed against that source before writing this rather
+               than guessed: a dynamically created is="emby-checkbox"/is="emby-input"
+               row (document.createElement(tag, { is }) below the DOM's own initial
+               parse) never picked up this dashboard's own real is= enhancement,
+               real bug found live once an actual server ran this rather than only
+               a bare headless Chromium check of the raw HTML, the row simply never
+               showing at all. Static markup upgrades the same way every other real
+               plugin's own config page already relies on. -->
+
+          <details>
+            <summary>Winter snow</summary>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+              <label class="emby-checkbox-label">
+                <input is="emby-checkbox" type="checkbox" id="chkSeasonalWinterEnabled" />
+                <span>Enable Winter snow</span>
+              </label>
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalWinterStartMonth">Start month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalWinterStartMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalWinterStartDay">Start day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalWinterStartDay" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalWinterEndMonth">End month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalWinterEndMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalWinterEndDay">End day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalWinterEndDay" />
+            </div>
+          </details>
+
+          <details>
+            <summary>Spring blossoms</summary>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+              <label class="emby-checkbox-label">
+                <input is="emby-checkbox" type="checkbox" id="chkSeasonalSpringEnabled" />
+                <span>Enable Spring blossoms</span>
+              </label>
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalSpringStartMonth">Start month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalSpringStartMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalSpringStartDay">Start day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalSpringStartDay" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalSpringEndMonth">End month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalSpringEndMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalSpringEndDay">End day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalSpringEndDay" />
+            </div>
+          </details>
+
+          <details>
+            <summary>Summer sparkle</summary>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+              <label class="emby-checkbox-label">
+                <input is="emby-checkbox" type="checkbox" id="chkSeasonalSummerEnabled" />
+                <span>Enable Summer sparkle</span>
+              </label>
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalSummerStartMonth">Start month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalSummerStartMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalSummerStartDay">Start day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalSummerStartDay" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalSummerEndMonth">End month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalSummerEndMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalSummerEndDay">End day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalSummerEndDay" />
+            </div>
+          </details>
+
+          <details>
+            <summary>Autumn leaves</summary>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+              <label class="emby-checkbox-label">
+                <input is="emby-checkbox" type="checkbox" id="chkSeasonalAutumnEnabled" />
+                <span>Enable Autumn leaves</span>
+              </label>
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalAutumnStartMonth">Start month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalAutumnStartMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalAutumnStartDay">Start day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalAutumnStartDay" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalAutumnEndMonth">End month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalAutumnEndMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalAutumnEndDay">End day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalAutumnEndDay" />
+            </div>
+          </details>
+
+          <details>
+            <summary>Halloween</summary>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+              <label class="emby-checkbox-label">
+                <input is="emby-checkbox" type="checkbox" id="chkSeasonalHalloweenEnabled" />
+                <span>Enable Halloween</span>
+              </label>
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalHalloweenStartMonth">Start month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalHalloweenStartMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalHalloweenStartDay">Start day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalHalloweenStartDay" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalHalloweenEndMonth">End month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalHalloweenEndMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalHalloweenEndDay">End day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalHalloweenEndDay" />
+            </div>
+          </details>
+
+          <details>
+            <summary>New Year's fireworks</summary>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+              <label class="emby-checkbox-label">
+                <input is="emby-checkbox" type="checkbox" id="chkSeasonalNewYearEnabled" />
+                <span>Enable New Year's fireworks</span>
+              </label>
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalNewYearStartMonth">Start month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalNewYearStartMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalNewYearStartDay">Start day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalNewYearStartDay" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalNewYearEndMonth">End month</label>
+              <input is="emby-input" type="number" min="1" max="12" id="numSeasonalNewYearEndMonth" />
+            </div>
+            <div class="inputContainer">
+              <label class="inputLabel" for="numSeasonalNewYearEndDay">End day</label>
+              <input is="emby-input" type="number" min="1" max="31" id="numSeasonalNewYearEndDay" />
+            </div>
+          </details>
+
+          <details>
+            <summary>Friday the 13th</summary>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+              <label class="emby-checkbox-label">
+                <input is="emby-checkbox" type="checkbox" id="chkSeasonalFriday13Enabled" />
+                <span>Enable Friday the 13th</span>
+              </label>
+              <div class="fieldDescription">
+                No date range: shows on any real Friday the 13th, checked directly against
+                the calendar.
+              </div>
+            </div>
+          </details>
 
           <div>
             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
@@ -67,72 +246,19 @@
       // range is null for Friday the 13th, the one theme there with no
       // real fixed window at all (a day of week check instead), same
       // real shape ConfigController's own real GetConfig endpoint
-      // already returns to every client.
+      // already returns to every client. Every row this walks already
+      // exists as static markup above; this only ever reads or writes
+      // values on ids that are already real, upgraded elements by the
+      // time either function runs.
       const THEMES = [
-        { key: 'Winter', label: 'Winter snow', hasRange: true },
-        { key: 'Spring', label: 'Spring blossoms', hasRange: true },
-        { key: 'Summer', label: 'Summer sparkle', hasRange: true },
-        { key: 'Autumn', label: 'Autumn leaves', hasRange: true },
-        { key: 'Halloween', label: 'Halloween', hasRange: true },
-        { key: 'NewYear', label: "New Year's fireworks", hasRange: true },
-        { key: 'Friday13', label: 'Friday the 13th', hasRange: false },
+        { key: 'Winter', hasRange: true },
+        { key: 'Spring', hasRange: true },
+        { key: 'Summer', hasRange: true },
+        { key: 'Autumn', hasRange: true },
+        { key: 'Halloween', hasRange: true },
+        { key: 'NewYear', hasRange: true },
+        { key: 'Friday13', hasRange: false },
       ];
-
-      function buildThemeRow(theme) {
-        const row = document.createElement('div');
-        row.className = 'verticalSection-extrabottompadding';
-
-        const checkboxContainer = document.createElement('div');
-        checkboxContainer.className = 'checkboxContainer';
-        const label = document.createElement('label');
-        // is has to be passed to createElement itself, not assigned as
-        // a plain property afterward: that is how a customized built-in
-        // element (emby-checkbox/emby-input, both real custom elements
-        // this dashboard's own webcomponents.js already registers)
-        // actually upgrades, confirmed against how every other real
-        // dashboard plugin page already does this rather than guessed.
-        const checkbox = document.createElement('input', { is: 'emby-checkbox' });
-        checkbox.type = 'checkbox';
-        checkbox.id = 'chkSeasonal' + theme.key + 'Enabled';
-        label.appendChild(checkbox);
-        const span = document.createElement('span');
-        span.textContent = theme.label;
-        label.appendChild(span);
-        checkboxContainer.appendChild(label);
-        row.appendChild(checkboxContainer);
-
-        if (theme.hasRange) {
-          const fields = document.createElement('div');
-          fields.className = 'inputContainer flex align-items-center';
-          fields.style.gap = '0.6em';
-          fields.style.flexWrap = 'wrap';
-
-          ['StartMonth', 'StartDay', 'EndMonth', 'EndDay'].forEach(function (field) {
-            const wrap = document.createElement('div');
-            const inputLabel = document.createElement('label');
-            inputLabel.textContent = field.replace('Start', 'Start ').replace('End', 'End ');
-            inputLabel.style.display = 'block';
-            const input = document.createElement('input', { is: 'emby-input' });
-            input.type = 'number';
-            input.min = field.indexOf('Month') !== -1 ? '1' : '1';
-            input.max = field.indexOf('Month') !== -1 ? '12' : '31';
-            input.id = 'numSeasonal' + theme.key + field;
-            input.style.width = '5em';
-            wrap.appendChild(inputLabel);
-            wrap.appendChild(input);
-            fields.appendChild(wrap);
-          });
-
-          row.appendChild(fields);
-        }
-
-        return row;
-      }
-
-      const themesContainer = document.querySelector('#seasonalEffectsThemes');
-      THEMES.forEach(function (theme) {
-        themesContainer.appendChild(buildThemeRow(theme));
-      });
 
       function loadThemesFrom(config) {
         THEMES.forEach(function (theme) {
