@@ -17,15 +17,17 @@ import {
   getGenreItems,
   getCollections,
   getCollectionItems,
+  isAnimeCollection,
 } from '../runtime/api.js';
 import { buildRow } from '../components/row.js';
 import { buildLibraryCoverflow } from '../components/libraryCoverflow.js';
 import { showsEditorial } from '../runtime/editorial.js';
 
-// Only a real anime/anilist catalog collection whose own name actually
-// says "trending" earns the row badge below: the looser /anime|anilist|kitsu/i
-// test elsewhere on this page is just "does this collection belong on
-// the Anime page at all", answering a much narrower real question.
+// Only a real anime catalog collection whose own name actually says
+// "trending" earns the row badge below: runtime/api.js's own
+// isAnimeCollection() elsewhere on this page just answers "does this
+// collection belong on the Anime page at all", a much narrower real
+// question.
 const TRENDING_ANIME_NAME = /anilist.*trending|trending.*anilist/i;
 
 const GENRE_ROWS = 6;
@@ -52,9 +54,7 @@ const ANIME_ITEM_ID_LIMIT = 500;
 function getAnimeItemIds() {
   return getCollections()
     .then(function (collections) {
-      const animeCollections = collections.filter(function (item) {
-        return /anime|anilist|kitsu/i.test(item.Name || '');
-      });
+      const animeCollections = collections.filter(isAnimeCollection);
       if (!animeCollections.length) return new Set();
       return Promise.allSettled(
         animeCollections.map(function (collection) {
@@ -365,9 +365,7 @@ function renderAnime(root, collectionType) {
     try {
       const collections = await getCollections();
       if (cancelled) return;
-      animeCollections = collections.filter(function (item) {
-        return /anime|anilist|kitsu/i.test(item.Name || '');
-      });
+      animeCollections = collections.filter(isAnimeCollection);
     } catch (err) {
       console.warn('Jellio: could not load anime catalogs', err);
     }

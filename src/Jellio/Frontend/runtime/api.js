@@ -1120,13 +1120,22 @@ export function getCollections() {
   });
 }
 
-// Anime checked first regardless of provider id: an AniList catalog's own
-// ProviderIds.Stremio reads "Series.<id>", identical in shape to a real TV
-// catalog's, so only the collection's own name (always named for it) can
-// tell the two apart. Same ordering bug the original codebase's own
-// kindOfCollection already found and fixed, ported rather than re-derived.
+// Gelato's own GetOrCreateBoxSetAsync writes a collection's ProviderIds.Stremio
+// as "{catalogType}.{catalogId}", catalogType being the literal type string
+// configured on that catalog in AIOStreams: "movie", "series", or "anime".
+// A real signal straight from Gelato, not a guess off a name a reader can
+// rename freely: prefer it, and only fall back to matching the collection's
+// own name for anything imported before Gelato wrote this (or created by
+// hand) and so carries no Stremio provider id at all.
+export function isAnimeCollection(collection) {
+  const ids = collection.ProviderIds || {};
+  const stremio = ids.Stremio || ids.stremio;
+  if (stremio) return String(stremio).split('.')[0].toLowerCase() === 'anime';
+  return /anime|anilist|kitsu/i.test(collection.Name || '');
+}
+
 export function collectionKind(collection) {
-  if (/anime|anilist|kitsu/i.test(collection.Name || '')) return 'tvshows';
+  if (isAnimeCollection(collection)) return 'tvshows';
   const ids = collection.ProviderIds || {};
   const stremio = ids.Stremio || ids.stremio;
   if (stremio) {
