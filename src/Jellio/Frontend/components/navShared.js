@@ -8,7 +8,7 @@
 // (originally sourced from Harbor, harborstremio/harbor, MIT, and
 // NuvioMobile's own real vector drawables, see that file's own header
 // for the full provenance), not re-derived here.
-import { getUserViews, getCollections, getCurrentUser, getUserImageUrl } from '../runtime/api.js';
+import { getUserViews, getCollections, getCurrentUser, getUserImageUrl, isAnimeCollection } from '../runtime/api.js';
 import { currentHash } from '../runtime/router.js';
 
 export const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -139,9 +139,7 @@ export async function getPrimaryNavLinks() {
   } else if (tvView) {
     try {
       const collections = await getCollections();
-      const hasAnimeCatalogs = collections.some(function (item) {
-        return /anime|anilist|kitsu/i.test(item.Name || '');
-      });
+      const hasAnimeCatalogs = collections.some(isAnimeCollection);
       if (hasAnimeCatalogs) {
         links.push({ icon: 'anime', label: 'Anime', hash: libraryHash(tvView) + '&jellioKind=anime' });
       }

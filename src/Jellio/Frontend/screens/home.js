@@ -11,6 +11,7 @@ import {
   getCollectionItems,
   discoverGenres,
   getGenreItems,
+  isAnimeCollection,
 } from '../runtime/api.js';
 import { buildRecommendationRows, titleKey } from '../runtime/recommend.js';
 import { buildCard } from '../components/card.js';
@@ -104,7 +105,7 @@ async function fetchCatalogRows(collections) {
 
   let animeSeen = 0;
   usable = usable.filter(function (collection) {
-    if (!/anime|anilist|kitsu/i.test(collection.Name || '')) return true;
+    if (!isAnimeCollection(collection)) return true;
     animeSeen++;
     return animeSeen <= MAX_ANIME_CATALOG_ROWS;
   });
