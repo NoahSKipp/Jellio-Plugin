@@ -17,8 +17,15 @@ export const SVG_ICONS = {
   movies: {
     viewBox: '0 0 24 24',
     stroke: true,
+    // The three reel-teeth marks used to be one real path (three M...L
+    // sub-paths sharing it), no way to stagger a "reel opening" draw-in
+    // across them individually the way Harbor's own home-icon.tsx
+    // staggers its own SVG parts on becoming active. Split into three
+    // real paths, each its own jellio-nav-icon-tooth, pathLength="1" so
+    // css/app.css's own draw-in keyframe can animate stroke-dashoffset
+    // by a plain 0-1 fraction regardless of each one's own real length.
     markup:
-      '<rect x="3" y="11" width="18" height="10" rx="1.6"/><path d="M7 16L17 16" opacity="0.4"/><rect x="3" y="6" width="18" height="5" rx="0.9" style="fill:currentColor;fill-opacity:.14"/><path d="M5.5 11L8.5 6M11 11L14 6M16.5 11L19.5 6"/>',
+      '<rect x="3" y="11" width="18" height="10" rx="1.6"/><path d="M7 16L17 16" opacity="0.4"/><rect x="3" y="6" width="18" height="5" rx="0.9" style="fill:currentColor;fill-opacity:.14"/><path class="jellio-nav-icon-tooth jellio-nav-icon-tooth-1" pathLength="1" d="M5.5 11L8.5 6"/><path class="jellio-nav-icon-tooth jellio-nav-icon-tooth-2" pathLength="1" d="M11 11L14 6"/><path class="jellio-nav-icon-tooth jellio-nav-icon-tooth-3" pathLength="1" d="M16.5 11L19.5 6"/>',
   },
   shows: {
     viewBox: '0 0 24 24',
@@ -28,8 +35,13 @@ export const SVG_ICONS = {
   anime: {
     viewBox: '0 0 24 24',
     stroke: true,
+    // Same real split, this icon's own two eye/whisker dots: one real
+    // path before, no way to give either its own real "agitated" glow
+    // independent of the outline around them. jellio-nav-icon-eye now
+    // names both, css/app.css's own real active-state glow targets
+    // just these two rather than the whole real icon.
     markup:
-      '<path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 11 0 5.5-2.5 10-10 10S0 19.5 0 14c0-4 1.82-10.42 3.42-11 1.39-.58 4.64.26 6.42 2.26C10.65 5.09 11.33 5 12 5z"/><path d="M8 14v.5M16 14v.5"/>',
+      '<path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 11 0 5.5-2.5 10-10 10S0 19.5 0 14c0-4 1.82-10.42 3.42-11 1.39-.58 4.64.26 6.42 2.26C10.65 5.09 11.33 5 12 5z"/><path class="jellio-nav-icon-eye" d="M8 14v.5"/><path class="jellio-nav-icon-eye" d="M16 14v.5"/>',
   },
   search: {
     viewBox: '0 0 20 20',
