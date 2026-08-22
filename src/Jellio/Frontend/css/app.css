@@ -468,13 +468,13 @@
    it in favour of a pill-wide scale(0.9): that traded the real shrink
    for a guaranteed-compositor-only animation, and read as "the text
    disappears but the pill itself doesn't change" once feedback saw it
-   on a real device. height is a real layout property and can hitch
-   under heavy main thread contention the same way padding did
-   earlier; a longer, gentler duration here than that first attempt
-   gives any such hitch less room to read as a hard cut, and opacity
-   still carries the text's own fade on a separate, shorter timing so
-   the label is already invisible well before the row beneath it
-   finishes collapsing. */
+   on a real device. A first attempt at bringing height back used a
+   long 260ms duration on the theory that spreading it out would hide
+   any main thread hitch; real feedback instead read that as the whole
+   pill feeling slow again, so this is back down near the original
+   140/160ms pairing that felt reactive before the hard cut this
+   session traced to the pill's own padding (a different property)
+   ever got involved. */
 .jellio-mobile-nav-label {
   height: 1.2em;
   opacity: 1;
@@ -485,7 +485,7 @@
   max-width: 4.4em;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: height 260ms var(--jellio-ease-out), opacity 140ms ease;
+  transition: height 160ms var(--jellio-ease-out), opacity 120ms ease;
 }
 
 .jellio-mobile-nav-compact .jellio-mobile-nav-label {
