@@ -37,6 +37,15 @@ function buildLink(link) {
   button.appendChild(labelEl);
 
   button.addEventListener('click', function () {
+    // Real bug, found live: the collapsed rail only ever expands on
+    // :hover/:focus-within, no JS state of its own at all, and a
+    // clicked button keeps real browser focus after the click fires,
+    // same as any other button. Moving the mouse off the rail right
+    // after clicking a link left :focus-within still real true, the
+    // whole rail staying expanded until some later, unrelated click
+    // elsewhere finally moved focus off it. Blurring right here is the
+    // one real place navigation and this rail's own focus state meet.
+    button.blur();
     navigateTo(link.hash);
   });
   return button;
@@ -87,6 +96,7 @@ function buildGroupWatchButton() {
   button.appendChild(labelEl);
 
   button.addEventListener('click', function () {
+    button.blur();
     if (!clickNative('.headerSyncButton')) {
       console.warn('Jellio: .headerSyncButton not found, native SyncPlay menu could not open');
     }
@@ -124,6 +134,7 @@ function buildNowPlayingButton() {
   button.appendChild(labelEl);
 
   button.addEventListener('click', function () {
+    button.blur();
     toggleNowPlayingPanel();
   });
   return button;
@@ -165,6 +176,7 @@ async function buildProfileButton() {
   // Settings (and the switcher's own Manage Account entry) still reach
   // that screen.
   button.addEventListener('click', function () {
+    button.blur();
     openAccountSwitcher();
   });
 
