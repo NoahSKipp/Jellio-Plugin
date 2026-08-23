@@ -137,6 +137,42 @@ public class ConfigController : ControllerBase
                 cfg.SeasonalFrostEnabled,
                 new SeasonalRange(cfg.SeasonalFrostStartMonth, cfg.SeasonalFrostStartDay, cfg.SeasonalFrostEndMonth, cfg.SeasonalFrostEndDay)
             ),
+            ["space"] = new(
+                cfg.SeasonalSpaceEnabled,
+                new SeasonalRange(cfg.SeasonalSpaceStartMonth, cfg.SeasonalSpaceStartDay, cfg.SeasonalSpaceEndMonth, cfg.SeasonalSpaceEndDay)
+            ),
+            ["underwater"] = new(
+                cfg.SeasonalUnderwaterEnabled,
+                new SeasonalRange(cfg.SeasonalUnderwaterStartMonth, cfg.SeasonalUnderwaterStartDay, cfg.SeasonalUnderwaterEndMonth, cfg.SeasonalUnderwaterEndDay)
+            ),
+            ["santa"] = new(
+                cfg.SeasonalSantaEnabled,
+                new SeasonalRange(cfg.SeasonalSantaStartMonth, cfg.SeasonalSantaStartDay, cfg.SeasonalSantaEndMonth, cfg.SeasonalSantaEndDay)
+            ),
+            ["marioday"] = new(
+                cfg.SeasonalMarioDayEnabled,
+                new SeasonalRange(cfg.SeasonalMarioDayStartMonth, cfg.SeasonalMarioDayStartDay, cfg.SeasonalMarioDayEndMonth, cfg.SeasonalMarioDayEndDay)
+            ),
+            ["snowfall"] = new(
+                cfg.SeasonalSnowfallEnabled,
+                new SeasonalRange(cfg.SeasonalSnowfallStartMonth, cfg.SeasonalSnowfallStartDay, cfg.SeasonalSnowfallEndMonth, cfg.SeasonalSnowfallEndDay)
+            ),
+            ["storm"] = new(
+                cfg.SeasonalStormEnabled,
+                new SeasonalRange(cfg.SeasonalStormStartMonth, cfg.SeasonalStormStartDay, cfg.SeasonalStormEndMonth, cfg.SeasonalStormEndDay)
+            ),
+            ["rain"] = new(
+                cfg.SeasonalRainEnabled,
+                new SeasonalRange(cfg.SeasonalRainStartMonth, cfg.SeasonalRainStartDay, cfg.SeasonalRainEndMonth, cfg.SeasonalRainEndDay)
+            ),
+            ["sports"] = new(
+                cfg.SeasonalSportsEnabled,
+                new SeasonalRange(cfg.SeasonalSportsStartMonth, cfg.SeasonalSportsStartDay, cfg.SeasonalSportsEndMonth, cfg.SeasonalSportsEndDay)
+            ),
+            ["snowstorm"] = new(
+                cfg.SeasonalSnowstormEnabled,
+                new SeasonalRange(cfg.SeasonalSnowstormStartMonth, cfg.SeasonalSnowstormStartDay, cfg.SeasonalSnowstormEndMonth, cfg.SeasonalSnowstormEndDay)
+            ),
         };
 
         return Ok(new ClientConfig(cfg.SeasonalEffectsEnabled, effects));

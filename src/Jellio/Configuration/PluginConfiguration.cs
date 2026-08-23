@@ -189,4 +189,69 @@ public class PluginConfiguration : BasePluginConfiguration
     public int SeasonalFrostStartDay { get; set; } = 1;
     public int SeasonalFrostEndMonth { get; set; } = 12;
     public int SeasonalFrostEndDay { get; set; } = 31;
+
+    // Batch two: Space Day and Mario Day are both real single day
+    // occasions in that same real SeasonalRules schedule, Santa and
+    // Underwater both real ranged ones there too. Snowfall's own real
+    // schedule there is actually two separate ranges (January, then
+    // February again); one combined January to February range here
+    // instead, Jellio's own one start/end pair per theme having no
+    // real room for a second disjoint window, a real simplification
+    // worth calling out rather than silently picking just one. Storm,
+    // Rain, Sports and Snowstorm have no real fixed window in that
+    // plugin either, off by default here the same way Birthday/Eid/
+    // Resurrection/NightSky/Matrix/Frost already are.
+    public bool SeasonalSpaceEnabled { get; set; } = true;
+    public int SeasonalSpaceStartMonth { get; set; } = 4;
+    public int SeasonalSpaceStartDay { get; set; } = 12;
+    public int SeasonalSpaceEndMonth { get; set; } = 4;
+    public int SeasonalSpaceEndDay { get; set; } = 12;
+
+    public bool SeasonalUnderwaterEnabled { get; set; } = true;
+    public int SeasonalUnderwaterStartMonth { get; set; } = 7;
+    public int SeasonalUnderwaterStartDay { get; set; } = 1;
+    public int SeasonalUnderwaterEndMonth { get; set; } = 8;
+    public int SeasonalUnderwaterEndDay { get; set; } = 31;
+
+    public bool SeasonalSantaEnabled { get; set; } = true;
+    public int SeasonalSantaStartMonth { get; set; } = 12;
+    public int SeasonalSantaStartDay { get; set; } = 22;
+    public int SeasonalSantaEndMonth { get; set; } = 12;
+    public int SeasonalSantaEndDay { get; set; } = 27;
+
+    public bool SeasonalMarioDayEnabled { get; set; } = true;
+    public int SeasonalMarioDayStartMonth { get; set; } = 3;
+    public int SeasonalMarioDayStartDay { get; set; } = 10;
+    public int SeasonalMarioDayEndMonth { get; set; } = 3;
+    public int SeasonalMarioDayEndDay { get; set; } = 10;
+
+    public bool SeasonalSnowfallEnabled { get; set; } = true;
+    public int SeasonalSnowfallStartMonth { get; set; } = 1;
+    public int SeasonalSnowfallStartDay { get; set; } = 1;
+    public int SeasonalSnowfallEndMonth { get; set; } = 2;
+    public int SeasonalSnowfallEndDay { get; set; } = 29;
+
+    public bool SeasonalStormEnabled { get; set; } = false;
+    public int SeasonalStormStartMonth { get; set; } = 1;
+    public int SeasonalStormStartDay { get; set; } = 1;
+    public int SeasonalStormEndMonth { get; set; } = 12;
+    public int SeasonalStormEndDay { get; set; } = 31;
+
+    public bool SeasonalRainEnabled { get; set; } = false;
+    public int SeasonalRainStartMonth { get; set; } = 1;
+    public int SeasonalRainStartDay { get; set; } = 1;
+    public int SeasonalRainEndMonth { get; set; } = 12;
+    public int SeasonalRainEndDay { get; set; } = 31;
+
+    public bool SeasonalSportsEnabled { get; set; } = false;
+    public int SeasonalSportsStartMonth { get; set; } = 1;
+    public int SeasonalSportsStartDay { get; set; } = 1;
+    public int SeasonalSportsEndMonth { get; set; } = 12;
+    public int SeasonalSportsEndDay { get; set; } = 31;
+
+    public bool SeasonalSnowstormEnabled { get; set; } = false;
+    public int SeasonalSnowstormStartMonth { get; set; } = 1;
+    public int SeasonalSnowstormStartDay { get; set; } = 1;
+    public int SeasonalSnowstormEndMonth { get; set; } = 12;
+    public int SeasonalSnowstormEndDay { get; set; } = 31;
 }
