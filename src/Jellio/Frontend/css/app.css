@@ -689,6 +689,125 @@
   background: var(--jellio-secondary-color);
 }
 
+/* components/rowListModal.js's own makeRowTitleClickable(): the whole
+   heading becomes a real button, not just the small chevron beside
+   it, real feedback was that dragging or clicking arrows across a
+   real long row (a studio hub's own 20+ deep "Series on X") one page
+   at a time is tedious with no sense of how much further there is. */
+.jellio-row-title-clickable {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  width: fit-content;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: color 160ms ease;
+}
+
+.jellio-row-title-clickable:hover,
+.jellio-row-title-clickable:focus-visible {
+  color: var(--jellio-secondary-color);
+}
+
+.jellio-row-title-clickable:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: 4px;
+}
+
+.jellio-row-title-chevron {
+  font-size: 0.8em;
+  opacity: 0.7;
+  transition: transform 160ms var(--jellio-ease-out);
+}
+
+.jellio-row-title-clickable:hover .jellio-row-title-chevron {
+  transform: translateX(3px);
+  opacity: 1;
+}
+
+/* components/rowListModal.js's own openRowListModal(): reuses the
+   avatar picker's own real overlay/panel/title shapes rather than a
+   second dialog language, a plain vertical list of every item in the
+   row that opened it. */
+.jellio-row-list-panel {
+  width: min(92vw, 34em);
+  position: relative;
+}
+
+.jellio-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.jellio-row-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  width: 100%;
+  padding: 0.5em;
+  border: 0;
+  border-radius: var(--jellio-card-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.jellio-row-list-item:hover,
+.jellio-row-list-item:focus-visible {
+  background: rgb(255 255 255 / 0.08);
+}
+
+.jellio-row-list-item:focus-visible {
+  outline: 2px solid var(--jellio-secondary-color);
+  outline-offset: -2px;
+}
+
+.jellio-row-list-item-image {
+  flex: 0 0 auto;
+  width: 2.8em;
+  height: 4.2em;
+  border-radius: 0.3em;
+  object-fit: cover;
+  background: var(--jellio-card-bg);
+}
+
+.jellio-row-list-item-image-empty {
+  display: block;
+}
+
+.jellio-row-list-item-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.jellio-row-list-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.92em;
+}
+
+.jellio-row-list-item-subtitle {
+  margin-top: 0.15em;
+  color: var(--jellio-text-secondary);
+  font-size: 0.78em;
+}
+
+.jellio-row-list-item-chevron {
+  flex: 0 0 auto;
+  color: var(--jellio-text-tertiary);
+}
+
 /* Icon plus uppercase text, above components/libraryCoverflow.js's own
    stage: the Anime page's own coverflow only ever shows this when its
    own real candidates are the Trending on AniList catalog itself, real

@@ -10,6 +10,7 @@ import { renderLoading, renderRetry } from '../components/networkState.js';
 import { navigateTo } from '../runtime/router.js';
 import { describeNetworkFailure } from '../runtime/network.js';
 import { attachScrollArrows } from '../components/scrollArrows.js';
+import { makeRowTitleClickable } from '../components/rowListModal.js';
 
 const ROW_LIMIT = 24;
 
@@ -122,7 +123,9 @@ function buildRowSection(row, index) {
   const section = el('section', 'jellio-row jellio-service-row jellio-row-enter');
   section.style.setProperty('--jellio-row-enter-delay', Math.min(index, 6) * 60 + 'ms');
   section.dataset.jellioRowKind = row.kind;
-  section.appendChild(el('h2', 'jellio-row-title', row.title));
+  const titleEl = el('h2', 'jellio-row-title', row.title);
+  section.appendChild(titleEl);
+  makeRowTitleClickable(titleEl, row.title, row.items);
 
   const trackWrap = el('div', 'jellio-row-track-wrap');
   const track = el('div', 'jellio-row-track');
